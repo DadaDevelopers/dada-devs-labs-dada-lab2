@@ -1,17 +1,29 @@
 @import "tailwindcss";
 
+/* COLOR VARIABLES (From Chama Figma design )-*/
 :root {
+  /* Backgrounds */
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Text */
+  --text-subtitle: #6b7280;
+  --text-primary: #ffffff;
+
+  /* Buttons */
+  --btn-primary: #059669;
+  --btn-primary-hover: #047857;
+
+  /* Outline Button */
+  --btn-outline-border: #f7931a;
+  --btn-outline-bg: #fff7ed;
+
+  /* Gradients */
+  --hero-gradient-start: #fff0cb;
+  --hero-gradient-end: #2bb58a;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* Dark mode baseline (optional) */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -19,6 +31,25 @@
   }
 }
 
+/* Tailwind Theme Extension */
+@theme inline {
+  /* Colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--btn-primary);
+  --color-primary-hover: var(--btn-primary-hover);
+  --color-outline-border: var(--btn-outline-border);
+  --color-outline-bg: var(--btn-outline-bg);
+  --color-subtitle: var(--text-subtitle);
+
+  /* Fonts */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+.hero-gradient {
+  background: linear-gradient(135deg, var(--hero-gradient-start), var(--hero-gradient-end));
+}
 body {
   background: var(--background);
   color: var(--foreground);
