@@ -1,5 +1,6 @@
-import WhyChooseChama from "./WhyChooseChama";
-import WhyBitcoin from "./WhyBitcoin";
+"use client"
+import WhyChooseChama from "@/app/landing-page/WhyChooseChama";
+import WhyBitcoin from "@/app/landing-page/WhyBitcoin";
 
 export default function LandingPage() {
   return (
