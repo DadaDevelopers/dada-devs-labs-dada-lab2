@@ -46,7 +46,7 @@ public class SecurityConfiguration {
 
                 // Authorization rules
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/users/setup/**", "/webhooks", "/api/commons/**").permitAll()
+                        .requestMatchers("/api/users/setup/**", "/webhooks", "/actuator/*", "/api/commons/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .build();
