@@ -43,6 +43,9 @@ public class User implements UserDetails {
     @Column(nullable = false, columnDefinition = "boolean default true")
     private Boolean enabled = true;
 
+    @Column(columnDefinition = "boolean default false")
+    private Boolean isVerified = false;
+
     @CreationTimestamp
     private ZonedDateTime createdAt;
 
