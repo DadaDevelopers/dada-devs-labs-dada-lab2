@@ -59,6 +59,24 @@ public class CodeService {
         return code;
     }
 
+    public String verifyRegistrationCode(ValidateCodeDTO validateCodeDTO) {
+        //find owner
+        User owner = userRepository.findByMsisdn(validateCodeDTO.getOwnerMsisdn())
+                .orElseThrow(()-> new RuntimeException("User not found"));
+
+        //validate code
+        Code code = validateCode(validateCodeDTO);
+
+        //update validation status
+        owner.setIsVerified(true);
+        userRepository.save(owner);
+
+        //delete code
+        deleteByCode(validateCodeDTO.getCode());
+
+        return validateCodeDTO.getCode() + "for "+ code.getName()+ "has been verified";
+    }
+
     public Optional<Code> findByCode(String code) {
         return codeRepository.findById(code);
     }

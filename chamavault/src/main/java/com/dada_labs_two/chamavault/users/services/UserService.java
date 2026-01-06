@@ -1,5 +1,7 @@
 package com.dada_labs_two.chamavault.users.services;
 
+import com.dada_labs_two.chamavault.project_commons.codes.dtos.CodeDTO;
+import com.dada_labs_two.chamavault.project_commons.codes.services.CodeService;
 import com.dada_labs_two.chamavault.project_commons.countries.models.Countries;
 import com.dada_labs_two.chamavault.project_commons.countries.services.CountryService;
 import com.dada_labs_two.chamavault.project_commons.roles.models.Roles;
@@ -25,6 +27,7 @@ import java.util.*;
 public class UserService {
     private final CountryService countryService;
     private final RoleService roleService;
+    private final CodeService codeService;
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -62,6 +65,7 @@ public class UserService {
                         .msisdn(usersDTO.getMsisdn())
                 .passwordHash(passwordEncoder.encode(usersDTO.getPassword()))
                 .roles(residentRoles)
+                        .isVerified(false)
                 .enabled(true)
                         .referralCode(randomCharGenerator())
                         .username(StringUtils.isNotBlank(usersDTO.getUsername()) ? usersDTO.getUsername() : generateRandomUsername())
@@ -83,6 +87,13 @@ public class UserService {
                 userRepository.save(referrer);
             }
         }
+
+        //send OTP code
+        codeService.createCode(CodeDTO.builder()
+                        .ownerMsisdn(usersDTO.getMsisdn())
+                        .active(true)
+                        .name("REGISTRATION_OTP")
+                .build());
         return users;
     }
 

@@ -32,6 +32,11 @@ public class CodeController {
         return new ResponseEntity<>(codesService.validateCode(codesDTO), HttpStatus.OK);
     }
 
+    @PostMapping("/verify-registration-code")
+    public ResponseEntity<String> verifyRegistrationCode(@RequestBody @Valid ValidateCodeDTO codesDTO){
+        return new ResponseEntity<>(codesService.verifyRegistrationCode(codesDTO), HttpStatus.OK);
+    }
+
     @PostMapping("/verify")
     public ResponseEntity<String> verifyCode(@RequestBody @Valid ValidateCodeDTO codesDTO){
         //validate
