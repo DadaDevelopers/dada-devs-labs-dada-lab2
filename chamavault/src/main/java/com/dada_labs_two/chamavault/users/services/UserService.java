@@ -1,11 +1,13 @@
 package com.dada_labs_two.chamavault.users.services;
 
 import com.dada_labs_two.chamavault.project_commons.codes.dtos.CodeDTO;
+import com.dada_labs_two.chamavault.project_commons.codes.models.Code;
 import com.dada_labs_two.chamavault.project_commons.codes.services.CodeService;
 import com.dada_labs_two.chamavault.project_commons.countries.models.Countries;
 import com.dada_labs_two.chamavault.project_commons.countries.services.CountryService;
 import com.dada_labs_two.chamavault.project_commons.roles.models.Roles;
 import com.dada_labs_two.chamavault.project_commons.roles.services.RoleService;
+import com.dada_labs_two.chamavault.users.dtos.ProfileDTO;
 import com.dada_labs_two.chamavault.users.dtos.UsersDTO;
 import com.dada_labs_two.chamavault.users.models.User;
 import com.dada_labs_two.chamavault.users.repository.UserRepository;
@@ -107,6 +109,74 @@ public class UserService {
     }
     public User findByMsisdn(String msisdn) {
         return userRepository.findByMsisdn(msisdn).orElse(null);
+    }
+    public User getUserByMsisdn(String msisdn) {
+        return userRepository.findByMsisdn(msisdn).orElseThrow(() ->
+                new RuntimeException("User not found by phone: " + msisdn));
+    }
+
+    public ProfileDTO getProfile(String msisdn) {
+        User user = getUserByMsisdn(msisdn);
+
+        return mapToProfileDTO(user);
+    }
+
+    public ProfileDTO verifyOtpAndRetrieveAccount(String msisdn, String otp, String newPassword) {
+        User user = getUserByMsisdn(msisdn);
+        Code code = codeService.findByCode(otp).orElseThrow(()-> new RuntimeException("Code not found: " + otp));
+
+        if (user != code.getOwner()) throw new RuntimeException("User provided does not match otp owner");
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setIsVerified(true);
+        user = userRepository.save(user);
+        return mapToProfileDTO(user);
+    }
+
+    public ProfileDTO updateProfile(ProfileDTO profileDTO) {
+        User user = getUserByMsisdn(profileDTO.getMsisdn());
+
+        if (profileDTO.getKyc() != null) {
+            user.getKyc().putAll(profileDTO.getKyc());
+        }
+        if (StringUtils.isNotBlank(profileDTO.getUsername())) {
+            user.setUsername(profileDTO.getUsername());
+        }
+
+        user = userRepository.save(user);
+        return mapToProfileDTO(user);
+
+    }
+
+    public void forgotPassword(String msisdn) {
+        User user = getUserByMsisdn(msisdn);
+
+        //send OTP
+        codeService.createCode(CodeDTO.builder()
+                .ownerMsisdn(msisdn)
+                .active(true)
+                .name("FORGOT_PASSWORD_OTP")
+                .build());
+
+        user.setIsVerified(false);
+        userRepository.save(user);
+    }
+
+    ProfileDTO mapToProfileDTO(User user) {
+        if(user == null) throw new RuntimeException("User is null");
+        return ProfileDTO.builder()
+                .userReference(user.getUserReference())
+                .msisdn(user.getMsisdn())
+                .username(user.getUsername())
+                .enabled(user.isEnabled())
+                .isVerified(user.getIsVerified())
+                .createdAt(user.getCreatedAt())
+                .roles(user.getRoles())
+                .countries(user.getCountries())
+                .referrals(user.getReferrals())
+                .referralCode(user.getReferralCode())
+                .kyc(user.getKyc())
+                .build();
     }
 
 
