@@ -1,7 +1,9 @@
 package com.dada_labs_two.chamavault.users.controllers;
 
+import com.dada_labs_two.chamavault.users.dtos.AccountSuspensionDTO;
 import com.dada_labs_two.chamavault.users.dtos.ProfileDTO;
 import com.dada_labs_two.chamavault.users.dtos.UsersDTO;
+import com.dada_labs_two.chamavault.users.models.ProfileActions;
 import com.dada_labs_two.chamavault.users.models.User;
 import com.dada_labs_two.chamavault.users.services.UserService;
 import jakarta.validation.Valid;
@@ -61,5 +63,15 @@ public class UsersController {
     public ResponseEntity<String> forgotPassword(@PathVariable String msisdn) {
         userService.forgotPassword(msisdn);
         return ResponseEntity.ok("otp has been dispatched");
+    }
+
+    @PostMapping("/account-suspension")
+    public ResponseEntity<ProfileActions> requestAccountSuspension(@RequestBody @Valid AccountSuspensionDTO suspensionDTO) {
+        return new ResponseEntity<>(userService.accountSuspended(suspensionDTO), HttpStatus.OK);
+    }
+
+    @PostMapping("/request-account-deletion")
+    public ResponseEntity<ProfileActions> requestAccountDeletion(@RequestBody @Valid AccountSuspensionDTO suspensionDTO) {
+        return new ResponseEntity<>(userService.accountRequestDeletion(suspensionDTO), HttpStatus.OK);
     }
 }

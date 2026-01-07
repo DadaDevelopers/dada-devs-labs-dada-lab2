@@ -25,4 +25,5 @@ public class ProfileDTO {
     private Set<UUID> referrals = new HashSet<>();
     private String referralCode;
     private Map<String, String> kyc = new HashMap<>();
+    private List<ProfileActionsDTO>  actions;
 }
