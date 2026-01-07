@@ -1,5 +1,6 @@
 package com.dada_labs_two.chamavault.users.controllers;
 
+import com.dada_labs_two.chamavault.users.dtos.ProfileDTO;
 import com.dada_labs_two.chamavault.users.dtos.UsersDTO;
 import com.dada_labs_two.chamavault.users.models.User;
 import com.dada_labs_two.chamavault.users.services.UserService;
@@ -31,5 +32,34 @@ public class UsersController {
     @GetMapping
     public ResponseEntity<Page<User>> fetchPagedUsers(Pageable page) {
         return new ResponseEntity<>(userService.listUsers(page), HttpStatus.OK);
+    }
+
+    @GetMapping("/{msisdn}/profile")
+    public ResponseEntity<ProfileDTO> getUserProfileByMsisdn(@PathVariable String msisdn) {
+        return ResponseEntity.ok(userService.getProfile(msisdn));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<ProfileDTO> updateProfile(@RequestBody @Valid ProfileDTO profileDTO) {
+        return new ResponseEntity<>(userService.updateProfile(profileDTO), HttpStatus.OK);
+    }
+
+    @GetMapping("/recover-account/{msisdn}")
+    public ResponseEntity<String> recoverUserAccount(@PathVariable String msisdn) {
+        userService.forgotPassword(msisdn);
+        return ResponseEntity.ok("otp has been dispatched");
+    }
+
+    @PostMapping("/retrieve-account/{msisdn}")
+    public ResponseEntity<ProfileDTO> verifyOtpAndRetrieveAccount(@PathVariable String msisdn,
+                                                             @RequestParam(required = true) String otp,
+                                                                  @RequestParam(required = true) String newPassword) {
+        return ResponseEntity.ok(userService.verifyOtpAndRetrieveAccount(msisdn,  otp, newPassword));
+    }
+
+    @GetMapping("/forgot-password/{msisdn}")
+    public ResponseEntity<String> forgotPassword(@PathVariable String msisdn) {
+        userService.forgotPassword(msisdn);
+        return ResponseEntity.ok("otp has been dispatched");
     }
 }

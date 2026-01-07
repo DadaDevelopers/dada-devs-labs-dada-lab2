@@ -46,7 +46,9 @@ public class SecurityConfiguration {
 
                 // Authorization rules
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/users/setup/**", "/webhooks", "/actuator/*", "/api/commons/**").permitAll()
+                        .requestMatchers("/api/users/setup/**", "/webhooks", "/actuator/*",
+                                "/users/recover-account/*", "/users/retrieve-account/*", "/users/forgot-password/*",
+                                "/api/commons/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .build();
