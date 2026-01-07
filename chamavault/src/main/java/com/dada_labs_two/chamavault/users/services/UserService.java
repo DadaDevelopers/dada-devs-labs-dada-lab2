@@ -7,9 +7,14 @@ import com.dada_labs_two.chamavault.project_commons.countries.models.Countries;
 import com.dada_labs_two.chamavault.project_commons.countries.services.CountryService;
 import com.dada_labs_two.chamavault.project_commons.roles.models.Roles;
 import com.dada_labs_two.chamavault.project_commons.roles.services.RoleService;
+import com.dada_labs_two.chamavault.users.constants.Activity;
+import com.dada_labs_two.chamavault.users.dtos.AccountSuspensionDTO;
+import com.dada_labs_two.chamavault.users.dtos.ProfileActionsDTO;
 import com.dada_labs_two.chamavault.users.dtos.ProfileDTO;
 import com.dada_labs_two.chamavault.users.dtos.UsersDTO;
+import com.dada_labs_two.chamavault.users.models.ProfileActions;
 import com.dada_labs_two.chamavault.users.models.User;
+import com.dada_labs_two.chamavault.users.repository.ProfileActionsRepository;
 import com.dada_labs_two.chamavault.users.repository.UserRepository;
 import com.github.javafaker.Faker;
 import io.micrometer.common.util.StringUtils;
@@ -21,6 +26,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.ZonedDateTime;
 import java.util.*;
 
 @Service
@@ -30,8 +36,10 @@ public class UserService {
     private final CountryService countryService;
     private final RoleService roleService;
     private final CodeService codeService;
+    private final ProfileActionService profileActionService;
 
     private final UserRepository userRepository;
+    private final ProfileActionsRepository  profileActionsRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
@@ -68,6 +76,7 @@ public class UserService {
                 .passwordHash(passwordEncoder.encode(usersDTO.getPassword()))
                 .roles(residentRoles)
                         .isVerified(false)
+                        .suspended(false)
                 .enabled(true)
                         .referralCode(randomCharGenerator())
                         .username(StringUtils.isNotBlank(usersDTO.getUsername()) ? usersDTO.getUsername() : generateRandomUsername())
@@ -89,6 +98,11 @@ public class UserService {
                 userRepository.save(referrer);
             }
         }
+
+        //action
+        profileActionService.createProfileActions(users, Activity.CREATED,"registration",
+                "user is registered", "smart chama enthusiast", "[Admins]: welcome aboard!",
+                ZonedDateTime.now().plusYears(5));
 
         //send OTP code
         codeService.createCode(CodeDTO.builder()
@@ -117,10 +131,35 @@ public class UserService {
 
     public ProfileDTO getProfile(String msisdn) {
         User user = getUserByMsisdn(msisdn);
+        List<ProfileActions> profileActionsList = profileActionsRepository.findByUserAccount(user);
 
-        return mapToProfileDTO(user);
+        return mapToProfileDTO(user, profileActionsList);
     }
 
+    @Transactional
+    public ProfileActions accountSuspended(AccountSuspensionDTO accountSuspensionDTO) {
+        User user = getUserByMsisdn(accountSuspensionDTO.getMsisdn());
+        user.setSuspended(true);
+        user = userRepository.save(user);
+
+        //action
+        return profileActionService.createProfileActions(user, Activity.SUSPENDED, "account_suspension",
+                accountSuspensionDTO.getDescription(), accountSuspensionDTO.getReason(), accountSuspensionDTO.getComment(),
+                accountSuspensionDTO.getDeadline());
+    }
+
+    @Transactional
+    public ProfileActions accountRequestDeletion(AccountSuspensionDTO accountSuspensionDTO) {
+        User user = getUserByMsisdn(accountSuspensionDTO.getMsisdn());
+
+        //action
+        return profileActionService.createProfileActions(user, Activity.USER_REQUEST_DELETION,"mark for deletion",
+                accountSuspensionDTO.getDescription(), accountSuspensionDTO.getReason(),
+                "[Admins]: account will be deleted by "+ZonedDateTime.now().plusMonths(3),
+                ZonedDateTime.now().plusMonths(3));
+    }
+
+    @Transactional
     public ProfileDTO verifyOtpAndRetrieveAccount(String msisdn, String otp, String newPassword) {
         User user = getUserByMsisdn(msisdn);
         Code code = codeService.findByCode(otp).orElseThrow(()-> new RuntimeException("Code not found: " + otp));
@@ -130,9 +169,10 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setIsVerified(true);
         user = userRepository.save(user);
-        return mapToProfileDTO(user);
+        return getProfile(user.getMsisdn());
     }
 
+    @Transactional
     public ProfileDTO updateProfile(ProfileDTO profileDTO) {
         User user = getUserByMsisdn(profileDTO.getMsisdn());
 
@@ -144,10 +184,11 @@ public class UserService {
         }
 
         user = userRepository.save(user);
-        return mapToProfileDTO(user);
+        return getProfile(user.getMsisdn());
 
     }
 
+    @Transactional
     public void forgotPassword(String msisdn) {
         User user = getUserByMsisdn(msisdn);
 
@@ -162,8 +203,26 @@ public class UserService {
         userRepository.save(user);
     }
 
-    ProfileDTO mapToProfileDTO(User user) {
+    ProfileDTO mapToProfileDTO(User user,  List<ProfileActions> profileActionsList) {
         if(user == null) throw new RuntimeException("User is null");
+
+        List<ProfileActionsDTO> cleanedActionsList = new  ArrayList<ProfileActionsDTO>();
+        if(profileActionsList != null) {
+            profileActionsList.forEach(profileActions -> {
+                cleanedActionsList.add(ProfileActionsDTO.builder()
+                        .action(profileActions.getAction())
+                        .activity(profileActions.getActivity())
+                        .description(profileActions.getDescription())
+                        .reason(profileActions.getReason())
+                        .count(profileActions.getCount())
+                        .comment(profileActions.getComment())
+                        .deadline(profileActions.getDeadline())
+                        .createdAt(profileActions.getCreatedAt())
+                        .lastPerformedAt(profileActions.getLastPerformedAt())
+                        .build());
+            });
+        }
+
         return ProfileDTO.builder()
                 .userReference(user.getUserReference())
                 .msisdn(user.getMsisdn())
@@ -176,6 +235,7 @@ public class UserService {
                 .referrals(user.getReferrals())
                 .referralCode(user.getReferralCode())
                 .kyc(user.getKyc())
+                .actions(cleanedActionsList)
                 .build();
     }
 
