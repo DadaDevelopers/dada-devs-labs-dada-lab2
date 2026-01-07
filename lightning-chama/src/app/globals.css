@@ -1,29 +1,34 @@
 @import "tailwindcss";
 
-/* COLOR VARIABLES (From Chama Figma design )-*/
+/*COLOR VARIABLES From Figma */
 :root {
   /* Backgrounds */
   --background: #ffffff;
   --foreground: #171717;
 
-  /* Text */
-  --text-subtitle: #6b7280;
-  --text-primary: #ffffff;
+  /* Primary Colors */
+  --color-primary: #059669;          /* Button background */
+  --color-primary-hover: #047857;    /* Button hover */
+  --color-primary-text: #ffffff;     /* Button text */
 
-  /* Buttons */
-  --btn-primary: #059669;
-  --btn-primary-hover: #047857;
+  /* Secondary / Outline Colors */
+  --color-secondary-border: #f7931a; /* CTA button border */
+  --color-secondary-bg: #fff7ed;     /* CTA button background */
+  --color-secondary-text: #171717;   /* CTA text color */
 
-  /* Outline Button */
-  --btn-outline-border: #f7931a;
-  --btn-outline-bg: #fff7ed;
+  /* Text Colors */
+  --color-subtitle: #6b7280;
 
-  /* Gradients */
+  /* Gradient */
   --hero-gradient-start: #fff0cb;
   --hero-gradient-end: #2bb58a;
+
+  /* Fonts */
+  --font-heading: 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
 }
 
-/* Dark mode baseline (optional) */
+/* Dark mode */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -31,27 +36,82 @@
   }
 }
 
-/* Tailwind Theme Extension */
-@theme inline {
-  /* Colors */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-primary: var(--btn-primary);
-  --color-primary-hover: var(--btn-primary-hover);
-  --color-outline-border: var(--btn-outline-border);
-  --color-outline-bg: var(--btn-outline-bg);
-  --color-subtitle: var(--text-subtitle);
-
-  /* Fonts */
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-.hero-gradient {
-  background: linear-gradient(135deg, var(--hero-gradient-start), var(--hero-gradient-end));
-}
+/*body */
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+  line-height: 1.6;
+}
+
+/* HEADINGS (Separate classes)*/
+.text-heading {
+  font-family: var(--font-heading);
+  color: var(--foreground);
+}
+
+.h1 { font-size: 2.25rem; font-weight: 600; } /* 36px, semi-bold */
+.h2 { font-size: 1.875rem; font-weight: 500; } /* 30px, medium */
+.h3 { font-size: 1.5rem; font-weight: 500; } /* 24px, medium */
+
+/*SUBTITLE (subheading)*/
+.text-subtitle {
+  font-family: var(--font-body);
+  font-size: 1rem; /* 16px */
+  font-weight: 400; /* regular */
+  color: var(--color-subtitle);
+}
+
+/* BUTTONS  */
+.button-primary {
+  background-color: var(--color-primary);
+  color: var(--color-primary-text);
+  font-family: var(--font-heading);
+  font-weight: 500;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease;
+}
+
+.button-primary:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.button-secondary {
+  background-color: var(--color-secondary-bg);
+  border: 2px solid var(--color-secondary-border);
+  color: var(--color-secondary-text);
+  font-family: var(--font-heading);
+  font-weight: 500;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.button-secondary:hover {
+  background-color: var(--color-secondary-border);
+  color: #ffffff;
+}
+
+/* UTILITY CLASSES (Optional Tailwind-like) */
+.bg-primary { background-color: var(--color-primary) !important; }
+.hover\:bg-primary:hover { background-color: var(--color-primary-hover) !important; }
+.text-primary { color: var(--color-primary-text) !important; }
+
+.bg-secondary { background-color: var(--color-secondary-bg) !important; }
+.border-secondary { border-color: var(--color-secondary-border) !important; }
+.text-secondary { color: var(--color-secondary-text) !important; }
+
+/* GRADIENT */
+.hero-gradient {
+  background: linear-gradient(
+    135deg,
+    var(--hero-color-1),
+    var(--hero-color-2),
+    var(--hero-color-3),
+    var(--hero-color-4),
+    var(--hero-color-5),
+    var(--hero-color-6)
+  );
+  background-color: var(--hero-color-1); /* fallback */
 }

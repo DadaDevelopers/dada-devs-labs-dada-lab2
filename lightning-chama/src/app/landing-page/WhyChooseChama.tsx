@@ -16,58 +16,61 @@ export default function WhyChooseChama() {
         </p>
 
         {/* Feature Cards */}
-        <div className="mt-10 space-y-4">
+        <div className="mt-12 space-y-6">
 
           {/* Works Offline */}
-          <div className="flex items-start gap-4 bg-gray-50 p-4 rounded-xl border">
-            <Image
-              src="/works-offline.svg"
-              width={40}
-              height={40}
-              alt="Works Offline Icon"
-              className="flex-shrink-0"
-            />
+          <div className="flex items-start gap-6 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+            <div className="w-28 h-28 bg-gray-100 rounded-2xl flex items-center justify-center shrink-0">
+              <Image
+                src="/works-offline.svg"
+                width={48}
+                height={48}
+                alt="Works Offline Icon"
+              />
+            </div>
 
-            <div>
-              <h3 className="font-semibold text-gray-900">Works Offline</h3>
-              <p className="text-gray-600 text-sm">
-                Use USSD to access your funds even without internet.
+            <div className="flex-1 pt-2">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Works Offline</h3>
+              <p className="text-gray-600 text-base leading-relaxed">
+                Use USSD to access your funds even without internet connection
               </p>
             </div>
           </div>
 
           {/* Community Driven */}
-          <div className="flex items-start gap-4 bg-gray-50 p-4 rounded-xl border">
-            <Image
-              src="/community-driven.svg"
-              width={40}
-              height={40}
-              alt="Community Icon"
-              className="flex-shrink-0"
-            />
+          <div className="flex items-start gap-6 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+            <div className="w-28 h-28 bg-gray-100 rounded-2xl flex items-center justify-center shrink-0">
+              <Image
+                src="/community-driven.svg"
+                width={48}
+                height={48}
+                alt="Community Icon"
+              />
+            </div>
 
-            <div>
-              <h3 className="font-semibold text-gray-900">Community Driven</h3>
-              <p className="text-gray-600 text-sm">
-                Create or join Chamas with your community members.
+            <div className="flex-1 pt-2">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Community Driven</h3>
+              <p className="text-gray-600 text-base leading-relaxed">
+                Create or join Chamas with your community members
               </p>
             </div>
           </div>
 
           {/* Secure Transactions */}
-          <div className="flex items-start gap-4 bg-gray-50 p-4 rounded-xl border">
-            <Image
-              src="/secure-transactions.svg"
-              width={40}
-              height={40}
-              alt="Secure Transactions Icon"
-              className="flex-shrink-0"
-            />
+          <div className="flex items-start gap-6 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+            <div className="w-28 h-28 bg-gray-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+              <Image
+                src="/secure-transactions.svg"
+                width={48}
+                height={48}
+                alt="Secure Transactions Icon"
+              />
+            </div>
 
-            <div>
-              <h3 className="font-semibold text-gray-900">Secure Transactions</h3>
-              <p className="text-gray-600 text-sm">
-                Lightning payments are fast, secure and transparent.
+            <div className="flex-1 pt-2">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Secure Transactions</h3>
+              <p className="text-gray-600 text-base leading-relaxed">
+                Lightning payment are fast, secure and transparent.
               </p>
             </div>
           </div>
