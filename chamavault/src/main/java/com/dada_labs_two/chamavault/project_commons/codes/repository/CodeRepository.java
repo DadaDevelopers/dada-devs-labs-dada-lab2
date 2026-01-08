@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface CodeRepository extends JpaRepository<Code, String>,
         JpaSpecificationExecutor<Code> {
     Optional<Code> findByCodeAndOwnerAndActiveTrue(String code, User owner);
+    Optional<Code> findByCodeAndActiveTrue(String code);
 }
