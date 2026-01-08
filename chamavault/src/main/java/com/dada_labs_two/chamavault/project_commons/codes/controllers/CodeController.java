@@ -27,6 +27,16 @@ public class CodeController {
         return new ResponseEntity<>(codesService.createCode(codesDTO), HttpStatus.OK);
     }
 
+    @PostMapping("/pre-registration/code-generate")
+    public ResponseEntity<Code> preregistrationCodeGeneration(@RequestBody @Valid CodeDTO codesDTO){
+        return new ResponseEntity<>(codesService.preregistrationCodeGeneration(codesDTO), HttpStatus.OK);
+    }
+
+    @PostMapping("/pre-registration/code-validation")
+    public ResponseEntity<Code> preregistrationCodeValidation(@RequestBody @Valid ValidateCodeDTO codesDTO){
+        return new ResponseEntity<>(codesService.preregistrationCodeValidation(codesDTO), HttpStatus.OK);
+    }
+
     @PostMapping("/validate")
     public ResponseEntity<Code> validateCode(@RequestBody @Valid ValidateCodeDTO codesDTO){
         return new ResponseEntity<>(codesService.validateCode(codesDTO), HttpStatus.OK);

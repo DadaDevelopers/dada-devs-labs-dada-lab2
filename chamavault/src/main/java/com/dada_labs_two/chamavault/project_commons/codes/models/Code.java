@@ -44,7 +44,8 @@ public class Code {
 
     private ZonedDateTime deletedAt;
 
-    @OneToOne(targetEntity = User.class)
+    @ManyToOne
+    @JoinColumn(name = "user_id")
     private User owner;
 
     @JdbcTypeCode(SqlTypes.JSON)

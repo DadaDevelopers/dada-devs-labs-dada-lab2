@@ -48,7 +48,7 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/users/setup/**", "/webhooks", "/actuator/*",
                                 "/users/recover-account/*", "/users/retrieve-account/*", "/users/forgot-password/*",
-                                "/api/commons/**").permitAll()
+                                "/codes/pre-registration/*","/api/commons/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .build();

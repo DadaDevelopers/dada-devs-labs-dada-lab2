@@ -47,6 +47,35 @@ public class CodeService {
                 .build());
     }
 
+    public Code preregistrationCodeGeneration(CodeDTO codesDTO) {
+        //check owner exists
+
+        //check if code got passed, if not generate
+        String code = StringUtils.isBlank(codesDTO.getCode()) ?
+                randomCharGenerator().toUpperCase() : codesDTO.getCode();
+
+        //check expiration, default is 15 mins
+        ZonedDateTime expiryDate = codesDTO.getExpirationDate() == null ?ZonedDateTime.now().plusMinutes(15) : codesDTO.getExpirationDate();
+
+        return codeRepository.save(Code.builder()
+                .code(code)
+                .name(codesDTO.getName())
+                .active(codesDTO.isActive())
+                .description(codesDTO.getDescription())
+                .expirationDate(expiryDate)
+                .owner(null)
+                .extraData(codesDTO.getExtraData())
+                .build());
+    }
+    public Code preregistrationCodeValidation(ValidateCodeDTO validateCodeDTO) {
+        Code code = codeRepository.findByCodeAndActiveTrue(validateCodeDTO.getCode()).orElseThrow(
+                ()-> new RuntimeException("No active code was found for user with phone: " + validateCodeDTO.getOwnerMsisdn()));
+        //check if expired
+        if (code.getExpirationDate().isBefore(ZonedDateTime.now()))
+            throw new RuntimeException("Code has expired");
+        return code;
+    }
+
     public Code validateCode(ValidateCodeDTO validateCodeDTO) {
         //check code by the owner exist and is active
         User owner = userRepository.findByMsisdn(validateCodeDTO.getOwnerMsisdn())
