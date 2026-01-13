@@ -1,6 +1,7 @@
 package com.dada_labs_two.chamavault.chama.services;
 
 import com.dada_labs_two.chamavault.chama.constants.ChamaRole;
+import com.dada_labs_two.chamavault.chama.constants.ChamaVisibility;
 import com.dada_labs_two.chamavault.chama.constants.MembershipStatus;
 import com.dada_labs_two.chamavault.chama.dtos.CreateChamaDTO;
 import com.dada_labs_two.chamavault.chama.models.Chama;
@@ -9,20 +10,27 @@ import com.dada_labs_two.chamavault.chama.models.ChamaRules;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaMemberRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRulesRepository;
+import com.dada_labs_two.chamavault.users.constants.Activity;
 import com.dada_labs_two.chamavault.users.models.User;
 import com.dada_labs_two.chamavault.users.repository.UserRepository;
+import com.dada_labs_two.chamavault.users.services.ProfileActionService;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.ZonedDateTime;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ChamaService {
+    private final ProfileActionService profileActionService;
 
     private final UserRepository userRepository;
     private final ChamaRepository chamaRepository;
@@ -75,6 +83,17 @@ public class ChamaService {
                         .build()
         );
 
+        profileActionService.createProfileActions(creator, Activity.USER_REQUEST_ACCEPTED,"chama creation",
+                "chama created successfully", chama.getDescription(), "[Admins]: Welcome to Chama!",
+                ZonedDateTime.now().plusYears(100));
+
         return chama;
+    }
+
+    public Page<Chama> getChamas(Pageable pageable, ChamaVisibility visibility) {
+        if(visibility == null) {
+            return chamaRepository.findAll(pageable);
+        }
+        return chamaRepository.findAllByVisibility(pageable, visibility);
     }
 }
