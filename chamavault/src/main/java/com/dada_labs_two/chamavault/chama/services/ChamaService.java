@@ -14,6 +14,8 @@ import com.dada_labs_two.chamavault.chama.repositories.ChamaInviteRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaMemberRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRulesRepository;
+import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
+import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
 import com.dada_labs_two.chamavault.project_commons.codes.dtos.CodeDTO;
 import com.dada_labs_two.chamavault.project_commons.codes.models.Code;
 import com.dada_labs_two.chamavault.project_commons.codes.services.CodeService;
@@ -47,6 +49,7 @@ public class ChamaService {
     private final UserService userService;
     private final CodeService codeService;
     private final RoleService roleService;
+    private final LightningWalletService lightningWalletService;
 
     private final UserRepository userRepository;
     private final ChamaRepository chamaRepository;
@@ -65,6 +68,7 @@ public class ChamaService {
                         .description(createChamaDTO.getDescription())
                         .iconUrl(createChamaDTO.getIconUrl())
                         .visibility(createChamaDTO.getVisibility())
+                        .currentRotationIndex(0)
                         .maxMembers(createChamaDTO.getMaxMembers())
                         .createdBy(creator)
                         .build()
@@ -97,8 +101,13 @@ public class ChamaService {
                         .requiresApproval(createChamaDTO.getRequiresApproval())
                         .requiredApprovals(createChamaDTO.getRequiredApprovals())
                         .dailyLimitSats(createChamaDTO.getDailyLimitSats())
+                        .frequency(createChamaDTO.getFrequency())
                         .build()
         );
+
+        //5. Create Group lightning Wallet
+        WalletResponse lw= lightningWalletService.createUserWallet(chama.getName()+ chama.getChamaReference());
+        log.info("LW created user wallet: {}", lw);
 
         profileActionService.createProfileActions(creator, Activity.USER_REQUEST_ACCEPTED,"chama creation",
                 "chama created successfully", chama.getDescription(), "[Admins]: Welcome to Chama!",
