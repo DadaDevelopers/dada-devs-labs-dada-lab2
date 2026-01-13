@@ -88,6 +88,7 @@ public class ChamaService {
                         .walletType(WalletType.CHAMA_GROUP)
                         .ownerReference(chama.getChamaReference())
                         .balanceSats(0L)
+                        .chama(chama)
                         .active(true)
                         .build()
         );
@@ -118,6 +119,7 @@ public class ChamaService {
         lightningMap.put("balance_msat", lw.balance_msat());
 
         wallet.setLightning(lightningMap);
+        walletRepository.save(wallet);
 
         profileActionService.createProfileActions(creator, Activity.USER_REQUEST_ACCEPTED,"chama creation",
                 "chama created successfully", chama.getDescription(), "[Admins]: Welcome to Chama!",

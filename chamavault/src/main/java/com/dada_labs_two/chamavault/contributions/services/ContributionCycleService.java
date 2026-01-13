@@ -12,6 +12,8 @@ import com.dada_labs_two.chamavault.chama.repositories.ChamaRulesRepository;
 import com.dada_labs_two.chamavault.contributions.constants.ContributionCycleStatus;
 import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
 import com.dada_labs_two.chamavault.contributions.repositories.ContributionCycleRepository;
+import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
+import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
@@ -22,13 +24,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ContributionCycleService {
+    private final LightningWalletService lightningWalletService;
     private final ChamaRepository chamaRepository;
     private final ChamaRulesRepository chamaRulesRepository;
     private final ChamaMemberRepository chamaMemberRepository;
@@ -77,7 +82,7 @@ public class ContributionCycleService {
         ChamaMember beneficiary =
                 activeMembers.get((nextRotationIndex - 1) % activeMembers.size());
 
-        Wallet wallet = createCycleWallet(chamaReference);
+        Wallet wallet = createCycleWallet(beneficiary);
 
         ZonedDateTime startAt = ZonedDateTime.now();
         ZonedDateTime endAt = calculateEndDate(startAt, rules.getFrequency());
@@ -152,11 +157,29 @@ public class ContributionCycleService {
     }
 
 
-    private Wallet createCycleWallet(UUID chamaReference) {
+    private Wallet createCycleWallet(ChamaMember chamaMember) {
+        //5. Create Individual lightning Wallet
+        WalletResponse lw= lightningWalletService.createUserWallet("contribution for " +
+                chamaMember.getUser().getMsisdn() + " chama rotation: "+ chamaMember.getChama().getCurrentRotationIndex());
+        log.info("LW created user wallet: {}", lw);
+
+        Map<String, String> lightningMap = new HashMap<>();
+        lightningMap.put("id", lw.id());
+        lightningMap.put("name", lw.name());
+        lightningMap.put("adminkey", lw.adminkey());
+        lightningMap.put("invoice_key", lw.invoice_key());
+        lightningMap.put("wallet_type", lw.wallet_type());
+        lightningMap.put("inkey", lw.inkey());
+        lightningMap.put("shared_wallet_id", lw.shared_wallet_id());
+        lightningMap.put("currency", lw.currency());
+        lightningMap.put("balance_msat", lw.balance_msat());
+
         return walletRepository.save(
                 Wallet.builder()
                         .walletType(WalletType.CONTRIBUTION)
-                        .ownerReference(chamaReference)
+                        .ownerReference(chamaMember.getUser().getUserReference())
+                        .chama(chamaMember.getChama())
+                        .lightning(lightningMap)
                         .balanceSats(0L)
                         .active(true)
                         .build()
