@@ -1,5 +1,6 @@
 package com.dada_labs_two.chamavault.wallets.models;
 
+import com.dada_labs_two.chamavault.chama.models.Chama;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -33,6 +34,10 @@ public class Wallet {
     private WalletType walletType;
 
     private UUID ownerReference; // Chama OR User
+
+    @ManyToOne
+    @JoinColumn(name = "chama_reference")
+    private Chama chama;
 
     @Column(nullable = false)
     private Long balanceSats = 0L;
