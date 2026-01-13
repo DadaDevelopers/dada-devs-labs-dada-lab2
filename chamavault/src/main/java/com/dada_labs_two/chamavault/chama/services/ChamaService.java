@@ -4,16 +4,26 @@ import com.dada_labs_two.chamavault.chama.constants.ChamaRole;
 import com.dada_labs_two.chamavault.chama.constants.ChamaVisibility;
 import com.dada_labs_two.chamavault.chama.constants.MembershipStatus;
 import com.dada_labs_two.chamavault.chama.dtos.CreateChamaDTO;
+import com.dada_labs_two.chamavault.chama.dtos.CreateChamaInviteDTO;
+import com.dada_labs_two.chamavault.chama.dtos.JoinChamaByInviteCodeDTO;
 import com.dada_labs_two.chamavault.chama.models.Chama;
+import com.dada_labs_two.chamavault.chama.models.ChamaInvite;
 import com.dada_labs_two.chamavault.chama.models.ChamaMember;
 import com.dada_labs_two.chamavault.chama.models.ChamaRules;
+import com.dada_labs_two.chamavault.chama.repositories.ChamaInviteRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaMemberRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRulesRepository;
+import com.dada_labs_two.chamavault.project_commons.codes.dtos.CodeDTO;
+import com.dada_labs_two.chamavault.project_commons.codes.models.Code;
+import com.dada_labs_two.chamavault.project_commons.codes.services.CodeService;
+import com.dada_labs_two.chamavault.project_commons.roles.services.RoleService;
 import com.dada_labs_two.chamavault.users.constants.Activity;
+import com.dada_labs_two.chamavault.users.dtos.UsersDTO;
 import com.dada_labs_two.chamavault.users.models.User;
 import com.dada_labs_two.chamavault.users.repository.UserRepository;
 import com.dada_labs_two.chamavault.users.services.ProfileActionService;
+import com.dada_labs_two.chamavault.users.services.UserService;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
@@ -25,18 +35,25 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ChamaService {
     private final ProfileActionService profileActionService;
+    private final UserService userService;
+    private final CodeService codeService;
+    private final RoleService roleService;
 
     private final UserRepository userRepository;
     private final ChamaRepository chamaRepository;
     private final ChamaMemberRepository chamaMemberRepository;
     private final WalletRepository walletRepository;
     private final ChamaRulesRepository chamaRulesRepository;
+    private final ChamaInviteRepository chamaInviteRepository;
 
     @Transactional
     public Chama createChama(CreateChamaDTO createChamaDTO) {
@@ -95,5 +112,213 @@ public class ChamaService {
             return chamaRepository.findAll(pageable);
         }
         return chamaRepository.findAllByVisibility(pageable, visibility);
+    }
+
+    public ChamaInvite generateChamaInvite(CreateChamaInviteDTO chamaInviteDTO) {
+        //check chama exists
+        Chama chama = chamaRepository.findById(chamaInviteDTO.getChamaReferenceId()).orElseThrow(() ->
+                new RuntimeException("Chama reference not found"));
+
+        //generate invite code
+        Code inviteCode = codeService.createCode(CodeDTO.builder()
+                        .name("CHAMA_" + chamaInviteDTO.getChamaReferenceId())
+                        .active(true)
+                        .description(chama.getDescription())
+                        .ownerMsisdn(chamaInviteDTO.getAdminPhone())
+                        .expirationDate(ZonedDateTime.now().plusMonths(30))
+                .build());
+
+        ChamaInvite chamaInvite = chamaInviteRepository.save(ChamaInvite.builder()
+                .chama(chama)
+                        .role(chamaInviteDTO.getRole())
+                        .inviteCode(inviteCode)
+                        .requiresApproval(chamaInviteDTO.getRequiresApproval())
+                        .used(false)
+                        .paused(false)
+                        .expiresAt(ZonedDateTime.now().plusMonths(30))
+                .build());
+
+        profileActionService.createProfileActions(userRepository.findByMsisdn(chamaInviteDTO.getAdminPhone()).orElseThrow(),
+                Activity.COMPLETED,"create invite code",
+                "chama invite code created successfully", chama.getDescription(),
+                "[Admins]: Kindly note that the invite expires after "+ chamaInvite.getExpiresAt(),
+                ZonedDateTime.now().plusMonths(30));
+
+        return chamaInvite;
+    }
+
+    //need to be role managed, only admin of chama to perform this & action published
+    public ChamaInvite pauseInvites(String inviteCode) {
+        //get code
+        Code code = codeService.findByCode(inviteCode).orElseThrow(() ->
+                new RuntimeException("Invite code is not valid"));
+
+        ChamaInvite invite = chamaInviteRepository.findByInviteCode(code).orElseThrow(() ->
+                new RuntimeException("Invite code not found"));
+        invite.setPaused(true);
+        chamaInviteRepository.save(invite);
+
+        return invite;
+    }
+
+    public Page<ChamaInvite> fetchChamaInviteCodes(Pageable pageable, UUID chamaReferenceId) {
+        Chama chama = chamaRepository.findById(chamaReferenceId).orElseThrow(() ->
+                new RuntimeException("Chama reference not found"));
+
+        return chamaInviteRepository.findByChama(pageable, chama);
+    }
+
+    @Transactional
+    public ChamaMember joinChamaByInviteCode(JoinChamaByInviteCodeDTO joinChamaByInviteCodeDTO) {
+        //validate code
+        Code inviteCode = codeService.findByCode(joinChamaByInviteCodeDTO.getInviteCode()).orElseThrow(() ->
+                new RuntimeException("Invite code not valid"));
+
+        //check invite is valid and not paused
+        ChamaInvite chamaInvite = chamaInviteRepository.findByInviteCodeAndPausedFalse(inviteCode).orElseThrow(()
+                -> new RuntimeException("Invite code not found or  has been paused"));
+
+        //check invite not expired
+        if (chamaInvite.getExpiresAt().isBefore(ZonedDateTime.now()))
+            throw new RuntimeException("Invite expired");
+
+        Chama currentChama = chamaInvite.getChama();
+
+        //check max num of people reached
+        long totalMembers = chamaMemberRepository.countByChama_ChamaReferenceAndStatusAndDeletedAtIsNull(
+                currentChama.getChamaReference(), MembershipStatus.ACTIVE);
+        if (currentChama.getMaxMembers() <= totalMembers) throw new RuntimeException("Chama max members exceeded");
+
+        //check if user already a member
+        if (chamaMemberRepository
+                .existsByChama_ChamaReferenceAndUser_MsisdnAndDeletedAtIsNull(
+                        currentChama.getChamaReference(), joinChamaByInviteCodeDTO.getMsisdn())) {
+            throw new IllegalStateException("User already made a request to join the chama");
+        }
+
+        //check if user already registered
+        User user = userRepository.findByMsisdn(joinChamaByInviteCodeDTO.getMsisdn()).orElse(null);
+
+        //if not registered, registered
+        if (user == null) {
+            //register user
+            user = userService.registerUser(UsersDTO.builder()
+                            .msisdn(joinChamaByInviteCodeDTO.getMsisdn())
+                            .password(joinChamaByInviteCodeDTO.getPassword())
+                            .passwordReEntered(joinChamaByInviteCodeDTO.getPasswordReEntered())
+                            .roles(Set.of(roleService.addRole("USER")))
+                            .countries(joinChamaByInviteCodeDTO.getCountries())
+                            .kyc(joinChamaByInviteCodeDTO.getKyc())
+                            .username(joinChamaByInviteCodeDTO.getUsername())
+                    .build());
+        }
+
+        var newChamaMember = addChamaMember(user, currentChama, chamaInvite.getRole());
+
+        //mark code used
+        chamaInvite.setUsed(true);
+        chamaInviteRepository.save(chamaInvite);
+
+        return newChamaMember;
+    }
+
+    public ChamaMember requestToJoinChama(UUID chamaId, ChamaRole role, String joinerPhone) {
+        //validate chama is valid
+        Chama chama = chamaRepository.findById(chamaId).orElseThrow(() -> new RuntimeException("Chama not found"));
+
+        //validate chama is public
+        if (chama.getVisibility() != ChamaVisibility.PUBLIC)
+            throw new RuntimeException("Chama is private");
+
+        //check max num of people reached
+        long totalMembers = chamaMemberRepository.countByChama_ChamaReferenceAndStatusAndDeletedAtIsNull(
+                chama.getChamaReference(), MembershipStatus.ACTIVE);
+        if (chama.getMaxMembers() <= totalMembers) throw new RuntimeException("Chama max members exceeded");
+
+        //check if user already registered
+        User user = userRepository.findByMsisdn(joinerPhone).orElse(null);
+
+        //if not registered, registered
+        if (user == null) {
+            //register user
+            throw new IllegalStateException("Make sure you first register with us");
+        }
+
+        return addChamaMember(user, chama, role);
+    }
+
+    public Page<ChamaMember> fetchChamaMembersByStatus(Pageable pageable, UUID chamaReferenceId, MembershipStatus status) {
+        return chamaMemberRepository.findAllByChama_ChamaReferenceAndStatus(chamaReferenceId, status, pageable);
+    }
+
+    //need to add functionality that admin only
+    public ChamaMember approveUserRequestToJoinChama(UUID chamaId, String approverPhone, UUID prospectId,
+                                                     MembershipStatus status) {
+        //fetch user
+        User approver = userRepository.findByMsisdn(approverPhone).orElseThrow(() ->
+                new RuntimeException("Approver does not exist in the system"));
+
+        //fetch chama
+        Chama chama = chamaRepository.findById(chamaId).orElseThrow(() ->new RuntimeException("Chama not found"));
+
+        //check chama member
+        ChamaMember chamaMember = chamaMemberRepository.findByUserAndChama(approver, chama).orElseThrow(() ->
+                new RuntimeException("Approver passed is not a member of the chama"));
+
+        //only admins get to approve
+        if (chamaMember.getRole() != ChamaRole.ADMIN)
+            throw new RuntimeException("Only admins can approve chama members");
+
+        ChamaMember prospect = chamaMemberRepository.findById(prospectId).orElseThrow(() ->
+                new RuntimeException("Prospect not found"));
+
+        prospect.setStatus(status);
+        prospect = chamaMemberRepository.save(prospect);
+
+        profileActionService.createProfileActions(prospect.getUser(), Activity.USER_REQUEST_REJECTED,"join chama approval status",
+                "requested to join chama: "+ chama.getName(), chama.getDescription(),
+                "[Admins]: Your request to join chama!"+ chama.getName() +" was "+ status,
+                ZonedDateTime.now());
+
+        profileActionService.createProfileActions(chama.getCreatedBy(), Activity.USER_REQUEST_REJECTED,
+                "join chama approval status",
+                "requested to join your chama: "+ chama.getName(), chama.getDescription(),
+                "[Admins]: Phew, that is off the bucket list",
+                ZonedDateTime.now());
+
+
+        return chamaMember;
+    }
+
+    public ChamaMember addChamaMember(User user, Chama chama, ChamaRole chamaRole) {
+        ChamaMember chamaMember;
+
+        //check max num of people reached
+        long totalMembers = chamaMemberRepository.countByChama_ChamaReferenceAndStatusAndDeletedAtIsNull(
+                chama.getChamaReference(), MembershipStatus.ACTIVE);
+        if (chama.getMaxMembers() <= totalMembers) throw new RuntimeException("Chama max members exceeded");
+
+        if (user != null) {
+            chamaMember = chamaMemberRepository.save(ChamaMember.builder()
+                    .chama(chama)
+                    .user(user)
+                    .role(chamaRole)
+                    .status(MembershipStatus.PENDING)
+                    .build());
+
+            profileActionService.createProfileActions(user, Activity.WAITING,"join chama",
+                    "requested to join chama: "+ chama.getName(), chama.getDescription(),
+                    "[Admins]: Your request was received, currently awaiting approval from admin!",
+                    ZonedDateTime.now().plusDays(100));
+
+            profileActionService.createProfileActions(chama.getCreatedBy(), Activity.WAITING,"join chama request",
+                    "requested to join your chama: "+ chama.getName(), chama.getDescription(),
+                    "[Admins]: Request is awaiting your approval and will expire at "+ZonedDateTime.now().plusDays(100),
+                    ZonedDateTime.now().plusDays(100));
+        } else {
+            throw  new RuntimeException("user is null");
+        }
+
+        return chamaMember;
     }
 }
