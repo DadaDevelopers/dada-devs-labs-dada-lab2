@@ -26,6 +26,7 @@ export function Navbar({ isAuthenticated = false, userName = '',}: NavbarProps) 
     { label: 'Chama', href: '/chama' },
     { label: 'Wallet', href: '/userdashboard/wallet' },
     { label: 'Profile Settings', href: '/profile' },
+    { label: 'Logout', href: '/landing-page' },
   ];
 
   const navItems = isAuthenticated
