@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,6 +16,8 @@ public interface ChamaMemberRepository extends JpaRepository<ChamaMember, UUID> 
     Optional<ChamaMember> findByUserAndChama(User user, Chama chama);
 
     Page<ChamaMember> findAllByChama_ChamaReferenceAndStatus(UUID chamaReference, MembershipStatus status, Pageable pageable);
+
+    List<ChamaMember> findAllByChama_ChamaReferenceAndStatus(UUID chamaReference, MembershipStatus status);
 
     //Count all members in a Chama (by chama reference)
     long countByChama_ChamaReference(UUID chamaReference);
@@ -45,6 +48,8 @@ public interface ChamaMemberRepository extends JpaRepository<ChamaMember, UUID> 
     );
 
 
+    List<ChamaMember> findAllByChama_ChamaReferenceAndStatusOrderByJoinedAtAsc(
+            UUID chamaReference, MembershipStatus membershipStatus);
 
 
 }

@@ -1,5 +1,7 @@
 package com.dada_labs_two.chamavault.chama.models;
 
+import com.dada_labs_two.chamavault.chama.constants.ContributionFrequency;
+import com.dada_labs_two.chamavault.contributions.constants.ContributionStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,6 +34,9 @@ public class ChamaRules {
     private Integer requiredApprovals;
 
     private Long dailyLimitSats;
+
+    @Enumerated(EnumType.STRING)
+    private ContributionFrequency frequency;
 
     @UpdateTimestamp
     private ZonedDateTime updatedAt;

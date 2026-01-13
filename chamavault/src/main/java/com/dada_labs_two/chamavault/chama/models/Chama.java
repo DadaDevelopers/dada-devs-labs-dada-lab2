@@ -39,6 +39,9 @@ public class Chama {
     @Column(nullable = false)
     private Integer maxMembers;
 
+    @Column(nullable = false)
+    private Integer currentRotationIndex = 0;
+
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User createdBy;
