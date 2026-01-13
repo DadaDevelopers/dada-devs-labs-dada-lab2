@@ -37,9 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -85,7 +83,7 @@ public class ChamaService {
         );
 
         // 3. Create Group Wallet
-        walletRepository.save(
+        Wallet wallet = walletRepository.save(
                 Wallet.builder()
                         .walletType(WalletType.CHAMA_GROUP)
                         .ownerReference(chama.getChamaReference())
@@ -106,8 +104,20 @@ public class ChamaService {
         );
 
         //5. Create Group lightning Wallet
-        WalletResponse lw= lightningWalletService.createUserWallet(chama.getName()+ chama.getChamaReference());
+        WalletResponse lw= lightningWalletService.createUserWallet(chama.getName());
         log.info("LW created user wallet: {}", lw);
+        Map<String, String> lightningMap = new HashMap<>();
+        lightningMap.put("id", lw.id());
+        lightningMap.put("name", lw.name());
+        lightningMap.put("adminkey", lw.adminkey());
+        lightningMap.put("invoice_key", lw.invoice_key());
+        lightningMap.put("wallet_type", lw.wallet_type());
+        lightningMap.put("inkey", lw.inkey());
+        lightningMap.put("shared_wallet_id", lw.shared_wallet_id());
+        lightningMap.put("currency", lw.currency());
+        lightningMap.put("balance_msat", lw.balance_msat());
+
+        wallet.setLightning(lightningMap);
 
         profileActionService.createProfileActions(creator, Activity.USER_REQUEST_ACCEPTED,"chama creation",
                 "chama created successfully", chama.getDescription(), "[Admins]: Welcome to Chama!",
