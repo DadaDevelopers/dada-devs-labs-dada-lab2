@@ -14,6 +14,8 @@ import com.dada_labs_two.chamavault.chama.repositories.ChamaInviteRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaMemberRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRulesRepository;
+import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
+import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
 import com.dada_labs_two.chamavault.project_commons.codes.dtos.CodeDTO;
 import com.dada_labs_two.chamavault.project_commons.codes.models.Code;
 import com.dada_labs_two.chamavault.project_commons.codes.services.CodeService;
@@ -35,9 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +47,7 @@ public class ChamaService {
     private final UserService userService;
     private final CodeService codeService;
     private final RoleService roleService;
+    private final LightningWalletService lightningWalletService;
 
     private final UserRepository userRepository;
     private final ChamaRepository chamaRepository;
@@ -65,6 +66,7 @@ public class ChamaService {
                         .description(createChamaDTO.getDescription())
                         .iconUrl(createChamaDTO.getIconUrl())
                         .visibility(createChamaDTO.getVisibility())
+                        .currentRotationIndex(0)
                         .maxMembers(createChamaDTO.getMaxMembers())
                         .createdBy(creator)
                         .build()
@@ -81,11 +83,12 @@ public class ChamaService {
         );
 
         // 3. Create Group Wallet
-        walletRepository.save(
+        Wallet wallet = walletRepository.save(
                 Wallet.builder()
                         .walletType(WalletType.CHAMA_GROUP)
                         .ownerReference(chama.getChamaReference())
                         .balanceSats(0L)
+                        .chama(chama)
                         .active(true)
                         .build()
         );
@@ -97,8 +100,26 @@ public class ChamaService {
                         .requiresApproval(createChamaDTO.getRequiresApproval())
                         .requiredApprovals(createChamaDTO.getRequiredApprovals())
                         .dailyLimitSats(createChamaDTO.getDailyLimitSats())
+                        .frequency(createChamaDTO.getFrequency())
                         .build()
         );
+
+        //5. Create Group lightning Wallet
+        WalletResponse lw= lightningWalletService.createUserWallet(chama.getName());
+        log.info("LW created user wallet: {}", lw);
+        Map<String, String> lightningMap = new HashMap<>();
+        lightningMap.put("id", lw.id());
+        lightningMap.put("name", lw.name());
+        lightningMap.put("adminkey", lw.adminkey());
+        lightningMap.put("invoice_key", lw.invoice_key());
+        lightningMap.put("wallet_type", lw.wallet_type());
+        lightningMap.put("inkey", lw.inkey());
+        lightningMap.put("shared_wallet_id", lw.shared_wallet_id());
+        lightningMap.put("currency", lw.currency());
+        lightningMap.put("balance_msat", lw.balance_msat());
+
+        wallet.setLightning(lightningMap);
+        walletRepository.save(wallet);
 
         profileActionService.createProfileActions(creator, Activity.USER_REQUEST_ACCEPTED,"chama creation",
                 "chama created successfully", chama.getDescription(), "[Admins]: Welcome to Chama!",

@@ -1,6 +1,7 @@
 package com.dada_labs_two.chamavault.chama.dtos;
 
 import com.dada_labs_two.chamavault.chama.constants.ChamaVisibility;
+import com.dada_labs_two.chamavault.chama.constants.ContributionFrequency;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -28,6 +29,8 @@ public class CreateChamaDTO {
     private Boolean requiresApproval;
     @NotNull(message = "requiredApprovals is required")
     private Integer requiredApprovals;
+    @NotNull(message = "ContributionFrequency is required")
+    private ContributionFrequency frequency;
     private Long dailyLimitSats;
 }
 
