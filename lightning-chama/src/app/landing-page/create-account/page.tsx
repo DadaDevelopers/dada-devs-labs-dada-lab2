@@ -46,10 +46,10 @@ export default function CreateAccount() {
             placeholder="0712345678"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="w-full mt-2 p-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-green-500"
+            className="w-full mt-2 p-3 border border-gray-300 rounded-xl text-gray-700 outline-none focus:ring-2 focus:ring-green-500"
           />
 
-          <p className="text-gray-500 text-xs mt-1">
+          <p className="text-gray-700 text-xs mt-1">
             You will receive an SMS for OTP verification.
           </p>
         </div>
