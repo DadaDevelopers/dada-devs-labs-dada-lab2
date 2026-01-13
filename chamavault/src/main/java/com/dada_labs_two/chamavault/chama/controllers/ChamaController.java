@@ -1,14 +1,14 @@
 package com.dada_labs_two.chamavault.chama.controllers;
 
+import com.dada_labs_two.chamavault.chama.constants.ChamaVisibility;
 import com.dada_labs_two.chamavault.chama.dtos.CreateChamaDTO;
 import com.dada_labs_two.chamavault.chama.models.Chama;
 import com.dada_labs_two.chamavault.chama.services.ChamaService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/chama")
@@ -19,5 +19,10 @@ public class ChamaController {
     @PostMapping
     public ResponseEntity<Chama> initiateChamaCreation(@RequestBody CreateChamaDTO chama) {
         return ResponseEntity.ok(chamaService.createChama(chama));
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<Chama>> getAllChamas(Pageable pageable, @RequestParam(required = false) ChamaVisibility visibility) {
+        return ResponseEntity.ok(chamaService.getChamas(pageable, visibility));
     }
 }
