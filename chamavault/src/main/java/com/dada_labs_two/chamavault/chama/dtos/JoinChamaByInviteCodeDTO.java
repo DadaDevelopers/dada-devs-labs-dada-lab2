@@ -1,20 +1,21 @@
-package com.dada_labs_two.chamavault.users.dtos;
+package com.dada_labs_two.chamavault.chama.dtos;
 
+import com.dada_labs_two.chamavault.chama.constants.ChamaRole;
 import com.dada_labs_two.chamavault.project_commons.roles.models.Roles;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.*;
+import lombok.Data;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 @Data
-@ToString
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-public class UsersDTO {
+public class JoinChamaByInviteCodeDTO {
+    @NotBlank(message = "please enter the inviteCode")
+    private String inviteCode;
+
     @NotBlank(message = "please enter the msisdn")
     private String msisdn;
 
@@ -24,14 +25,10 @@ public class UsersDTO {
     @NotBlank(message = "please enter the re-enter password")
     private String passwordReEntered;
 
-    @NotNull(message = "please enter the roles")
-    private Set<Roles> roles;
-
     @NotNull(message = "please enter the country")
     private Set<String> countries;
 
     private Map<String, String> kyc = new HashMap<>();
 
-    private String referralCode;
     private String username;
 }
