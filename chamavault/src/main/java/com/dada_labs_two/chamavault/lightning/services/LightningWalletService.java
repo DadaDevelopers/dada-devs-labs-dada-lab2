@@ -5,6 +5,8 @@ import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class LightningWalletService {
 
@@ -41,12 +43,43 @@ public class LightningWalletService {
                 new CreateLnurlPayLinkRequest(description, min, max, comment_chars, username));
         return ln;
     }
-//
-//    public WalletDetails getUserWallet(String userId) {
-//        WalletDetails wallet = client.getWallet(userWalletKey);
-//        long sats = wallet.balance() / 1000; // msats → sats
-//    return null;
-//    }
+
+    public WalletDetails getUserWallet(String userWalletKey) {
+        WalletDetails wallet = client.getWallet(userWalletKey);
+        long sats = wallet.balance() / 1000; // msats → sats
+        return wallet;
+    }
+
+    public String createInvoice(
+            String walletInKey,
+            long amountSats,
+            String memo
+    ) {
+        InvoiceResponse invoice =
+                client.createInvoice(walletInKey, amountSats, memo);
+
+        return invoice.payment_request(); // BOLT11
+    }
+
+    public String payInvoice(
+            String walletInKey,
+            String bolt11Invoice
+    ) {
+        PayInvoiceResponse response =
+                client.payInvoice(walletInKey, bolt11Invoice);
+
+        if (!response.paid()) {
+            throw new IllegalStateException("Invoice not paid");
+        }
+
+        return response.payment_hash(); // IMPORTANT for ledger
+    }
+
+    public List<PaymentStatus> listPayments(String walletKey) {
+        return client.listPayments(walletKey);
+    }
+
+
 //
 //    public InvoiceResponse createInvoice(String walletKey) {
 //        InvoiceResponse invoice = client.createInvoice(

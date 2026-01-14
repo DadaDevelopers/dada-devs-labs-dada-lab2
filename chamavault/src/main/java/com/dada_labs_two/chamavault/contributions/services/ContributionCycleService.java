@@ -89,7 +89,7 @@ public class ContributionCycleService {
         ChamaMember beneficiary =
                 activeMembers.get((nextRotationIndex - 1) % activeMembers.size());
 
-        Wallet wallet = createCycleWallet(beneficiary, rules);
+        Wallet wallet = createCycleWallet(beneficiary, rules, nextRotationIndex);
 
         ZonedDateTime startAt = ZonedDateTime.now();
         ZonedDateTime endAt = calculateEndDate(startAt, rules.getFrequency());
@@ -102,6 +102,7 @@ public class ContributionCycleService {
                         .rotationIndex(nextRotationIndex)
                         .status(ContributionCycleStatus.ACTIVE)
                         .startAt(startAt)
+                        .contributionAmount(rules.getContributionAmount())
                         .endAt(endAt)
                         .build()
         );
@@ -182,15 +183,15 @@ public class ContributionCycleService {
     }
 
 
-    private Wallet createCycleWallet(ChamaMember chamaMember, ChamaRules rules) {
+    private Wallet createCycleWallet(ChamaMember chamaMember, ChamaRules rules, int nextRotationIndex) {
         //5. Create Individual lightning Wallet
         WalletResponse lw= lightningWalletService.createUserWallet("contribution for " +
-                chamaMember.getUser().getMsisdn() + " chama rotation: "+ chamaMember.getChama().getCurrentRotationIndex());
+                chamaMember.getUser().getUsername() + " chama rotation: "+ nextRotationIndex);
         log.info("LW created user wallet: {}", lw);
 
         Map<String, String> lightningMap = new HashMap<>();
         lightningMap.put("id", lw.id());
-        lightningMap.put("name", lw.name());
+        lightningMap.put("walletName", lw.name());
         lightningMap.put("adminkey", lw.adminkey());
         lightningMap.put("invoice_key", lw.invoice_key());
         lightningMap.put("wallet_type", lw.wallet_type());
@@ -201,7 +202,7 @@ public class ContributionCycleService {
 
         //6. Assign group lightning  address
         String lnUsername = chamaMember.getUser().getUsername()
-                .concat("-rotation-").concat(chamaMember.getChama().getCurrentRotationIndex() +"")
+                .concat("-rotation-").concat(nextRotationIndex +"")
                 .toLowerCase()
                 .replaceAll("[^a-z0-9_-]", "-");
         long min = rules.getContributionAmount();        // sat
