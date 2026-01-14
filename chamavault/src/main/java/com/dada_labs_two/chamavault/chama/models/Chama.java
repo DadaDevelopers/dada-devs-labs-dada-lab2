@@ -26,10 +26,12 @@ public class Chama {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID chamaReference;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String name;
 
     private String description;
+
+    private Long contributionAmount = 0L;
 
     private String iconUrl;
 

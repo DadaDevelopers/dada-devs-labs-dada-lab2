@@ -2,10 +2,13 @@ package com.dada_labs_two.chamavault.lightning.integration.LNbits;
 
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+
+import java.util.List;
 
 @Component
 public class LNbitsClient {
@@ -84,4 +87,48 @@ public class LNbitsClient {
                 .bodyToMono(LNURLPayResponse.class)
                 .block();
     }
+
+
+    /* ------------ Assign Lightning Address------------*/
+    public LnurlPayLinkResponse createLightningAddress(
+            String adminKey,
+            CreateLnurlPayLinkRequest request
+    ) {
+        return webClient.post()
+                .uri("/lnurlp/api/v1/links")
+                .header("X-Api-Key", adminKey)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(
+                        status -> status.is4xxClientError(),
+                        response -> response.bodyToMono(String.class)
+                                .map(body -> new RuntimeException("LNbits error: " + body))
+                )
+                .bodyToMono(LnurlPayLinkResponse.class)
+                .block();
+
+    }
+
+
+
+    /*----------- Payments------------------------*/
+    public List<PaymentStatus> listPayments(String walletKey) {
+        return webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/payments")
+                        .queryParam("limit", 50)
+                        .build())
+                .header("X-Api-Key", walletKey)
+                .retrieve()
+                .onStatus(
+                        status -> status.isError(),
+                        response -> response.bodyToMono(String.class)
+                                .map(body -> new RuntimeException("LNbits error: " + body))
+                )
+                .bodyToMono(new ParameterizedTypeReference<List<PaymentStatus>>() {})
+                .block();
+    }
+
+
+
 }
