@@ -30,6 +30,17 @@ public class LightningWalletService {
         // Persist wallet.id + wallet.invoice_key
         return wallet;
     }
+
+    public LnurlPayLinkResponse createLightningAddress(String adminKey,
+                                                       String description,
+                                                       long min,
+                                                       long max,
+                                                       int comment_chars,
+                                                       String username){
+        LnurlPayLinkResponse ln = client.createLightningAddress(adminKey,
+                new CreateLnurlPayLinkRequest(description, min, max, comment_chars, username));
+        return ln;
+    }
 //
 //    public WalletDetails getUserWallet(String userId) {
 //        WalletDetails wallet = client.getWallet(userWalletKey);

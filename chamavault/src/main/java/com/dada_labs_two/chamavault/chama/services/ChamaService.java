@@ -14,6 +14,7 @@ import com.dada_labs_two.chamavault.chama.repositories.ChamaInviteRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaMemberRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRulesRepository;
+import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.LnurlPayLinkResponse;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
 import com.dada_labs_two.chamavault.project_commons.codes.dtos.CodeDTO;
@@ -67,6 +68,7 @@ public class ChamaService {
                         .iconUrl(createChamaDTO.getIconUrl())
                         .visibility(createChamaDTO.getVisibility())
                         .currentRotationIndex(0)
+                        .contributionAmount(createChamaDTO.getContributionAmount())
                         .maxMembers(createChamaDTO.getMaxMembers())
                         .createdBy(creator)
                         .build()
@@ -97,6 +99,7 @@ public class ChamaService {
         chamaRulesRepository.save(
                 ChamaRules.builder()
                         .chama(chama)
+                        .contributionAmount(createChamaDTO.getContributionAmount())
                         .requiresApproval(createChamaDTO.getRequiresApproval())
                         .requiredApprovals(createChamaDTO.getRequiredApprovals())
                         .dailyLimitSats(createChamaDTO.getDailyLimitSats())
@@ -119,7 +122,21 @@ public class ChamaService {
         lightningMap.put("balance_msat", lw.balance_msat());
 
         wallet.setLightning(lightningMap);
-        walletRepository.save(wallet);
+        wallet = walletRepository.save(wallet);
+
+        //6. Assign group lightning  address
+        String lnUsername = chama.getName()
+                .toLowerCase()
+                .replaceAll("[^a-z0-9_-]", "-");
+        long min = 1_000;        // 1 sat
+        long max = 1_000_000_000; // 1,000,000 sats
+        LnurlPayLinkResponse lnAddress  = lightningWalletService.createLightningAddress(lw.adminkey(),
+                "lightning address for chama group "+ chama.getName(),
+                min, max, 0, lnUsername);
+        log.info("LN address created: {}", lnAddress);
+        wallet.getLightning().put("lnAddressUrl", lnAddress.lnurl());
+        wallet.getLightning().put("lnAddressUsername", lnAddress.username());
+        wallet = walletRepository.save(wallet);
 
         profileActionService.createProfileActions(creator, Activity.USER_REQUEST_ACCEPTED,"chama creation",
                 "chama created successfully", chama.getDescription(), "[Admins]: Welcome to Chama!",
