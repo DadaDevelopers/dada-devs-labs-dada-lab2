@@ -59,6 +59,32 @@ public class LNbitsClient {
                 .block();
     }
 
+    public InvoiceResponse createInvoice(
+            String walletKey,
+            long amountSats,
+            String memo
+    ) {
+        CreateInvoiceRequest request = new CreateInvoiceRequest(
+                amountSats * 1000, // sats → msats
+                memo,
+                false              // out=false = receive
+        );
+
+        return webClient.post()
+                .uri("/api/v1/payments")
+                .header("X-Api-Key", walletKey)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(
+                        status -> status.isError(),
+                        response -> response.bodyToMono(String.class)
+                                .map(body -> new RuntimeException("LNbits error: " + body))
+                )
+                .bodyToMono(InvoiceResponse.class)
+                .block();
+    }
+
+
     public PaymentStatus getPayment(String walletKey, String paymentHash) {
         return webClient.get()
                 .uri("/api/v1/payments/{hash}", paymentHash)
@@ -67,6 +93,30 @@ public class LNbitsClient {
                 .bodyToMono(PaymentStatus.class)
                 .block();
     }
+
+    public PayInvoiceResponse payInvoice(
+            String walletKey,
+            String bolt11Invoice
+    ) {
+        PayInvoiceRequest request = new PayInvoiceRequest(
+                bolt11Invoice,
+                true // out=true = pay
+        );
+
+        return webClient.post()
+                .uri("/api/v1/payments")
+                .header("X-Api-Key", walletKey)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(
+                        status -> status.isError(),
+                        response -> response.bodyToMono(String.class)
+                                .map(body -> new RuntimeException("LNbits error: " + body))
+                )
+                .bodyToMono(PayInvoiceResponse.class)
+                .block();
+    }
+
 
     public PayInvoiceResponse payInvoice(String walletKey, PayInvoiceRequest request) {
         return webClient.post()
