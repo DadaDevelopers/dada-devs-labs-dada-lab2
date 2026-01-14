@@ -14,11 +14,15 @@ import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
 import com.dada_labs_two.chamavault.contributions.repositories.ContributionCycleRepository;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
+import com.dada_labs_two.chamavault.users.constants.Activity;
+import com.dada_labs_two.chamavault.users.services.ProfileActionService;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +38,7 @@ import java.util.UUID;
 @Slf4j
 public class ContributionCycleService {
     private final LightningWalletService lightningWalletService;
+    private final ProfileActionService profileActionService;
     private final ChamaRepository chamaRepository;
     private final ChamaRulesRepository chamaRulesRepository;
     private final ChamaMemberRepository chamaMemberRepository;
@@ -43,13 +48,14 @@ public class ContributionCycleService {
     /* ============================
        Scheduler
      ============================ */
-    @Scheduled(cron = "0 */30 * * * *") // every 30 minutes
+    @Scheduled(cron = "0 */10 * * * *") // every 30 minutes
+    @Transactional
     public void manageCycles() {
         closeExpiredCycles();
         createCyclesIfMissing();
     }
 
-    @Transactional
+
     public ContributionCycle createNextCycle(UUID chamaReference) {
         // Lock chama to prevent concurrent rotation updates
         Chama chama = chamaRepository
@@ -109,11 +115,28 @@ public class ContributionCycleService {
                 beneficiary.getUser().getUserReference()
         );
 
+        //notify
+        profileActionService.createProfileActions(beneficiary.getUser(), Activity.STARTED,"Your turn",
+                "chama contribution cycle created successfully",
+                "Youre next in the contribution cycle, expect contributions by " + cycle.getEndAt(),
+                "[Admins]: ",
+                cycle.getEndAt());
+
+        for (ChamaMember member : activeMembers) {
+            if (member == beneficiary) continue;
+
+            profileActionService.createProfileActions(member.getUser(), Activity.WAITING,"Contributions Expected",
+                    "chama contribution cycle created successfully",
+                    "contribution cycle, Deadline is " + cycle.getEndAt(),
+                    "[Admins]: "+ beneficiary.getUser().getUsername()+ " is expecting your contributions for chama cycle "
+                            + chama.getCurrentRotationIndex() + " please make your payments before "+ cycle.getEndAt(),
+                    cycle.getEndAt());
+        }
+
         return cycle;
 
     }
 
-    @Transactional
     protected void closeExpiredCycles() {
         List<ContributionCycle> expired =
                 cycleRepository.findByStatusAndEndAtBefore(
@@ -133,6 +156,7 @@ public class ContributionCycleService {
 
     @Transactional
     protected void createCyclesIfMissing() {
+        log.info("createCyclesIfMissing");
         List<Chama> chamas = chamaRepository.findAll();
 
         for (Chama chama : chamas) {
@@ -200,6 +224,14 @@ public class ContributionCycleService {
             case QUARTERLY -> start.plusMonths(3);
             case YEARLY -> start.plusYears(1);
         };
+    }
+
+
+
+    public Page<ContributionCycle> findAllByChama(Pageable pageable, UUID chamaReference) {
+        Chama chama = chamaRepository.getReferenceById(chamaReference);
+
+        return cycleRepository.findAllByChama(pageable, chama);
     }
 
 }

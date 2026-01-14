@@ -3,6 +3,8 @@ package com.dada_labs_two.chamavault.contributions.repositories;
 import com.dada_labs_two.chamavault.chama.models.Chama;
 import com.dada_labs_two.chamavault.contributions.constants.ContributionCycleStatus;
 import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.ZonedDateTime;
@@ -16,4 +18,5 @@ public interface ContributionCycleRepository extends JpaRepository<ContributionC
 
     boolean existsByChamaAndStatus(Chama chama, ContributionCycleStatus contributionCycleStatus);
 
+    Page<ContributionCycle> findAllByChama(Pageable pageable, Chama chama);
 }
