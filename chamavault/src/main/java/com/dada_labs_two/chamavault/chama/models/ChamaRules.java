@@ -30,6 +30,7 @@ public class ChamaRules {
     private Chama chama;
 
     private Boolean requiresApproval;
+    private Long contributionAmount = 0L;
 
     private Integer requiredApprovals;
 

@@ -12,6 +12,7 @@ import com.dada_labs_two.chamavault.chama.repositories.ChamaRulesRepository;
 import com.dada_labs_two.chamavault.contributions.constants.ContributionCycleStatus;
 import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
 import com.dada_labs_two.chamavault.contributions.repositories.ContributionCycleRepository;
+import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.LnurlPayLinkResponse;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
 import com.dada_labs_two.chamavault.users.constants.Activity;
@@ -88,7 +89,7 @@ public class ContributionCycleService {
         ChamaMember beneficiary =
                 activeMembers.get((nextRotationIndex - 1) % activeMembers.size());
 
-        Wallet wallet = createCycleWallet(beneficiary);
+        Wallet wallet = createCycleWallet(beneficiary, rules);
 
         ZonedDateTime startAt = ZonedDateTime.now();
         ZonedDateTime endAt = calculateEndDate(startAt, rules.getFrequency());
@@ -181,7 +182,7 @@ public class ContributionCycleService {
     }
 
 
-    private Wallet createCycleWallet(ChamaMember chamaMember) {
+    private Wallet createCycleWallet(ChamaMember chamaMember, ChamaRules rules) {
         //5. Create Individual lightning Wallet
         WalletResponse lw= lightningWalletService.createUserWallet("contribution for " +
                 chamaMember.getUser().getMsisdn() + " chama rotation: "+ chamaMember.getChama().getCurrentRotationIndex());
@@ -197,6 +198,20 @@ public class ContributionCycleService {
         lightningMap.put("shared_wallet_id", lw.shared_wallet_id());
         lightningMap.put("currency", lw.currency());
         lightningMap.put("balance_msat", lw.balance_msat());
+
+        //6. Assign group lightning  address
+        String lnUsername = chamaMember.getUser().getUsername()
+                .concat("-rotation-").concat(chamaMember.getChama().getCurrentRotationIndex() +"")
+                .toLowerCase()
+                .replaceAll("[^a-z0-9_-]", "-");
+        long min = rules.getContributionAmount();        // sat
+        long max = 1_000_000_000; // 1,000,000 sats
+        LnurlPayLinkResponse lnAddress  = lightningWalletService.createLightningAddress(lw.adminkey(),
+                "contribution lightning address for beneficiary "+ lnUsername,
+                min, max, 0, lnUsername);
+        log.info("LN address created: {}", lnAddress);
+        lightningMap.put("lnAddressUrl", lnAddress.lnurl());
+        lightningMap.put("lnAddressUsername", lnAddress.username());
 
         return walletRepository.save(
                 Wallet.builder()
