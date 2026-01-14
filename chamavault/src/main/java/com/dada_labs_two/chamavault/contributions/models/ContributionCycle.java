@@ -33,6 +33,8 @@ public class ContributionCycle {
     @JoinColumn(name = "chama_reference")
     private Chama chama;
 
+    private Long contributionAmount = 0L;
+
     @ManyToOne
     @JoinColumn(name = "wallet_reference")
     private Wallet wallet;
