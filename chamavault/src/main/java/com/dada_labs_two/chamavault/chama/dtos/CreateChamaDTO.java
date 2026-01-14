@@ -31,6 +31,8 @@ public class CreateChamaDTO {
     private Integer requiredApprovals;
     @NotNull(message = "ContributionFrequency is required")
     private ContributionFrequency frequency;
+    @NotNull(message = "contributionAmount is required")
+    private Long contributionAmount;
     private Long dailyLimitSats;
 }
 
