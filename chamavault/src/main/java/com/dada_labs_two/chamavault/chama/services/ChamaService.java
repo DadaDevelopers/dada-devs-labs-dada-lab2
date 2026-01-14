@@ -112,7 +112,7 @@ public class ChamaService {
         log.info("LW created user wallet: {}", lw);
         Map<String, String> lightningMap = new HashMap<>();
         lightningMap.put("id", lw.id());
-        lightningMap.put("name", lw.name());
+        lightningMap.put("walletName", lw.name());
         lightningMap.put("adminkey", lw.adminkey());
         lightningMap.put("invoice_key", lw.invoice_key());
         lightningMap.put("wallet_type", lw.wallet_type());
