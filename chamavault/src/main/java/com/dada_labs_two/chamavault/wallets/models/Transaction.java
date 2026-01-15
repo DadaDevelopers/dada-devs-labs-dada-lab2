@@ -43,6 +43,7 @@ public class Transaction {
     private TransactionSource source;
 
     private Long amountSats;
+    private Long feeSats = 0L;
 
     // LNbits payment_hash or internal transfer id
     @Column(unique = true)

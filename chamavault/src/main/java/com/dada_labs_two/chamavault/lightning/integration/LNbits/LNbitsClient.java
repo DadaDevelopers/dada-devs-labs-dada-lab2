@@ -61,11 +61,11 @@ public class LNbitsClient {
 
     public InvoiceResponse createInvoice(
             String walletKey,
-            long amountSats,
+            Long amountSats,
             String memo
     ) {
         CreateInvoiceRequest request = new CreateInvoiceRequest(
-                amountSats * 1000, // sats → msats
+                amountSats, // sats → msats
                 memo,
                 false              // out=false = receive
         );
