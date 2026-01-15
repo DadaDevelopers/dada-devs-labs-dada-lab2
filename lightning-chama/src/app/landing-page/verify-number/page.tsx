@@ -3,10 +3,19 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function VerifyNumber() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // phone passed from create-account page
+  const phone = searchParams.get("phone");
+
   const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
   const [timer, setTimer] = useState(25);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // Countdown timer
   useEffect(() => {
@@ -22,10 +31,49 @@ export default function VerifyNumber() {
     updatedOtp[index] = value;
     setOtp(updatedOtp);
 
-    // Auto focus next input
-    const nextInput = document.getElementById(`otp-${index + 1}`);
-    if (value && nextInput) {
-      (nextInput as HTMLInputElement).focus();
+    if (value && index < 5) {
+      document.getElementById(`otp-${index + 1}`)?.focus();
+    }
+  };
+
+  const handleVerify = async () => {
+    setError("");
+    
+    const code = otp.join("");
+    if (code.length !== 6) {
+      setError("Please enter the full 6-digit code.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(
+        "https://dada-devs-labs-dada-lab2.onrender.com/codes/pre-registration/code-validation",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone,
+            otp: code,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Invalid or expired code.");
+        return;
+      }
+
+      // SUCCESS → redirect to login
+      router.push("/landing-page/login");
+
+    } catch (err) {
+      setError("Failed to connect to server. Try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -52,7 +100,7 @@ export default function VerifyNumber() {
         </div>
 
         {/* Headings */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">
             Verify Phone Number
           </h1>
@@ -62,7 +110,7 @@ export default function VerifyNumber() {
         </div>
 
         {/* OTP Inputs */}
-        <div className="flex justify-between gap-2 mb-4">
+        <div className="flex justify-between gap-2 mb-3">
           {otp.map((digit, index) => (
             <input
               key={index}
@@ -71,21 +119,30 @@ export default function VerifyNumber() {
               maxLength={1}
               value={digit}
               onChange={(e) => handleChange(e.target.value, index)}
-              className="w-12 h-12 text-center border border-gray-300 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-green-600"
+              className="w-12 h-12 text-center border border-gray-300 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-emerald-600"
             />
           ))}
         </div>
 
+        {/* Error */}
+        {error && (
+          <p className="text-sm text-red-600 text-center mb-3">
+            {error}
+          </p>
+        )}
+
         {/* Resend */}
-        <p className="text-center text-xs text-gray-500 mb-8">
-          Resend code in <span className="text-green-600">{timer}s</span>
+        <p className="text-center text-xs text-gray-500 mb-6">
+          Resend code in <span className="text-emerald-600">{timer}s</span>
         </p>
 
         {/* Continue Button */}
         <button
-          className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white py-3 rounded-lg font-medium transition"
+          onClick={handleVerify}
+          disabled={loading}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white py-3 rounded-lg font-medium transition"
         >
-          Continue
+          {loading ? "Verifying..." : "Continue"}
         </button>
 
       </div>
