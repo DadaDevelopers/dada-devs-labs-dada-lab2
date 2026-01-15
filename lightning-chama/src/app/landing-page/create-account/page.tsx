@@ -50,7 +50,6 @@ export default function CreateAccount() {
   
   return (
     <section className="min-h-screen w-full bg-white px-6 py-10 flex flex-col items-center">
-      
       {/* Back to Home */}
       <div className="w-full max-w-md flex items-center">
         <Link
@@ -64,7 +63,6 @@ export default function CreateAccount() {
 
       {/* Center Content */}
       <div className="mt-10 w-full max-w-md text-center">
-
         {/* Logo */}
         <div className="flex justify-center">
           <Image
@@ -75,7 +73,6 @@ export default function CreateAccount() {
           />
         </div>
 
-        {/* Headings */}
         <h2 className="text-2xl font-bold text-black mt-4">
           Create Account
         </h2>
@@ -91,8 +88,7 @@ export default function CreateAccount() {
 
           <input
             type="tel"
-            inputMode="tel"
-            placeholder="+254 903 276 2789"
+            placeholder="+254700000004"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className="w-full rounded-xl border border-gray-300 px-4 py-3
@@ -100,6 +96,11 @@ export default function CreateAccount() {
                        outline-none focus:ring-2 focus:ring-[#059669]"
           />
         </div>
+
+        {/* Error */}
+        {error && (
+          <p className="text-red-600 text-sm mt-2">{error}</p>
+        )}
 
         {/* Verify Button */}
         <button
