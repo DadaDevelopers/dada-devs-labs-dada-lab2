@@ -37,45 +37,54 @@ export default function VerifyNumber() {
   };
 
   const handleVerify = async () => {
-    setError("");
-    
-    const code = otp.join("");
-    if (code.length !== 6) {
-      setError("Please enter the full 6-digit code.");
+  setError("");
+
+  const code = otp.join("");
+  if (code.length !== 6) {
+    setError("Please enter the full 6-digit code.");
+    return;
+  }
+
+  if (!phone) {
+    setError("Phone number missing.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await fetch(
+      "https://dada-devs-labs-dada-lab2.onrender.com/codes/pre-registration/code-validation",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ownerMsisdn: phone,
+          code,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError("Invalid or expired code.");
       return;
     }
 
-    setLoading(true);
+    // SUCCESS
+    // PASS PHONE TO NEXT STEP
+router.push(
+  `/landing-page/create-pin-password?phone=${encodeURIComponent(phone)}`
+);
 
-    try {
-      const response = await fetch(
-        "https://dada-devs-labs-dada-lab2.onrender.com/codes/pre-registration/code-validation",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone,
-            otp: code,
-          }),
-        }
-      );
+  } catch (err) {
+    setError("Failed to connect to server. Try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message || "Invalid or expired code.");
-        return;
-      }
-
-      // SUCCESS → redirect to login
-      router.push("/landing-page/login");
-
-    } catch (err) {
-      setError("Failed to connect to server. Try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <section className="min-h-screen bg-white flex justify-center px-4">
