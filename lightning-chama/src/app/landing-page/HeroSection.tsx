@@ -34,7 +34,8 @@ export function HeroSection() {
                 Sign Up
               </button>
             </Link>
-            <Link href="/landing-page/login">
+            {/*note: to change the /userdashboard with the correct link /landing-page/login */}
+            <Link href="/landing-page/login" >
               <button className="px-8 py-4 bg-white text-[#059669] border-2 border-[#059669] rounded-2xl text-2xl font-semibold cursor-pointer hover:bg-emerald-50 transition-colors">
                 Login
               </button>
