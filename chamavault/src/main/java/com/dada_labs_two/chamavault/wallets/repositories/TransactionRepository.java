@@ -15,16 +15,19 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
     boolean existsByExternalRef(String externalRef);
 
     @Query("""
-        SELECT COALESCE(
-            SUM(
-                CASE
-                    WHEN t.type = 'CREDIT' THEN t.amountSats
-                    WHEN t.type = 'DEBIT' THEN -t.amountSats
-                    ELSE 0
-                END
-            ), 0)
-        FROM Transaction t
-        WHERE t.wallet = :wallet
-    """)
+    SELECT COALESCE(
+        SUM(
+            CASE
+                WHEN t.type = 'CREDIT'
+                    THEN t.amountSats
+                WHEN t.type = 'DEBIT'
+                    THEN -(t.amountSats + COALESCE(t.feeSats, 0))
+                ELSE 0
+            END
+        ), 0)
+    FROM Transaction t
+    WHERE t.wallet = :wallet
+""")
     Long sumBalanceByWallet(@Param("wallet") Wallet wallet);
+
 }

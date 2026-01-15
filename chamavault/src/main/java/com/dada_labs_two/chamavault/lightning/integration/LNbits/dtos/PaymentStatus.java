@@ -7,6 +7,7 @@ public record PaymentStatus(
         boolean paid,
         boolean out,
         long amount,       // millisats (negative for outgoing)
+        long fee_msat,    // msats (negative)
         String memo,
         String bolt11,
         ZonedDateTime time
