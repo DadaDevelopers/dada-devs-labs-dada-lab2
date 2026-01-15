@@ -74,10 +74,10 @@ export default function SetPinPage() {
         return;
       }
 
-      // ✅ SAVE TOKEN (important)
+      // SAVE TOKEN (important)
       localStorage.setItem("token", data.token);
 
-      // ✅ SUCCESS → Dashboard
+      // SUCCESS → Dashboard
       router.push("/dashboard");
 
     } catch (err) {
