@@ -59,7 +59,7 @@ export default function WhyChooseChama() {
 
           {/* Secure Transactions */}
           <div className="flex items-start gap-6 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-            <div className="w-28 h-28 bg-gray-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <div className="w-28 h-28 bg-gray-100 rounded-2xl flex items-center justify-center shrink-0">
               <Image
                 src="/secure-transactions.svg"
                 width={48}
