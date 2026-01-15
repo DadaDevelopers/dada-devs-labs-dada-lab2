@@ -1,3 +1,4 @@
+"use client";
 // components/BalanceHero.tsx
 type nextContribution = {
   date: string;
