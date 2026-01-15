@@ -2,11 +2,13 @@ package com.dada_labs_two.chamavault.lightning.services;
 
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.LNbitsClient;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+@Slf4j
 @Service
 public class LightningWalletService {
 
@@ -57,6 +59,7 @@ public class LightningWalletService {
     ) {
         InvoiceResponse invoice =
                 client.createInvoice(walletInKey, amountSats, memo);
+        log.info("Invoice created: {}", invoice);
 
         return invoice.payment_request(); // BOLT11
     }

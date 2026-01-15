@@ -2,6 +2,8 @@ package com.dada_labs_two.chamavault.contributions.services;
 
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.PaymentStatus;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
+import com.dada_labs_two.chamavault.users.repository.InvoiceRepository;
+import com.dada_labs_two.chamavault.wallets.constants.InvoiceStatus;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionSource;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionType;
 import com.dada_labs_two.chamavault.wallets.models.Transaction;
@@ -14,6 +16,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 
 /* What It does
@@ -36,6 +39,7 @@ public class WalletBalancePoller {
 
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
+    private final InvoiceRepository invoiceRepository;
     private final LightningWalletService lightningWalletService;
 
     @Scheduled(fixedDelayString = "${wallet.poller.delay-ms:30000}")
@@ -78,7 +82,8 @@ public class WalletBalancePoller {
                 continue;
             }
 
-            long amountSats = Math.abs(payment.amount()) / 1000;
+            long amountSats = Math.abs(payment.amount());
+            long feeSats = Math.abs(payment.fee_msat());
 
             TransactionType type =
                     payment.out()
@@ -95,12 +100,23 @@ public class WalletBalancePoller {
                     .type(type)
                     .source(source)
                     .amountSats(amountSats)
+                    .feeSats(feeSats)
                     .externalRef(paymentHash)
                     .memo(payment.memo())
                     .occurredAt(payment.time())
                     .build();
 
             transactionRepository.save(tx);
+
+            if (type == TransactionType.CREDIT) {
+                invoiceRepository.findByPaymentHash(paymentHash)
+                        .ifPresent(inv -> {
+                            inv.setStatus(InvoiceStatus.PAID);
+                            inv.setPaidAt(ZonedDateTime.now());
+                            invoiceRepository.save(inv);
+                        });
+            }
+
 
             log.info(
                     "Recorded {} {} sats for wallet {} (hash={})",

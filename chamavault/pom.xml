@@ -117,6 +117,28 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>3.5.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>3.5.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bitcoinj</groupId>
+            <artifactId>bitcoinj-core</artifactId>
+            <version>0.16.3</version>
+        </dependency>
+        <!-- Source: https://mvnrepository.com/artifact/fr.acinq.lightning/lightning-kmp-jvm -->
+        <dependency>
+            <groupId>fr.acinq.lightning</groupId>
+            <artifactId>lightning-kmp-jvm</artifactId>
+            <version>1.8.4</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
 	<build>
