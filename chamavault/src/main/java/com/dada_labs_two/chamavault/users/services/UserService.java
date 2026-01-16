@@ -58,7 +58,7 @@ public class UserService {
         }
 
         //passwords are identical check
-        if (usersDTO.getPassword() == null || usersDTO.getPassword().isEmpty() || usersDTO.getPassword().length() < 8
+        if (usersDTO.getPassword() == null || usersDTO.getPassword().isEmpty() || usersDTO.getPassword().length() == 4
                 || (!usersDTO.getPassword().contentEquals(usersDTO.getPasswordReEntered())) ) {
             throw new RuntimeException("Passwords failed acceptance criteria");
         }
