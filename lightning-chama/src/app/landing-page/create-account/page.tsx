@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation'; 
+import { useRouter } from 'next/navigation';
 
 export default function CreateAccount() {
   const router = useRouter();
@@ -11,35 +11,43 @@ export default function CreateAccount() {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   const handleVerify = async () => {
-    if (!phone){
+    if (!phone) {
       setError('Please enter your phone number');
       return;
     }
+
     setLoading(true);
     setError('');
-    setSuccess('');
+
     try {
       const response = await fetch(
-        'https://dada-devs-labs-dada-lab2.onrender.com/codes/pre-registration/code-validation',
+        'https://dada-devs-labs-dada-lab2.onrender.com/codes/pre-registration/code-generate',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone }),
+          body: JSON.stringify({
+            ownerMsisdn: phone.replace(/\s+/g, ''),
+            active: true,
+          }),
         }
       );
+
       const data = await response.json();
+
       if (!response.ok) {
-        setError(data.message || 'Something went wrong');
-      } else {
-        setSuccess('Account created! Verification code sent.');
-        // redirect to verification page after a short delay
-        setTimeout(() => {
-          router.push(`/landing-page/verify-number?phone=${encodeURIComponent(phone)}`);
-        }, 1500);
+        setError(data.message || 'Failed to send verification code');
+        return;
       }
+
+      // SUCCESS → go to verify page with phone
+      router.push(
+        `/landing-page/verify-number?phone=${encodeURIComponent(
+          phone.replace(/\s+/g, '')
+        )}`
+      );
+
     } catch (err) {
       console.error(err);
       setError('Failed to connect to server. Try again.');
@@ -47,7 +55,7 @@ export default function CreateAccount() {
       setLoading(false);
     }
   };
-  
+
   return (
     <section className="min-h-screen w-full bg-white px-6 py-10 flex flex-col items-center">
       {/* Back to Home */}
@@ -110,11 +118,8 @@ export default function CreateAccount() {
                       font-semibold hover:bg-[#047857] transition
                       ${loading || !phone ? 'opacity-60 cursor-not-allowed' : ''}`}
         >
-          {loading ? 'Verifying...' : 'Verify Phone Number'}
+          {loading ? 'Sending code...' : 'Verify Phone Number'}
         </button>
-
-        {error && <p className="text-red-500 mt-2">{error}</p>}
-        {success && <p className="text-green-600 mt-2">{success}</p>}
 
         {/* Login Link */}
         <p className="text-sm text-black mt-4">

@@ -9,7 +9,7 @@ export default function SetPinPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // phone from previous step
+  // Phone passed from verify-number page
   const msisdn = searchParams.get("phone");
 
   const [fullName, setFullName] = useState("");
@@ -32,10 +32,11 @@ export default function SetPinPage() {
       return;
     }
 
-    if (pin.length < 8) {
-  setError("PIN must be at least 8 characters long.");
-  return;
-}
+    // ✅ EXACTLY 4 DIGIT PIN
+    if (!/^\d{4}$/.test(pin)) {
+      setError("PIN must be exactly 4 digits.");
+      return;
+    }
 
     if (pin !== confirmPin) {
       setError("PINs do not match.");
@@ -74,10 +75,10 @@ export default function SetPinPage() {
         return;
       }
 
-      // SAVE TOKEN (important)
+      // ✅ Save token
       localStorage.setItem("token", data.token);
 
-      // SUCCESS → Dashboard
+      // ✅ Success → Dashboard
       router.push("/dashboard");
 
     } catch (err) {
@@ -114,11 +115,13 @@ export default function SetPinPage() {
           />
         </div>
 
+        {/* Heading */}
         <h1 className="text-2xl font-semibold text-gray-900">Set PIN</h1>
         <p className="text-black mt-1">
           Set PIN that will be used for transactions
         </p>
 
+        {/* Form */}
         <div className="mt-8 space-y-5 text-left">
 
           {/* Full Name */}
@@ -130,7 +133,8 @@ export default function SetPinPage() {
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-600"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3
+                         focus:outline-none focus:ring-2 focus:ring-emerald-600"
             />
           </div>
 
@@ -141,10 +145,11 @@ export default function SetPinPage() {
             </label>
             <input
               type="password"
-              maxLength={40}
+              maxLength={4}
               value={pin}
               onChange={(e) => setPin(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-600"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3
+                         focus:outline-none focus:ring-2 focus:ring-emerald-600"
             />
           </div>
 
@@ -155,10 +160,11 @@ export default function SetPinPage() {
             </label>
             <input
               type="password"
-              maxLength={40}
+              maxLength={4}
               value={confirmPin}
               onChange={(e) => setConfirmPin(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-emerald-600"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3
+                         focus:outline-none focus:ring-2 focus:ring-emerald-600"
             />
           </div>
 
@@ -168,7 +174,7 @@ export default function SetPinPage() {
               type="checkbox"
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
-              className="mt-1 h-4 w-4 accent-emerald-600"
+              className="mt-1 h-4 w-4 accent-emerald-600 cursor-pointer"
             />
             <p className="text-sm font-medium text-gray-900">
               I understood the{" "}
@@ -178,15 +184,22 @@ export default function SetPinPage() {
             </p>
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {/* Error */}
+          {error && (
+            <p className="text-sm text-red-600">{error}</p>
+          )}
 
+          {/* Submit */}
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white py-3 rounded-lg font-medium"
+            className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700
+                       disabled:opacity-60 text-white py-3 rounded-lg
+                       font-medium transition"
           >
             {loading ? "Processing..." : "Go to Dashboard"}
           </button>
+
         </div>
       </div>
     </section>
