@@ -1,5 +1,6 @@
-import React from 'react';
-import { ChevronLeft, Bell, Settings, ArrowUpRight } from 'lucide-react';
+"use client";
+import { ArrowUpRight } from 'lucide-react';
+import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import BalanceHero from '@/components/BalanceHero';
 // Main Wallet Page Component
@@ -47,14 +48,14 @@ const WalletPage = () => {
 
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-8">
-          <button className="flex flex-col items-center gap-2">
+          <Link href="/userdashboard/wallet/send" className="flex flex-col items-center gap-2">
             <div className="w-14 h-14 sm:w-16 sm:h-16 bg-emerald-600 rounded-full flex items-center justify-center hover:bg-emerald-700 transition shadow-md">
               <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M7 17L17 7M17 7H7M17 7V17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
             <span className="text-xs sm:text-sm font-medium text-gray-900">Send</span>
-          </button>
+          </Link>
           
           <button className="flex flex-col items-center gap-2">
             <div className="w-14 h-14 sm:w-16 sm:h-16 bg-teal-700 rounded-full flex items-center justify-center hover:bg-teal-800 transition shadow-md">
