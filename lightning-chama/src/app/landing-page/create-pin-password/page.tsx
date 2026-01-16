@@ -1,153 +1,205 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function CreatePinPasswordPage() {
-  const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    pin: "",
-    confirmPin: "",
-    agreed: false,
-  });
+export default function SetPinPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
+  // Phone passed from verify-number page
+  const msisdn = searchParams.get("phone");
 
-  const handleContinue = () => {
-    // Add your form submission logic here
-    console.log('Form submitted:', formData);
+  const [fullName, setFullName] = useState("");
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [agreed, setAgreed] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    setError("");
+
+    if (!msisdn) {
+      setError("Phone number missing.");
+      return;
+    }
+
+    if (!fullName || !pin || !confirmPin) {
+      setError("All fields are required.");
+      return;
+    }
+
+    // ✅ EXACTLY 4 DIGIT PIN
+    if (!/^\d{4}$/.test(pin)) {
+      setError("PIN must be exactly 4 digits.");
+      return;
+    }
+
+    if (pin !== confirmPin) {
+      setError("PINs do not match.");
+      return;
+    }
+
+    if (!agreed) {
+      setError("You must accept the terms & policy.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        "https://dada-devs-labs-dada-lab2.onrender.com/api/users/setup/sign-up",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            msisdn,
+            password: pin,
+            passwordReEntered: confirmPin,
+            username: fullName,
+            roles: ["USER"],
+            countries: ["KE"],
+            kyc: {},
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Failed to create account.");
+        return;
+      }
+
+      // ✅ Save token
+      localStorage.setItem("token", data.token);
+
+      // ✅ Success → Dashboard
+      router.push("/dashboard");
+
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <section className="w-full min-h-screen bg-gray-50 px-4 py-8 flex flex-col">
-      {/* Back to Home */}
-      <a
-        href="/"
-        className="flex items-center gap-2 text-gray-600 hover:text-gray-800 text-sm font-medium transition-colors"
-      >
-        <img src="/ic-left.svg" alt="Back" width="18" height="18" />
-        <span>Back to Home</span>
-      </a>
+    <section className="min-h-screen bg-white px-6 py-8 flex flex-col items-center">
 
-      {/* Main Content */}
-      <div className="flex flex-col items-center mt-8 mx-auto w-full max-w-md">
-        {/* Form Container with shadow */}
-        <div className="bg-white rounded-2xl shadow-sm px-8 py-10 w-full">
-          {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <img
-              src="/Ellipse 1.svg"
-              alt="ChamaVault Logo"
-              width="80"
-              height="80"
-              className="object-contain"
+      {/* Go Back */}
+      <div className="w-full max-w-md">
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 text-sm"
+        >
+          <Image src="/ic-left.svg" alt="Back" width={18} height={18} />
+          <span>Go Back</span>
+        </Link>
+      </div>
+
+      {/* Content */}
+      <div className="w-full max-w-md mt-10 text-center">
+
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <Image
+            src="/Ellipse 1.svg"
+            alt="ChamaVault Logo"
+            width={90}
+            height={90}
+          />
+        </div>
+
+        {/* Heading */}
+        <h1 className="text-2xl font-semibold text-gray-900">Set PIN</h1>
+        <p className="text-black mt-1">
+          Set PIN that will be used for transactions
+        </p>
+
+        {/* Form */}
+        <div className="mt-8 space-y-5 text-left">
+
+          {/* Full Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1">
+              Full Name
+            </label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3
+                         focus:outline-none focus:ring-2 focus:ring-emerald-600"
             />
           </div>
 
-          {/* Headings */}
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Create Account
-            </h1>
-            <p className="text-sm text-gray-600 mt-1">Create PIN/Password</p>
+          {/* PIN */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1">
+              Set PIN
+            </label>
+            <input
+              type="password"
+              maxLength={4}
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3
+                         focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            />
           </div>
 
-          {/* Form */}
-          <div className="w-full space-y-5">
-            {/* Full Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name
-              </label>
-              <input
-                type="text"
-                name="fullName"
-                placeholder="Enter your full name"
-                value={formData.fullName}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-              />
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                placeholder="example@mail.com"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-              />
-            </div>
-
-            {/* New PIN */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                New PIN
-              </label>
-              <input
-                type="password"
-                name="pin"
-                placeholder="••••"
-                maxLength={4}
-                value={formData.pin}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-              />
-            </div>
-
-            {/* Confirm PIN */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm PIN
-              </label>
-              <input
-                type="password"
-                name="confirmPin"
-                placeholder="••••"
-                maxLength={4}
-                value={formData.confirmPin}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-              />
-            </div>
-
-            {/* Terms */}
-            <div className="flex items-start gap-3 pt-2">
-              <input
-                type="checkbox"
-                name="agreed"
-                checked={formData.agreed}
-                onChange={handleChange}
-                className="mt-0.5 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 focus:ring-2 cursor-pointer"
-              />
-              <label htmlFor="agreed" className="text-sm text-gray-700 cursor-pointer">
-                I understand the{" "}
-                <span className="text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer">
-                  terms & policy
-                </span>
-              </label>
-            </div>
-
-            {/* Continue Button */}
-            <button
-              type="button"
-              onClick={handleContinue}
-              className="mt-6 w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 py-3.5 text-white text-sm font-semibold transition-colors shadow-sm"
-            >
-              Continue
-            </button>
+          {/* Confirm PIN */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1">
+              Confirm PIN
+            </label>
+            <input
+              type="password"
+              maxLength={4}
+              value={confirmPin}
+              onChange={(e) => setConfirmPin(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3
+                         focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            />
           </div>
+
+          {/* Terms */}
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-1 h-4 w-4 accent-emerald-600 cursor-pointer"
+            />
+            <p className="text-sm font-medium text-gray-900">
+              I understood the{" "}
+              <span className="text-emerald-600 cursor-pointer">
+                terms & policy
+              </span>
+            </p>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <p className="text-sm text-red-600">{error}</p>
+          )}
+
+          {/* Submit */}
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700
+                       disabled:opacity-60 text-white py-3 rounded-lg
+                       font-medium transition"
+          >
+            {loading ? "Processing..." : "Go to Dashboard"}
+          </button>
+
         </div>
       </div>
     </section>
