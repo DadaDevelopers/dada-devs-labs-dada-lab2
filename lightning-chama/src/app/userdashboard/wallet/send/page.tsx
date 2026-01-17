@@ -31,31 +31,32 @@ export default function SendPage() {
       <div className="h-6"></div>
       
       {/* Main Content */}
-      <div className="px-5 pt-24">
+      <div className="px-5 pt-32 pb-32 max-w-md mx-auto">
         {/* Back to Home */}
-      <a
-        href="/userdashboard/wallet"
-        className="flex items-center gap-2 text-gray-600 hover:text-gray-800 text-sm font-medium transition-colors"
-      >
-        <img src="/ic-left.svg" alt="Back" width="18" height="18" />
-        <span>Back</span>
-      </a>
-        <h1 className="text-3xl font-bold text-center text-gray-700 mb-12">Send</h1>
-
+      <div className='mt-20 mb-8'>
+        <a
+          href="/userdashboard/wallet"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-800 text-sm font-medium transition-colors"
+        >
+          <img src="/ic-left.svg" alt="Back" width="18" height="18" />
+          <span>Back</span>
+        </a>
+          <h1 className="text-3xl font-bold text-center text-gray-600 mb-12">Send</h1>
+      </div>
         {/* Form Container */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white px-6  py-4 rounded-2xl shadow-sm overflow-hidden">
           {/* To Field */}
           <div className="p-5 border-b">
-            <label className="text-sm font-medium text-gray-700 mb-2 block">
+            <label className="text-xl font-medium text-gray-700 mb-2 block">
               To
             </label>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 border border-emerald-300 rounded-xl px-4 py-3 mb-4">
               <input
                 type="text"
                 value={toAddress}
                 onChange={(e) => setToAddress(e.target.value)}
                 placeholder="2dg6TH...45yfghjil"
-                className="flex-1 text-gray-900 placeholder-gray-400 outline-none text-base"
+                className="flex-1 text-gray-900  placeholder-gray-400 outline-none text-base"
               />
               <button
                 onClick={handlePaste}
@@ -69,7 +70,7 @@ export default function SendPage() {
 
           {/* Amount Field */}
           <div className="p-5">
-            <label className="text-sm font-medium text-gray-700 mb-2 block">
+            <label className="text-xl font-medium text-gray-700 mb-4 block">
               Amount
             </label>
             <input
@@ -90,9 +91,9 @@ export default function SendPage() {
 
         {/* Continue Button */}
         <button 
-        onClick={() => setOpenConfirm(true)}
-        className="w-full mt-8 bg-green-600 hover:bg-green-700 text-white font-semibold py-4 rounded-2xl transition-colors">
-          Continue
+          onClick={() => setOpenConfirm(true)}
+          className="w-full mt-10 border-2 bg-emerald-500 hover:bg-emerald-600 text-white text-2xl font-semibold py-4 rounded-2xl transition-colors">
+            Continue
         </button>
       </div>
       {/* CONFIRM MODAL */}

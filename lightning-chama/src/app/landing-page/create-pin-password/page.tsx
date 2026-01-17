@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { Eye, EyeOff } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SetPinPage() {
@@ -18,6 +19,8 @@ export default function SetPinPage() {
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPin, setShowPin] = useState(false);
+  const [showConfirmPin, setShowConfirmPin] = useState(false);
 
   const handleSubmit = async () => {
     setError("");
@@ -32,7 +35,7 @@ export default function SetPinPage() {
       return;
     }
 
-    // ✅ EXACTLY 4 DIGIT PIN
+    //  EXACTLY 4 DIGIT PIN
     if (!/^\d{4}$/.test(pin)) {
       setError("PIN must be exactly 4 digits.");
       return;
@@ -75,11 +78,11 @@ export default function SetPinPage() {
         return;
       }
 
-      // ✅ Save token
+      // Save token
       localStorage.setItem("token", data.token);
 
-      // ✅ Success → Dashboard
-      router.push("/dashboard");
+      //  Success → Dashboard
+      router.push("/userdashboard");
 
     } catch (err) {
       setError("Something went wrong. Please try again.");
@@ -125,7 +128,7 @@ export default function SetPinPage() {
         <div className="mt-8 space-y-5 text-left">
 
           {/* Full Name */}
-          <div>
+          <div className="text-gray-600">
             <label className="block text-sm font-medium text-gray-900 mb-1">
               Full Name
             </label>
@@ -139,33 +142,47 @@ export default function SetPinPage() {
           </div>
 
           {/* PIN */}
-          <div>
+          <div className="text-gray-700 relative">
             <label className="block text-sm font-medium text-gray-900 mb-1">
               Set PIN
             </label>
             <input
-              type="password"
+              type={showPin ? "text" : "password"}
               maxLength={4}
               value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12
                          focus:outline-none focus:ring-2 focus:ring-emerald-600"
             />
+            <button
+              type="button"
+              onClick={() => setShowPin(!showPin)}
+              className="absolute right-4 top-[38px] text-gray-500 hover:text-emerald-600"
+            >
+              {showPin ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
 
           {/* Confirm PIN */}
-          <div>
+          <div className="text-gray-600 relative">
             <label className="block text-sm font-medium text-gray-900 mb-1">
               Confirm PIN
             </label>
             <input
-              type="password"
+              type={showConfirmPin ? "text" : "password"}
               maxLength={4}
               value={confirmPin}
-              onChange={(e) => setConfirmPin(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3
+              onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12
                          focus:outline-none focus:ring-2 focus:ring-emerald-600"
             />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPin(!showConfirmPin)}
+              className="absolute right-4 top-[38px] text-gray-500 hover:text-emerald-600"
+            >
+              {showConfirmPin ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
 
           {/* Terms */}
