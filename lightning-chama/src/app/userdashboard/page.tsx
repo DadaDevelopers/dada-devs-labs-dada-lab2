@@ -47,7 +47,7 @@ export default function Dashboard() {
           <Link href="/userdashboard/wallet">
             <button className="bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-3 hover:bg-emerald-50 transition flex flex-col items-center gap-2">
               <svg width="66" height="30" viewBox="0 0 31 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M9.04175 21.25L21.9584 8.75M21.9584 8.75H9.04175M21.9584 8.75V21.25" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9.04175 21.25L21.9584 8.75M21.9584 8.75H9.04175M21.9584 8.75V21.25" stroke="#059669" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
               <span className="text-xs sm:text-sm font-medium text-gray-900">Send</span>
             </button>
@@ -55,7 +55,7 @@ export default function Dashboard() {
           <Link href="/userdashboard/wallet">
             <button className="bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-3 hover:bg-emerald-50 transition flex flex-col items-center gap-2">
               <svg width="66" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M19 13.3333L12 20M12 20L5 13.3333M12 20L12 4" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M19 13.3333L12 20M12 20L5 13.3333M12 20L12 4" stroke="#059669" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
               <span className="text-xs sm:text-sm font-medium text-gray-900">Receive</span>
             </button>
