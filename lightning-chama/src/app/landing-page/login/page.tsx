@@ -43,11 +43,13 @@ export default function LoginPage() {
         return;
       }
 
-      // ✅ Save auth token
+      // Save auth token
       localStorage.setItem('token', data.token);
+      localStorage.setItem('userReference', data.user.userReference);
+      localStorage.setItem('msisdn', data.user.msisdn);
 
-      // ✅ Login success → Dashboard
-      router.push('/dashboard');
+      // Login success → Dashboard
+      router.push('/userdashboard');
 
     } catch (err) {
       setError('Failed to connect to server. Try again.');

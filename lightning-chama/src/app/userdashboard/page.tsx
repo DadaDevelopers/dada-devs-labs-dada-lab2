@@ -1,5 +1,6 @@
 'use client';
-import { ArrowUpRight, ArrowDownLeft, RefreshCw, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowUpRight, ArrowDownLeft, RefreshCw, Users, Check, Copy, X, Eye } from 'lucide-react';
 import BalanceHero from '@/components/BalanceHero';
 import { Navbar } from '@/components/Navbar';
 import Image from 'next/image';
@@ -9,36 +10,348 @@ import chama1 from '@/assets/chama1.svg';
 import chama2 from '@/assets/chama2.svg';
 import chama3 from '@/assets/chama3.svg';
 
-
 // Main Dashboard Component
 export default function Dashboard() {
-  const activities = [
-    { id: 1, action: "Joined Chama0", time: "1 hour ago" },
-    { id: 2, action: "Sent 0.0001 BTC", time: "2 hours ago" },
-    { id: 3, action: "Joined Chama0", time: "1 hour ago" },
-    { id: 4, action: "Sent 0.0001 BTC", time: "2 hours ago" },
-    { id: 5, action: "Sent 0.0001 BTC", time: "2 hours ago" },
-  ];
+  const [activities, setActivities] = useState<any[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+  const [activityError, setActivityError] = useState('');
 
-  const featuredChamas = [
-    { id: 0, name: 'chama0', image: chama0 },
-    { id: 1, name: 'chama1', image: chama1 },
-    { id: 2, name: 'chama2', image: chama2 },
-    { id: 3, name: 'chama3', image: chama3 },
-  ];
+  const [chamas, setChamas] = useState<any[]>([]);
+  const [loadingChamas, setLoadingChamas] = useState(true);
+  const [chamaError, setChamaError] = useState('');
+
+  const [selectedAction, setSelectedAction] = useState<any | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const [wallets, setWallets] = useState<any[]>([]);
+  const [loadingWallets, setLoadingWallets] = useState(true);
+  const [walletError, setWalletError] = useState('');
+
+  const [walletsExpanded, setWalletsExpanded] = useState(false);
+  const [selectedWalletRef, setSelectedWalletRef] = useState<string | 'ALL'>('ALL');
+  
+  // New state for wallet details modal
+  const [selectedWalletDetails, setSelectedWalletDetails] = useState<any | null>(null);
+  const [walletDetailsCopied, setWalletDetailsCopied] = useState('');
+
+  useEffect(() => {
+    const fetchChamas = async () => {
+      try {
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+          setChamaError('Not authenticated');
+          return;
+        }
+
+        const res = await fetch(
+          'https://dada-devs-labs-dada-lab2.onrender.com/chama',
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error('Failed to fetch chamas');
+        }
+
+        const data = await res.json();
+        setChamas(data.content || []);
+      } catch (err) {
+        setChamaError('Unable to load chamas');
+      } finally {
+        setLoadingChamas(false);
+      }
+    };
+
+    const fetchActivities = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const msisdn = localStorage.getItem('msisdn');
+
+        if (!token || !msisdn) {
+          setActivityError('Not authenticated');
+          return;
+        }
+
+        const res = await fetch(
+          `https://dada-devs-labs-dada-lab2.onrender.com/users/${msisdn}/profile`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error('Failed to fetch activities');
+        }
+
+        const data = await res.json();
+
+        // Sort newest first
+        const sortedActions = (data.actions || []).sort(
+          (a: any, b: any) =>
+            new Date(b.createdAt).getTime() -
+            new Date(a.createdAt).getTime()
+        );
+
+        setActivities(sortedActions);
+      } catch (err) {
+        setActivityError('Unable to load activities');
+      } finally {
+        setLoadingActivities(false);
+      }
+    };
+
+    const fetchWallets = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const ownerRef = localStorage.getItem('userReference'); // IMPORTANT
+
+        if (!token || !ownerRef) {
+          setWalletError('Not authenticated');
+          return;
+        }
+
+        const res = await fetch(
+          `https://dada-devs-labs-dada-lab2.onrender.com/wallets/${ownerRef}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!res.ok) throw new Error('Failed to fetch wallets');
+
+        const data = await res.json();
+        setWallets(data.content || []);
+      } catch (e) {
+        setWalletError('Unable to load wallets');
+      } finally {
+        setLoadingWallets(false);
+      }
+    };
+
+    const storedWallet = localStorage.getItem('selectedWalletRef');
+    if (storedWallet) setSelectedWalletRef(storedWallet);
+
+    fetchChamas();
+    fetchActivities();
+    fetchWallets();
+  }, []);
+
+  /* =========================
+     ESC KEY SUPPORT
+  ========================== */
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedAction(null);
+        setSelectedWalletDetails(null);
+      }
+    };
+    if (selectedAction || selectedWalletDetails) document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [selectedAction, selectedWalletDetails]);
+
+  /* =========================
+     HELPERS
+  ========================== */
+  const timeAgo = (date: string) => {
+    const seconds = Math.floor(
+      (Date.now() - new Date(date).getTime()) / 1000
+    );
+    const map: any = { year: 31536000, month: 2592000, day: 86400, hour: 3600, minute: 60 };
+    for (const k in map) {
+      const v = Math.floor(seconds / map[k]);
+      if (v >= 1) return `${v} ${k}${v > 1 ? 's' : ''} ago`;
+    }
+    return 'Just now';
+  };
+
+  const satsFromMsat = (msat?: string) =>
+    msat ? Math.floor(Number(msat) / 1000) : 0;
+
+  const selectedWalletBalance = selectedWalletRef === 'ALL'
+    ? wallets.reduce((sum, w) => sum + (w.balanceSats || 0), 0)
+    : wallets.find(w => w.walletReference === selectedWalletRef)?.balanceSats || 0;
+
+  const timesAgo = (date: string) => {
+    const seconds = Math.floor(
+      (Date.now() - new Date(date).getTime()) / 1000
+    );
+
+    const intervals: any = {
+      year: 31536000,
+      month: 2592000,
+      day: 86400,
+      hour: 3600,
+      minute: 60,
+    };
+
+    for (const key in intervals) {
+      const value = Math.floor(seconds / intervals[key]);
+      if (value >= 1) {
+        return `${value} ${key}${value > 1 ? 's' : ''} ago`;
+      }
+    }
+
+    return 'Just now';
+  };
+
+  const activityMeta = (activity: string) => {
+    switch (activity) {
+      case 'CREATED':
+      case 'USER_REQUEST_ACCEPTED':
+        return { icon: ArrowUpRight, color: 'bg-emerald-500' };
+
+      case 'WAITING':
+        return { icon: RefreshCw, color: 'bg-yellow-500' };
+
+      case 'USER_REQUEST_REJECTED':
+        return { icon: ArrowDownLeft, color: 'bg-red-500' };
+
+      default:
+        return { icon: Users, color: 'bg-orange-500' };
+    }
+  };
+
+  const statusBadge = (status: string) => {
+    switch (status) {
+      case 'WAITING':
+        return 'bg-yellow-100 text-yellow-700';
+      case 'USER_REQUEST_ACCEPTED':
+      case 'CREATED':
+      case 'STARTED':
+        return 'bg-emerald-100 text-emerald-700';
+      case 'USER_REQUEST_REJECTED':
+        return 'bg-red-100 text-red-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const copyComment = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  // New function to copy wallet details
+  const copyWalletDetail = async (text: string, field: string) => {
+    await navigator.clipboard.writeText(text);
+    setWalletDetailsCopied(field);
+    setTimeout(() => setWalletDetailsCopied(''), 1500);
+  };
+
+  const getCTA = (a: any) => {
+    if (a.activity === 'WAITING')
+      return { label: 'View Request', href: '/userdashboard/chama' };
+    if (a.activity === 'STARTED')
+      return { label: 'Make Contribution', href: '/userdashboard/chama' };
+    return null;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      < Navbar 
+      <Navbar 
         isAuthenticated={true}
         userName=''
-        />
+      />
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+        {/* Wallets */}
+        <div className="mt-13 -mb-18 relative text-[#191919]">
+          <button
+            onClick={() => setWalletsExpanded(!walletsExpanded)}
+            className="flex items-center justify-between w-full mb-3 bg-white px-4 py-2 rounded-xl shadow hover:bg-gray-50 transition"
+          >
+            <h2 className="text-sm font-semibold">My Wallets</h2>
+            <span
+              className={`text-xl transition-transform duration-300 ${
+                walletsExpanded ? 'rotate-90' : ''
+              }`}
+            >
+              ›
+            </span>
+          </button>
+
+          {/* Dropdown */}
+          <div
+            className={`absolute w-full bg-white rounded-xl shadow-sm divide-y overflow-hidden transition-all duration-300
+              ${walletsExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'} z-50`}
+          >
+            {/* ALL WALLETS */}
+            <div
+              onClick={() => {
+                setSelectedWalletRef('ALL');
+                localStorage.setItem('selectedWalletRef', 'ALL');
+                setWalletsExpanded(false);
+              }}
+              className={`p-4 cursor-pointer flex justify-between items-center
+                ${selectedWalletRef === 'ALL' ? 'bg-emerald-50' : 'hover:bg-gray-50'}`}
+            >
+              <span className="font-medium">All Wallets</span>
+              <span className="text-sm text-gray-600">
+                {wallets.reduce((s, w) => s + w.balanceSats, 0)} sats
+              </span>
+            </div>
+
+            {/* INDIVIDUAL WALLETS */}
+            {wallets.map(wallet => (
+              <div key={wallet.walletReference} className="p-4">
+                <div
+                  onClick={() => {
+                    setSelectedWalletRef(wallet.walletReference);
+                    localStorage.setItem('selectedWalletRef', wallet.walletReference);
+                    setWalletsExpanded(false);
+                  }}
+                  className={`cursor-pointer flex justify-between items-center
+                    ${selectedWalletRef === wallet.walletReference
+                      ? 'bg-emerald-50'
+                      : 'hover:bg-gray-50'} rounded-lg p-2 mb-2`}
+                >
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">
+                      {wallet.lightning?.name || wallet.walletType}
+                    </p>
+                    {selectedWalletRef === wallet.walletReference && (
+                      <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full">
+                        Active
+                      </span>
+                    )}
+                  </div>
+
+                  <span className="font-semibold text-sm">
+                    {wallet.balanceSats} sats
+                  </span>
+                </div>
+                
+                {/* View Details Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedWalletDetails(wallet);
+                    setWalletsExpanded(false);
+                  }}
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition"
+                >
+                  <Eye size={14} />
+                  View Details
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Balance Hero Section */}
         <BalanceHero 
-          btcAmount="0.00043" 
-          kshAmount="4,996.12" 
+          btcAmount={(selectedWalletBalance / 100_000_000).toFixed(6)} 
+          kshAmount={(selectedWalletBalance * 120).toFixed(2)}  
           className="mb-6"
         />
 
@@ -47,7 +360,7 @@ export default function Dashboard() {
           <Link href="/userdashboard/wallet">
             <button className="bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-3 hover:bg-emerald-50 transition flex flex-col items-center gap-2">
               <svg width="66" height="30" viewBox="0 0 31 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M9.04175 21.25L21.9584 8.75M21.9584 8.75H9.04175M21.9584 8.75V21.25" stroke="#059669" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9.04175 21.25L21.9584 8.75M21.9584 8.75H9.04175M21.9584 8.75V21.25" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span className="text-xs sm:text-sm font-medium text-gray-900">Send</span>
             </button>
@@ -55,7 +368,7 @@ export default function Dashboard() {
           <Link href="/userdashboard/wallet">
             <button className="bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-3 hover:bg-emerald-50 transition flex flex-col items-center gap-2">
               <svg width="66" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M19 13.3333L12 20M12 20L5 13.3333M12 20L12 4" stroke="#059669" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M19 13.3333L12 20M12 20L5 13.3333M12 20L12 4" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span className="text-xs sm:text-sm font-medium text-gray-900">Receive</span>
             </button>
@@ -65,10 +378,10 @@ export default function Dashboard() {
               <svg width="40" height="29" viewBox="0 0 40 29" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M38.0986 8.16406V19.5693L25.0781 24.0156L14.252 19.4648L14.1191 19.7773L13.5391 19.8643V23.8096L7.26953 27.6631L1 23.8086V16.042L4.42969 13.9336L4.59082 13.834L4.64648 13.6533L6.03613 9.0918L13.4277 1.91113L27.458 1.00977L38.0986 8.16406ZM14.5918 6.57031L7.82227 11.5264H6.19434L7.7002 12.4521L13.5391 16.041V17.5303L14.333 16.9521L15.8643 15.8379L24.1064 17.6396L24.501 17.7256L24.668 17.3594L27.2061 11.8066L27.3105 11.5771L27.1885 11.3574L24.6328 6.73145L24.4893 6.47363H14.7236L14.5918 6.57031Z" fill="white" stroke="#059669"/>
               <path d="M13.5391 23.809L7.26953 27.6625L1.4541 24.0873L13.5391 16.6556V23.809Z" fill="#BBD8FF" stroke="#059669"/>
-              <path d="M8.98086 16.182H5.59734L4.75146 18.0315L5.59734 19.881H8.98086L9.82673 21.7305L8.98086 23.5818H5.59734M7.2891 16.182V15.2572M7.2891 24.5066V23.5818" stroke="#059669" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M14.0577 23.5818V24.0442L7.28902 28.2056L0.516918 24.0442L0.5 15.7621L7.26703 11.6007L11.8686 14.2788" stroke="#059669" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M7.98584 12.0169L14.8865 6.97327H24.1946L26.7508 11.5989L24.2132 17.1511L15.751 15.3016L13.2134 17.1511L14.0592 19.9254L25.059 24.551L38.5982 19.9272" stroke="#059669" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M38.5986 7.89803L27.5971 0.5L13.2121 1.42475L5.59581 8.82278L4.16797 13.5076" stroke="#059669" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M8.98086 16.182H5.59734L4.75146 18.0315L5.59734 19.881H8.98086L9.82673 21.7305L8.98086 23.5818H5.59734M7.2891 16.182V15.2572M7.2891 24.5066V23.5818" stroke="#059669" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M14.0577 23.5818V24.0442L7.28902 28.2056L0.516918 24.0442L0.5 15.7621L7.26703 11.6007L11.8686 14.2788" stroke="#059669" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M7.98584 12.0169L14.8865 6.97327H24.1946L26.7508 11.5989L24.2132 17.1511L15.751 15.3016L13.2134 17.1511L14.0592 19.9254L25.059 24.551L38.5982 19.9272" stroke="#059669" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M38.5986 7.89803L27.5971 0.5L13.2121 1.42475L5.59581 8.82278L4.16797 13.5076" stroke="#059669" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span className="text-xs sm:text-sm font-medium text-gray-900">Contribute</span>
             </button>
@@ -76,7 +389,7 @@ export default function Dashboard() {
           <Link href="/userdashboard/chama">
             <button className="bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-3 hover:bg-emerald-50 transition flex flex-col items-center gap-2">
               <svg width="29" height="27" viewBox="0 0 29 27" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10.735 10.1354C13.2399 10.1354 15.2705 7.97846 15.2705 5.31771C15.2705 2.65696 13.2399 0.5 10.735 0.5C8.23008 0.5 6.19946 2.65696 6.19946 5.31771C6.19946 7.97846 8.23008 10.1354 10.735 10.1354Z" stroke="#059669" stroke-linecap="round"/>
+              <path d="M10.735 10.1354C13.2399 10.1354 15.2705 7.97846 15.2705 5.31771C15.2705 2.65696 13.2399 0.5 10.735 0.5C8.23008 0.5 6.19946 2.65696 6.19946 5.31771C6.19946 7.97846 8.23008 10.1354 10.735 10.1354Z" stroke="#059669" strokeLinecap="round"/>
               <path d="M17.5706 6.28126C17.8071 5.83939 18.1236 5.45159 18.5018 5.14016C18.8799 4.82874 19.3124 4.59985 19.7742 4.46668C20.236 4.3335 20.718 4.29867 21.1925 4.36418C21.6671 4.4297 22.1247 4.59427 22.5391 4.84842C22.9535 5.10257 23.3165 5.44128 23.6072 5.84504C23.8978 6.24881 24.1104 6.70966 24.2327 7.20107C24.3551 7.69247 24.3846 8.20472 24.3198 8.70832C24.255 9.21192 24.097 9.69693 23.855 10.1354C23.3705 11.0134 22.5786 11.6522 21.6523 11.9123C20.726 12.1725 19.7404 12.0329 18.9106 11.524C18.0808 11.0151 17.4742 10.1782 17.2232 9.19603C16.9722 8.21382 17.097 7.16601 17.5706 6.28126Z" stroke="#059669"/>
               <path d="M18.3984 25.0885V26.0153H3.07129V25.0885H18.3984ZM1.36328 24.2194C1.46139 24.5575 1.70983 24.8504 2.07129 24.9938V25.9498C1.24711 25.7399 0.573919 25.0257 0.505859 24.0739L1.36328 24.2194ZM20.9629 24.0739C20.8941 25.0259 20.2219 25.7398 19.3984 25.9498V24.9938C19.7596 24.8504 20.0063 24.5573 20.1045 24.2194L20.9629 24.0739ZM10.2344 14.4635C6.94337 14.5994 4.8723 16.0756 3.55371 17.8776C2.29373 19.5989 1.69698 21.6514 1.41406 23.2135L0.608398 23.0758C0.903126 21.4213 1.54055 19.1836 2.92773 17.2848L2.92676 17.2838C4.40402 15.267 6.70194 13.6734 10.2344 13.5358V14.4635ZM11.2344 13.5358C14.7675 13.6732 17.0647 15.2679 18.542 17.2867V17.2877C19.9302 19.1842 20.5648 21.4223 20.8594 23.0758L20.0547 23.2135C19.7718 21.6501 19.176 19.5989 17.916 17.8776C16.5956 16.0736 14.5257 14.5991 11.2344 14.4635V13.5358Z" fill="#090909" stroke="#059669"/>
               <path d="M25.4651 25.0889V26.0156H21.1565C21.4024 25.7487 21.6029 25.4366 21.7434 25.0889H25.4651ZM28.0579 23.8594C28.0704 24.8982 27.3614 25.7218 26.4651 25.9502V24.9961C26.8784 24.8345 27.1422 24.478 27.2161 24.083L28.0579 23.8594ZM20.6155 25.0889C20.3281 25.5188 19.8911 25.8236 19.3987 25.9492V25.0889H20.6155ZM20.9602 24.0889H20.8762L20.9622 24.0732C20.9618 24.0785 20.9606 24.0836 20.9602 24.0889ZM18.886 17.7871C20.0384 19.569 20.5923 21.5666 20.8616 23.0762L20.0559 23.2129C19.7915 21.7536 19.2511 19.8719 18.1584 18.2295L18.3938 18.0713C18.5498 17.9663 18.7138 17.8713 18.886 17.7871ZM21.2131 15.4736C23.3163 15.6382 24.8273 16.8345 25.8889 18.3369V18.3359C26.9028 19.7735 27.5135 21.4914 27.8762 22.873L27.0823 23.084C26.7356 21.7799 26.168 20.2077 25.2542 18.917H25.2532C24.3164 17.5907 23.022 16.5648 21.2131 16.4043V15.4736ZM18.2581 16.916C18.2716 16.9328 18.2847 16.9499 18.2981 16.9668C18.2947 16.9686 18.2917 16.9709 18.2883 16.9727L18.2561 16.918L18.2581 16.916ZM17.0002 16.7676L16.9885 16.7793L16.9651 16.7529L16.9836 16.7402L17.0002 16.7676ZM20.2131 16.4023C19.8778 16.4321 19.5616 16.4939 19.262 16.5791C19.0732 16.3279 18.8724 16.0816 18.6575 15.8428L18.636 15.8184C19.122 15.6369 19.6467 15.517 20.2131 15.4727V16.4023Z" fill="#090909" stroke="#059669"/>
@@ -85,60 +398,241 @@ export default function Dashboard() {
             </button>
           </Link>
         </div>
+        
         {/* Featured Chamas */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xm font-semibold text-[#191919]">Featured Chamas</h2>
+            <h2 className="text-xm font-semibold text-[#191919]">
+              Featured Chamas
+            </h2>
             <Link href="/userdashboard/chama/discover">
               <button className="text-[#3B82F6] text-sm font-medium hover:text-emerald-700">
                 View more
               </button>
             </Link>
           </div>
-          <div className="grid grid-cols-4 gap-4 md:gap-6">
-            {featuredChamas.map((chama) => (
-                <div key={chama.id} className="flex flex-col items-center gap-2">
 
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-full overflow-hidden cursor-pointer hover:scale-105 transition shadow-sm">
-                    <Image
-                    src={chama.image}
-                    alt={chama.name}
-                    className="object-cover"
-                    priority={chama.id === 0}
-                    />
-                </div>
+          {loadingChamas && (
+            <p className="text-sm text-gray-500">Loading chamas...</p>
+          )}
 
-                <span className="text-xs md:text-sm text-gray-700">
-                    {chama.name}
-                </span>
-                </div>
-            ))}
+          {chamaError && (
+            <p className="text-sm text-red-600">{chamaError}</p>
+          )}
+
+          {!loadingChamas && !chamaError && (
+            <div className="grid grid-cols-4 gap-4 md:gap-6">
+              {chamas.slice(0, 4).map((chama) => (
+                <Link
+                  key={chama.chamaReference}
+                  href={`/userdashboard/chama/${chama.chamaReference}`}
+                >
+                  <div className="flex flex-col items-center gap-2 cursor-pointer">
+                    <div className="w-14 h-14 md:w-16 md:h-16 rounded-full overflow-hidden shadow-sm hover:scale-105 transition">
+                      <img
+                        src={chama.iconUrl || '/placeholder.png'}
+                        alt={chama.name}
+                        width={64}
+                        height={64}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <span className="text-xs md:text-sm text-gray-700 text-center">
+                      {chama.name}
+                    </span>
+                  </div>
+                </Link>
+              ))}
             </div>
+          )}
         </div>
 
         {/* Recent Activities */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xm font-semibold text-[#191919]">Recent Activities</h2>
+            <h2 className="text-xm font-semibold text-[#191919]">
+              Recent Activities
+            </h2>
             <button className="text-[#3B82F6] text-sm font-medium hover:text-emerald-700">
-              See all
+              See all 
             </button>
           </div>
-          <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
-            {activities.map((activity) => (
-              <div key={activity.id} className="flex items-center gap-4 p-4 hover:bg-gray-50 transition">
-                <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center shrink-0">
-                  <ArrowUpRight className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm md:text-base font-medium text-gray-900">{activity.action}</p>
-                  <p className="text-xs md:text-sm text-gray-500">{activity.time}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+
+          {loadingActivities && (
+            <p className="text-sm text-gray-500">Loading activities...</p>
+          )}
+
+          {activityError && (
+            <p className="text-sm text-red-600">{activityError}</p>
+          )}
+
+          {!loadingActivities && !activityError && (
+            <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
+              {activities.slice(0, 5).map((item, index) => {
+                const { icon: Icon, color } = activityMeta(item.activity);
+
+                return (
+                  <div
+                    key={index}
+                    onClick={() => setSelectedAction(item)}
+                    className="flex items-center gap-4 p-4 hover:bg-gray-50 transition"
+                  >
+                    <div
+                      className={`w-10 h-10 ${color} rounded-full flex items-center justify-center shrink-0`}
+                    >
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm md:text-base font-medium text-gray-900">
+                        {item.action}
+                      </p>
+                      <p className="text-xs md:text-sm text-gray-500 truncate">
+                        {item.description}
+                      </p>
+                    </div>
+
+                    <span className="text-xs text-gray-400 whitespace-nowrap">
+                      {timeAgo(item.createdAt)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </main>
+
+      {/* ================= ACTIVITY MODAL ================= */}
+      {selectedAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center text-[#191919]">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn"
+            onClick={() => setSelectedAction(null)}
+          />
+          <div className="relative bg-white rounded-xl p-6 w-[92%] max-w-md animate-scaleIn">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-semibold">Activity Details</h3>
+                <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-xs ${statusBadge(selectedAction.activity)}`}>
+                  {selectedAction.activity}
+                </span>
+              </div>
+              <button onClick={() => setSelectedAction(null)}>
+                <X />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <p><strong>Action:</strong> {selectedAction.action}</p>
+              <p><strong>Description:</strong> {selectedAction.description}</p>
+              <p><strong>Reason:</strong> {selectedAction.reason}</p>
+
+              <div className="flex gap-2 items-start">
+                <p className="flex-1"><strong>Comment:</strong> {selectedAction.comment}</p>
+                <button onClick={() => copyComment(selectedAction.comment)}>
+                  {copied ? <Check size={16} /> : <Copy size={16} />}
+                </button>
+              </div>
+
+              <p><strong>Deadline:</strong> {new Date(selectedAction.deadline).toLocaleString()}</p>
+            </div>
+
+            {getCTA(selectedAction) && (
+              <Link
+                href={getCTA(selectedAction)!.href}
+                className="block mt-6 text-center bg-emerald-600 text-white py-2 rounded-lg"
+              >
+                {getCTA(selectedAction)!.label}
+              </Link>
+            )}
+
+            <button
+              onClick={() => setSelectedAction(null)}
+              className="mt-3 w-full border rounded-lg py-2"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= WALLET DETAILS MODAL ================= */}
+      {selectedWalletDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center text-[#191919]">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn"
+            onClick={() => setSelectedWalletDetails(null)}
+          />
+          <div className="relative bg-white rounded-xl p-6 w-[92%] max-w-md animate-scaleIn max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-semibold">Wallet Details</h3>
+                <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-xs ${
+                  selectedWalletDetails.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'
+                }`}>
+                  {selectedWalletDetails.active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+              <button onClick={() => setSelectedWalletDetails(null)}>
+                <X />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <div className="flex gap-2 items-start">
+                <p className="flex-1"><strong>Wallet Reference:</strong> {selectedWalletDetails.walletReference}</p>
+                <button onClick={() => copyWalletDetail(selectedWalletDetails.walletReference, 'walletRef')}>
+                  {walletDetailsCopied === 'walletRef' ? <Check size={16} /> : <Copy size={16} />}
+                </button>
+              </div>
+              
+              <p><strong>Wallet Type:</strong> {selectedWalletDetails.walletType}</p>
+              <p><strong>Balance:</strong> {selectedWalletDetails.balanceSats} sats</p>
+              
+              {selectedWalletDetails.lightning && (
+                <>
+                  <p><strong>Lightning Wallet Name:</strong> {selectedWalletDetails.lightning.name}</p>
+                  
+                  <div className="flex gap-2 items-start">
+                    <p className="flex-1"><strong>Lightning ID:</strong> {selectedWalletDetails.lightning.id}</p>
+                    <button onClick={() => copyWalletDetail(selectedWalletDetails.lightning.id, 'lightningId')}>
+                      {walletDetailsCopied === 'lightningId' ? <Check size={16} /> : <Copy size={16} />}
+                    </button>
+                  </div>
+                  
+                  <div className="flex gap-2 items-start">
+                    <p className="flex-1"><strong>Inkey:</strong> {selectedWalletDetails.lightning.inkey}</p>
+                    <button onClick={() => copyWalletDetail(selectedWalletDetails.lightning.inkey, 'inkey')}>
+                      {walletDetailsCopied === 'inkey' ? <Check size={16} /> : <Copy size={16} />}
+                    </button>
+                  </div>
+                  
+                  <div className="flex gap-2 items-start">
+                    <p className="flex-1"><strong>Admin Key:</strong> {selectedWalletDetails.lightning.adminkey}</p>
+                    <button onClick={() => copyWalletDetail(selectedWalletDetails.lightning.adminkey, 'adminkey')}>
+                      {walletDetailsCopied === 'adminkey' ? <Check size={16} /> : <Copy size={16} />}
+                    </button>
+                  </div>
+                  
+                  <p><strong>Currency:</strong> {selectedWalletDetails.lightning.currency}</p>
+                  <p><strong>Balance (msat):</strong> {selectedWalletDetails.lightning.balance_msat}</p>
+                </>
+              )}
+              
+              <p><strong>Created At:</strong> {new Date(selectedWalletDetails.createdAt).toLocaleString()}</p>
+              <p><strong>Updated At:</strong> {new Date(selectedWalletDetails.updatedAt).toLocaleString()}</p>
+            </div>
+
+            <button
+              onClick={() => setSelectedWalletDetails(null)}
+              className="mt-6 w-full border rounded-lg py-2"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
