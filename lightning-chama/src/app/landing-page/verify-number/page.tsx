@@ -3,10 +3,19 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function VerifyNumber() {
-  const [otp, setOtp] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // phone passed from create-account page
+  const phone = searchParams.get("phone");
+
+  const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
   const [timer, setTimer] = useState(25);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // Countdown timer
   useEffect(() => {
@@ -15,66 +24,135 @@ export default function VerifyNumber() {
     return () => clearInterval(interval);
   }, [timer]);
 
+  const handleChange = (value: string, index: number) => {
+    if (!/^\d?$/.test(value)) return;
+
+    const updatedOtp = [...otp];
+    updatedOtp[index] = value;
+    setOtp(updatedOtp);
+
+    if (value && index < 5) {
+      document.getElementById(`otp-${index + 1}`)?.focus();
+    }
+  };
+
+  const handleVerify = async () => {
+  setError("");
+
+  const code = otp.join("");
+  if (code.length !== 6) {
+    setError("Please enter the full 6-digit code.");
+    return;
+  }
+
+  if (!phone) {
+    setError("Phone number missing.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await fetch(
+      "https://dada-devs-labs-dada-lab2.onrender.com/codes/pre-registration/code-validation",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ownerMsisdn: phone,
+          code,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError("Invalid or expired code.");
+      return;
+    }
+
+    // SUCCESS
+    // PASS PHONE TO NEXT STEP
+router.push(
+  `/landing-page/create-pin-password?phone=${encodeURIComponent(phone)}`
+);
+
+  } catch (err) {
+    setError("Failed to connect to server. Try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
   return (
-    <section className="min-h-screen w-full bg-white px-6 py-8 flex flex-col items-center">
+    <section className="min-h-screen bg-white flex justify-center px-4">
+      <div className="w-full max-w-sm pt-6">
 
-      <div className="w-full max-w-md flex items-center">
-        <Link 
-          href="/" 
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
-        >
-          <Image src="/ic-left.svg" width={20} height={20} alt="Back" />
-          <span className="text-sm">Back to Home</span>
-        </Link>
-      </div>
+        {/* Go Back */}
+        <div className="flex items-center mb-6">
+          <Link href="/" className="flex items-center gap-2 text-gray-600">
+            <Image src="/ic-left.svg" width={20} height={20} alt="Back" />
+            <span className="text-sm">Go Back</span>
+          </Link>
+        </div>
 
-      <div className="mt-8 w-full max-w-md text-center">
-
-        <div className="flex justify-center">
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
           <Image
             src="/Ellipse 1.svg"
-            width={95}
-            height={95}
+            width={90}
+            height={90}
             alt="ChamaVault Logo"
           />
         </div>
 
-        <h2 className="text-2xl font-bold text-black mt-5">
-          Create Account
-        </h2>
-
-        <p className="text-black text-sm mt-1">
-          Verify your number
-        </p>
-
-        <div className="mt-8 w-full text-left">
-          <label className="text-black text-sm font-medium">
-            6-digit OTP input
-          </label>
-
-          <input
-            type="text"
-            maxLength={6}
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            placeholder="Enter the 6-digit code sent to +254 7XX XXXXXX"
-            className="w-full mt-2 p-3 border border-gray-300 rounded-xl text-black placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#059669]"
-          />
-
-          <p className="text-gray-500 text-xs mt-2">
-            Resend code in {timer}s
+        {/* Headings */}
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-semibold text-gray-900">
+            Verify Phone Number
+          </h1>
+          <p className="text-black mt-1">
+            Enter the 6 digit code sent to your number
           </p>
         </div>
 
-        <button
-          className="w-full mt-8 bg-[#059669] text-white py-3 rounded-xl font-semibold text-base hover:bg-[#047857] transition"
-        >
-          Verify
-        </button>
+        {/* OTP Inputs */}
+        <div className="flex justify-between gap-2 mb-3">
+          {otp.map((digit, index) => (
+            <input
+              key={index}
+              id={`otp-${index}`}
+              type="text"
+              maxLength={1}
+              value={digit}
+              onChange={(e) => handleChange(e.target.value, index)}
+              className="w-12 h-12 text-center text-gray-700 border border-gray-300 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            />
+          ))}
+        </div>
 
-        <p className="text-[#059669] text-sm mt-4 cursor-pointer">
-          Wrong number?
+        {/* Error */}
+        {error && (
+          <p className="text-sm text-red-600 text-center mb-3">
+            {error}
+          </p>
+        )}
+
+        {/* Resend */}
+        <p className="text-center text-xs text-gray-500 mb-6">
+          Resend code in <span className="text-emerald-600">{timer}s</span>
         </p>
+
+        {/* Continue Button */}
+        <button
+          onClick={handleVerify}
+          disabled={loading}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white py-3 rounded-lg font-medium transition"
+        >
+          {loading ? "Verifying..." : "Continue"}
+        </button>
 
       </div>
     </section>

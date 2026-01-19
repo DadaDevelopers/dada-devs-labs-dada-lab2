@@ -7,6 +7,7 @@ export default function WhyChooseChama() {
     <section className="w-full bg-white py-16 md:py-24 px-6">
       <div className="max-w-4xl mx-auto">
         
+        {/* Title */}
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 text-center">
           Why Choose ChamaVault?
         </h2>
@@ -58,7 +59,7 @@ export default function WhyChooseChama() {
 
           {/* Secure Transactions */}
           <div className="flex items-start gap-6 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-            <div className="w-28 h-28 bg-gray-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <div className="w-28 h-28 bg-gray-100 rounded-2xl flex items-center justify-center shrink-0">
               <Image
                 src="/secure-transactions.svg"
                 width={48}
