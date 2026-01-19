@@ -73,7 +73,7 @@ export default function Dashboard() {
               <span className="text-xs sm:text-sm font-medium text-gray-900">Contribute</span>
             </button>
           </Link>
-          <Link href="/userdashboard/mychama">
+          <Link href="/userdashboard/chama">
             <button className="bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-3 hover:bg-emerald-50 transition flex flex-col items-center gap-2">
               <svg width="29" height="27" viewBox="0 0 29 27" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M10.735 10.1354C13.2399 10.1354 15.2705 7.97846 15.2705 5.31771C15.2705 2.65696 13.2399 0.5 10.735 0.5C8.23008 0.5 6.19946 2.65696 6.19946 5.31771C6.19946 7.97846 8.23008 10.1354 10.735 10.1354Z" stroke="#059669" stroke-linecap="round"/>
@@ -89,9 +89,11 @@ export default function Dashboard() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xm font-semibold text-[#191919]">Featured Chamas</h2>
-            <button className="text-[#3B82F6] text-sm font-medium hover:text-emerald-700">
-              View more
-            </button>
+            <Link href="/userdashboard/chama/discover">
+              <button className="text-[#3B82F6] text-sm font-medium hover:text-emerald-700">
+                View more
+              </button>
+            </Link>
           </div>
           <div className="grid grid-cols-4 gap-4 md:gap-6">
             {featuredChamas.map((chama) => (
