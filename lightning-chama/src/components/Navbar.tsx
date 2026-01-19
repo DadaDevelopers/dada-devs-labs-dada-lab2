@@ -23,7 +23,7 @@ export function Navbar({ isAuthenticated = false, userName = '',}: NavbarProps) 
 
   const dashboardNavItems = [
     { label: 'Dashboard', href: '/userdashboard' },
-    { label: 'Chama', href: '/chama' },
+    { label: 'Chama', href: '/userdashboard/chama' },
     { label: 'Wallet', href: '/userdashboard/wallet' },
     { label: 'Profile Settings', href: '/profile' },
     { label: 'Logout', href: '/landing-page' },
