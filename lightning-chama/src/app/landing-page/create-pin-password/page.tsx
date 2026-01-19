@@ -80,6 +80,8 @@ export default function SetPinPage() {
 
       // Save token
       localStorage.setItem("token", data.token);
+      localStorage.setItem('userReference', data.user.userReference);
+      localStorage.setItem('msisdn', data.user.msisdn);
 
       //  Success → Dashboard
       router.push("/userdashboard");
