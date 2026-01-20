@@ -62,6 +62,12 @@ public class ChamaController {
         return ResponseEntity.ok(chamaInviteDTOS);
     }
 
+    @GetMapping("/{chamaReference}/members-by-status/{status}")
+    public ResponseEntity<List<ChamaMember>> findMembersByChamaAndStatus(@PathVariable UUID chamaReference,
+                                                                         @PathVariable MembershipStatus status) {
+        return ResponseEntity.ok(chamaService.findMembersByChamaAndStatus(chamaReference, status));
+    }
+
     @PostMapping("/join/invite")
     public ResponseEntity<ChamaMember> joinChamaByInviteCode(@RequestBody JoinChamaByInviteCodeDTO joinChama) {
         return ResponseEntity.ok(chamaService.joinChamaByInviteCode(joinChama));
