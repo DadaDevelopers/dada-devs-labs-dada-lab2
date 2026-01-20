@@ -157,6 +157,10 @@ public class ChamaService {
                 .findChamasByUserMsisdn(msisdn, status);
     }
 
+    public List<ChamaMember> findMembersByChamaAndStatus(UUID chamaId, MembershipStatus status) {
+        return chamaMemberRepository.findMembersByChamaAndStatus(chamaId, status);
+    }
+
     public ChamaInvite generateChamaInvite(CreateChamaInviteDTO chamaInviteDTO) {
         //check chama exists
         Chama chama = chamaRepository.findById(chamaInviteDTO.getChamaReferenceId()).orElseThrow(() ->
