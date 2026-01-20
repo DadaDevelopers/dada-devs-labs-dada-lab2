@@ -300,7 +300,8 @@ public class ChamaService {
 
     //need to add functionality that admin only
     public ChamaMember approveUserRequestToJoinChama(UUID chamaId, String approverPhone, UUID prospectId,
-                                                     MembershipStatus status) {
+                                                     MembershipStatus status, String action) {
+
         //fetch user
         User approver = userRepository.findByMsisdn(approverPhone).orElseThrow(() ->
                 new RuntimeException("Approver does not exist in the system"));
@@ -311,6 +312,11 @@ public class ChamaService {
         //check chama member
         ChamaMember chamaMember = chamaMemberRepository.findByUserAndChama(approver, chama).orElseThrow(() ->
                 new RuntimeException("Approver passed is not a member of the chama"));
+
+        if (!action.equalsIgnoreCase("approve")) {
+            log.info("Not Approve chama member");
+            return chamaMember;
+        }
 
         //only admins get to approve
         if (chamaMember.getRole() != ChamaRole.ADMIN)
