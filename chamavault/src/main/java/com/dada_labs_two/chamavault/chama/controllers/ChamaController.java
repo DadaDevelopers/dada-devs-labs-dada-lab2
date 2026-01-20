@@ -87,12 +87,14 @@ public class ChamaController {
         return ResponseEntity.ok(chamaService.fetchChamaMembersByStatus(pageable, chamaReferenceId, status));
     }
 
-    @PostMapping("/{chamaId}/members/{memberId}/approve")
+    @PostMapping("/{chamaId}/members/{memberId}/{action}")
     public ResponseEntity<ChamaMember> approveUserRequestToJoinChama(@PathVariable UUID chamaId,
+                                                                     @PathVariable String action,
                                                                      @RequestParam String approverPhone,
                                                                      @PathVariable UUID memberId,
                                                                      @RequestParam MembershipStatus status) {
-        return ResponseEntity.ok(chamaService.approveUserRequestToJoinChama(chamaId, approverPhone, memberId, status));
+        return ResponseEntity.ok(chamaService.approveUserRequestToJoinChama(
+                chamaId, approverPhone, memberId, status, action));
     }
 
 
