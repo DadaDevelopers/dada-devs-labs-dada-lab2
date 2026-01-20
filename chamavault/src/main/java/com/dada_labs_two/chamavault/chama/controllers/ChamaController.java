@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -33,6 +34,13 @@ public class ChamaController {
     @GetMapping
     public ResponseEntity<Page<Chama>> getAllChamas(Pageable pageable, @RequestParam(required = false) ChamaVisibility visibility) {
         return ResponseEntity.ok(chamaService.getChamas(pageable, visibility));
+    }
+
+    @
+    GetMapping("/{msisdn}/status/{status}")
+    public ResponseEntity<List<Chama>> findChamasByUserMsisdnAndStatus(@PathVariable String msisdn,
+                                                                       @PathVariable MembershipStatus status) {
+        return ResponseEntity.ok(chamaService.findChamasByUserMsisdn(msisdn, status));
     }
 
     @PostMapping("/create/invite")

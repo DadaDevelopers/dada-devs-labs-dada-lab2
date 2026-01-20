@@ -152,6 +152,11 @@ public class ChamaService {
         return chamaRepository.findAllByVisibility(pageable, visibility);
     }
 
+    public List<Chama> findChamasByUserMsisdn(String msisdn, MembershipStatus status) {
+        return chamaMemberRepository
+                .findChamasByUserMsisdn(msisdn, status);
+    }
+
     public ChamaInvite generateChamaInvite(CreateChamaInviteDTO chamaInviteDTO) {
         //check chama exists
         Chama chama = chamaRepository.findById(chamaInviteDTO.getChamaReferenceId()).orElseThrow(() ->
