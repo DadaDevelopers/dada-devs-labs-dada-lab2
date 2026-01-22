@@ -4,6 +4,8 @@ import com.dada_labs_two.chamavault.chama.models.Chama;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRepository;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
+import com.dada_labs_two.chamavault.users.models.User;
+import com.dada_labs_two.chamavault.users.repository.UserRepository;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import com.dada_labs_two.chamavault.wallets.dtos.CreateWalletDTO;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
@@ -25,9 +27,41 @@ public class WalletService {
     private final LightningWalletService lightningWalletService;
     private final WalletRepository walletRepository;
     private final ChamaRepository chamaRepository;
+    private final UserRepository userRepository;
 
     public Page<Wallet> findAllByOwnerReference(Pageable pageable, UUID ownerReference) {
         return walletRepository.findAllByOwnerReference(pageable, ownerReference);
+    }
+
+    public Wallet createUserWallet(String msisdn, String walletName) {
+        User user = userRepository.findByMsisdn(msisdn).orElseThrow(() ->
+                new RuntimeException("User is not registered in the system"));
+
+        Wallet wallet = walletRepository.save(
+                Wallet.builder()
+                        .walletType(WalletType.PERSONAL)
+                        .ownerReference(user.getUserReference())
+                        .balanceSats(0L)
+                        .active(true)
+                        .build()
+        );
+
+        WalletResponse lw= lightningWalletService.createUserWallet(walletName);
+        log.info("LW created user wallet: {}", lw);
+        Map<String, String> lightningMap = new HashMap<>();
+        lightningMap.put("id", lw.id());
+        lightningMap.put("name", lw.name());
+        lightningMap.put("adminkey", lw.adminkey());
+        lightningMap.put("invoice_key", lw.invoice_key());
+        lightningMap.put("wallet_type", lw.wallet_type());
+        lightningMap.put("inkey", lw.inkey());
+        lightningMap.put("shared_wallet_id", lw.shared_wallet_id());
+        lightningMap.put("currency", lw.currency());
+        lightningMap.put("balance_msat", lw.balance_msat());
+        wallet.setLightning(lightningMap);
+        wallet = walletRepository.save(wallet);
+
+        return wallet;
     }
 
     public Wallet createWallet(CreateWalletDTO createWalletDTO) {

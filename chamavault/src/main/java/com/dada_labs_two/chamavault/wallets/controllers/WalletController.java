@@ -18,9 +18,14 @@ import java.util.UUID;
 public class WalletController {
     private final WalletService walletService;
 
-    @PostMapping
-    ResponseEntity<Wallet> createWallet(@RequestBody CreateWalletDTO createWalletDTO) {
+    @PostMapping("/group")
+    ResponseEntity<Wallet> createGroupWallet(@RequestBody CreateWalletDTO createWalletDTO) {
         return ResponseEntity.ok(walletService.createWallet(createWalletDTO));
+    }
+
+    @PostMapping("/user")
+    ResponseEntity<Wallet> createUserWallet(@RequestParam String msisdn, @RequestParam String walletName) {
+        return ResponseEntity.ok(walletService.createUserWallet(msisdn, walletName));
     }
 
     @GetMapping("/{ownerReference}")
