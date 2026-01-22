@@ -33,11 +33,73 @@ export default function CreateChamaForm() {
   } | null>(null);
 
   const [loading, setLoading] = useState(false);
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [loadingRate, setLoadingRate] = useState(true);
+  const [lastFetched, setLastFetched] = useState<number | null>(null);
+
+  // 1 Bitcoin = 100,000,000 Satoshis
+  const SATOSHIS_PER_BTC = 100000000;
+  // Cache the rate for 5 minutes (300,000 milliseconds)
+  const CACHE_DURATION_MS = 5 * 60 * 1000;
 
   useEffect(() => {
     const saved = localStorage.getItem("createChamaStep1");
     if (saved) setStep1Data(JSON.parse(saved));
   }, []);
+
+  // Fetch exchange rate with simple caching
+  useEffect(() => {
+    const fetchExchangeRate = async () => {
+      // Check if we have a recently cached rate
+      if (lastFetched && Date.now() - lastFetched < CACHE_DURATION_MS) {
+        console.log("Using cached exchange rate.");
+        setLoadingRate(false);
+        return;
+      }
+
+      try {
+        setLoadingRate(true);
+        console.log("Fetching new exchange rate from CoinGecko...");
+        // *** Using 'kes'  ***
+        const response = await fetch(
+          "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=kes"
+        );
+        if (!response.ok) {
+            throw new Error(`API responded with status: ${response.status}`);
+        }
+        const data = await response.json();
+        // *** Accessing 'kes' property ***
+        if (data.bitcoin && data.bitcoin.kes) {
+          setExchangeRate(data.bitcoin.kes);
+          setLastFetched(Date.now()); // Update the last fetched timestamp
+        }
+      } catch (error) {
+        console.error("Failed to fetch exchange rate:", error);
+        // Fallback to a default rate if API fails and no rate exists
+        if (!exchangeRate) {
+           // Using a more recent approximate rate
+           setExchangeRate(11500000); 
+        }
+      } finally {
+        setLoadingRate(false);
+      }
+    };
+
+    fetchExchangeRate();
+  }, []); // Empty dependency array means this runs once on mount
+
+  // Convert KES to Satoshis
+  const convertKesToSatoshis = (kesAmount: number): number => {
+    if (!exchangeRate) return 0;
+    const btcAmount = kesAmount / exchangeRate;
+    return Math.round(btcAmount * SATOSHIS_PER_BTC);
+  };
+
+  // Convert KES to BTC
+  const convertKesToBtc = (kesAmount: number): number => {
+    if (!exchangeRate) return 0;
+    return kesAmount / exchangeRate;
+  };
 
   const selectedFrequency = CONTRIBUTION_FREQUENCIES.find(
     (f) => f.value === formData.contributionFrequency
@@ -83,6 +145,11 @@ export default function CreateChamaForm() {
 
     setLoading(true);
 
+    // Convert KES to Satoshis for the API
+    const contributionAmountInSatoshis = convertKesToSatoshis(
+      Number(formData.contributionAmount)
+    );
+
     const payload = {
       name: step1Data.name,
       description: step1Data.description,
@@ -90,7 +157,7 @@ export default function CreateChamaForm() {
       visibility: "PUBLIC",
       maxMembers: Number(formData.membersRequired),
       creatorId,
-      contributionAmount: Number(formData.contributionAmount),
+      contributionAmount: contributionAmountInSatoshis, // Send in Satoshis
       requiresApproval: true,
       requiredApprovals: 2,
       frequency: formData.contributionFrequency,
@@ -125,6 +192,14 @@ export default function CreateChamaForm() {
       setLoading(false);
     }
   };
+
+  // Calculate converted values for display
+  const satoshisValue = formData.contributionAmount
+    ? convertKesToSatoshis(Number(formData.contributionAmount))
+    : 0;
+  const btcValue = formData.contributionAmount
+    ? convertKesToBtc(Number(formData.contributionAmount))
+    : 0;
 
   return (
     <div className="min-h-screen bg-white pt-20">
@@ -167,6 +242,36 @@ export default function CreateChamaForm() {
               onChange={handleInputChange}
               className="w-full px-4 py-3 border border-gray-200 text-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#059669]"
             />
+            
+            {/* Display converted values */}
+            {formData.contributionAmount && !loadingRate && (
+              <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
+                <div>
+                  <span className="font-medium">Satoshis:</span>{" "}
+                  {satoshisValue.toLocaleString()}
+                </div>
+                <div>
+                  <span className="font-medium">Bitcoin:</span>{" "}
+                  {btcValue.toFixed(8)} BTC
+                </div>
+                {exchangeRate && (
+                  <div className="mt-1 text-gray-500">
+                    Exchange rate: 1 BTC ≈ {exchangeRate.toLocaleString()} KES
+                    {lastFetched && (
+                        <span className="block">
+                            (Rate updated {Math.round((Date.now() - lastFetched) / 60000)} mins ago)
+                        </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {loadingRate && (
+              <div className="mt-2 text-xs text-gray-500">
+                Loading exchange rate...
+              </div>
+            )}
           </div>
 
           {/* Contribution Frequency (Dropdown) */}
@@ -206,7 +311,76 @@ export default function CreateChamaForm() {
           </div>
         </div>
 
-        {/* Preview (added without breaking layout) */}
+        {/* Saving Goals Section */}
+        <div className="mb-6">
+          <h2 className="text-center text-base font-semibold text-gray-900 mb-4">
+            Saving Goals
+          </h2>
+
+          {/* Purpose of the Chama */}
+          <div className="mb-4">
+            <label htmlFor="purpose" className="block text-sm font-medium text-gray-900 mb-2">
+              Purpose of the Chama
+            </label>
+            <input
+              type="text"
+              id="purpose"
+              name="purpose"
+              value={formData.purpose}
+              onChange={handleInputChange}
+              placeholder="What is the purpose of your Chama?"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-transparent text-md text-gray-600"
+            />
+          </div>
+
+          {/* Target Amount */}
+          <div className="mb-4">
+            <label htmlFor="targetAmount" className="block text-sm font-medium text-gray-900 mb-2">
+              Target Amount (KES)
+            </label>
+            <input
+              type="number"
+              id="targetAmount"
+              name="targetAmount"
+              value={formData.targetAmount}
+              onChange={handleInputChange}
+              placeholder="Enter amount"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-transparent text-md text-gray-600"
+            />
+            
+            {/* Display converted values for target amount */}
+            {formData.targetAmount && !loadingRate && (
+              <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
+                <div>
+                  <span className="font-medium">Satoshis:</span>{" "}
+                  {convertKesToSatoshis(Number(formData.targetAmount)).toLocaleString()}
+                </div>
+                <div>
+                  <span className="font-medium">Bitcoin:</span>{" "}
+                  {convertKesToBtc(Number(formData.targetAmount)).toFixed(8)} BTC
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Members Required */}
+          <div className="mb-6">
+            <label htmlFor="membersRequired" className="block text-sm font-medium text-gray-900 mb-2">
+              Members Required
+            </label>
+            <input
+              type="number"
+              id="membersRequired"
+              name="membersRequired"
+              value={formData.membersRequired}
+              onChange={handleInputChange}
+              placeholder="max 200 people"
+              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-transparent text-md text-gray-600"
+            />
+          </div>
+        </div>
+
+        {/* Preview */}
         {isFormValid && contributionSchedule && (
           <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="mb-3">
@@ -232,11 +406,34 @@ export default function CreateChamaForm() {
               </div>
 
               <div className="flex justify-between">
+                <span className="text-gray-500">In Satoshis</span>
+                <span className="font-medium">
+                  {satoshisValue.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
                 <span className="text-gray-500">Frequency</span>
                 <span className="font-medium">
                   {formData.contributionFrequency}
                 </span>
               </div>
+
+              {formData.purpose && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Purpose</span>
+                  <span className="font-medium">{formData.purpose}</span>
+                </div>
+              )}
+
+              {formData.targetAmount && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Target Amount</span>
+                  <span className="font-medium">
+                    KES {Number(formData.targetAmount).toLocaleString()}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="mt-4">
@@ -260,21 +457,6 @@ export default function CreateChamaForm() {
             </div>
           </div>
         )}
-
-
-        {/* Members */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-900 mb-2">
-            Members Required
-          </label>
-          <input
-            type="number"
-            name="membersRequired"
-            value={formData.membersRequired}
-            onChange={handleInputChange}
-            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#059669]"
-          />
-        </div>
 
         <button
           onClick={handleSubmit}
