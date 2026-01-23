@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { ArrowUpRight, Users, ArrowLeft, TrendingUp, Calendar } from 'lucide-react';
+import { ArrowUp, Users, ArrowLeft, TrendingUp, Calendar } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
 export default function ChamasContribution() {
@@ -9,7 +9,9 @@ export default function ChamasContribution() {
   const progress = (currentAmount / targetAmount) * 100;
   const nextContribution = 5000;
   const nextDate = "15th Dec 2025";
-  const members = 8;
+  const totalMembers = 8;
+  const memberAvatars = Array(8).fill(null);
+  const visibleMembers = memberAvatars.slice(0, 4);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -19,16 +21,15 @@ export default function ChamasContribution() {
         userName=''
       />
       {/* Back to Home */}
-      <div className="w-full max-w-md flex p-2 items-center">
+      <div className="w-full max-w-md flex items-center">
         <Link
-          href="/userdashboard"
+          href="/userdashboard/chama"
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
         >
           <ArrowLeft />
-          <span className="text-sm">Go Back</span>
+          <span className="text-lg text-gray-700">Go Back</span>
         </Link>
       </div>
-
       <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
         {/* Group Goal Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
@@ -36,7 +37,7 @@ export default function ChamasContribution() {
             <h2 className="text-lg font-semibold text-gray-900">Group Savings Goal</h2>
             <div className="flex items-center gap-1 text-sm text-gray-600">
               <Users className="w-4 h-4" />
-              <span>{members} members</span>
+              <span>{totalMembers} members</span>
             </div>
           </div>
 
@@ -61,7 +62,7 @@ export default function ChamasContribution() {
             <div className="space-y-2">
               <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-full rounded-full transition-all duration-500"
+                  className="bg-linear-to-r from-emerald-500 to-emerald-600 h-full rounded-full transition-all duration-500"
                   style={{ width: `${progress}%` }}
                 ></div>
               </div>
@@ -73,7 +74,7 @@ export default function ChamasContribution() {
           </div>
 
           {/* Next Contribution Info */}
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 mb-6">
+          <div className="bg-linear-to-br from-emerald-50 to-teal-50 rounded-xl p-4 mb-6">
             <div className="flex items-center gap-3">
               <div className="bg-white rounded-lg p-2">
                 <Calendar className="w-5 h-5 text-emerald-600" />
@@ -87,9 +88,9 @@ export default function ChamasContribution() {
 
           {/* Action Buttons */}
           <div className="flex gap-2">
-            <button className="flex bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2">
-              <ArrowUpRight className="w-5 h-5" />
-              Contribute Now
+            <button className="flex-1 text-md bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3.5 px-2 rounded-xl transition-colors flex items-center justify-center gap-2">
+              Contribute 
+              <ArrowUp className="w-5 h-5" />
             </button>
             <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium py-3.5 px-6 rounded-xl transition-colors">
               Request Loan
@@ -97,6 +98,61 @@ export default function ChamasContribution() {
           </div>
         </div>
 
+        {/* Group Info */}
+        <div className="bg-[#CFFEEF] rounded-2xl shadow-sm border border-gray-200 p-6">
+
+          {/* Header */}
+          <div className="flex items-center justify-between gap-2 mb-6">
+            <h2 className="text-gray-900 font-semibold text-lg">
+              Group members ({totalMembers})
+            </h2>
+            <button className="text-teal-700 hover:text-teal-800 font-medium text-sm transition-colors">
+              View all members
+            </button>
+          </div>
+
+          {/* Member Avatars */}
+          <div className="flex gap-3 mb-6">
+            {visibleMembers.map((_, index) => (
+              <div
+                key={index}
+                className="w-14 h-14 bg-black rounded-full flex shrink-0"
+              />
+            ))}
+          </div>
+
+          {/* About Section */}
+          <div className="mb-6">
+            <h3 className="text-gray-900 font-semibold text-base mb-2">
+              About the Group
+            </h3>
+            <div className="mb-4">
+              <p className="text-gray-900 font-medium text-sm mb-1">Description:</p>
+              <ul className="list-disc list-inside text-gray-800 text-sm">
+                <li>
+                  Youth savings squad pooling money to support side hustles and
+                  short-term goals.
+                </li>
+              </ul>
+            </div>
+
+            {/* Frequency and Target */}
+            <div className="space-y-1">
+              <p className="text-gray-900 text-sm">
+                <span className="font-medium">Frequency:</span> Monthly (Contribution
+                cycles)
+              </p>
+              <p className="text-gray-900 text-sm">
+                <span className="font-medium">Target Goal:</span>{" "}
+                <span className="font-semibold">KES 500,000</span>
+              </p>
+            </div>
+          </div>
+          {/* Footer Link */}
+          <button className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors">
+            Rules & Regulations
+          </button>
+        </div>
         {/* Recent Activity */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
@@ -139,22 +195,8 @@ export default function ChamasContribution() {
             View All Activities
           </button>
         </div>
-
-        {/* Group Info */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">About This Group</h3>
-          <p className="text-gray-700 text-sm leading-relaxed mb-4">
-            Youth savings squad pooling money to support side hustles and short-term business goals.
-          </p>
-          <div className="flex items-center justify-between py-3 border-t border-gray-200">
-            <span className="text-sm text-gray-600">Contribution Frequency</span>
-            <span className="text-sm font-medium text-gray-900">Monthly</span>
-          </div>
-          <button className="w-full mt-4 text-emerald-600 hover:text-emerald-700 font-medium text-sm py-2">
-            View Members & Rules
-          </button>
-        </div>
       </div>
+      
     </div>
   );
 }
