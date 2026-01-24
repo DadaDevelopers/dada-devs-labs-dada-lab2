@@ -110,6 +110,8 @@ public class TransactionService {
                         .walletType(WalletType.CONTRIBUTION)
                         .ownerReference(contributor.getUserReference())
                         .chama(cycle.getChama())
+                        .walletPurpose("Contribution for rotation " + cycle.getRotationIndex() + " to " +
+                                cycle.getBeneficiaryUser().getUser().getUsername())
                         .lightning(lightning)
                         .balanceSats(0L)
                         .active(true)
@@ -142,7 +144,7 @@ public class TransactionService {
                 );
 
         // Ledger: INTERNAL MOVE
-        recordInternalMove(
+        HashMap<String, String> recordInternalMoves = recordInternalMove(
                 fundingWallet,
                 contributorWallet,
                 amountSats,
@@ -166,6 +168,12 @@ public class TransactionService {
                         beneficiaryInvoice
                 );
 
+        // Update the contribution cycle with the new contribution
+        updateContributionCycle(cycle, contributorWallet, amountSats);
+
+        //sync receiver wallet
+        syncReceiverLnBitsWalletBalance(cycle.getWallet());
+
         // Ledger: Lightning payment to beneficiary
         return transactionRepository.save(
                 Transaction.builder()
@@ -180,14 +188,58 @@ public class TransactionService {
                         )
                         .rotationIndex(cycle.getRotationIndex())
                         .memo("Contribution payment")
+                        .metadata(recordInternalMoves)
                         .occurredAt(ZonedDateTime.now())
                         .build()
         );
 
     }
 
+    /**
+     * Updates the contribution cycle with a new contribution
+     * @param cycle The contribution cycle to update
+     * @param contributorWallet The wallet that made the contribution
+     * @param amount The amount contributed in sats
+     */
+    private void updateContributionCycle(ContributionCycle cycle, Wallet contributorWallet, long amount) {
+        // Update the total contribution amount
+        cycle.setCurrentTotalContributionAmount(
+                cycle.getCurrentTotalContributionAmount() + amount
+        );
 
-    private void recordInternalMove(
+        // Add the contributor's wallet to the list if not already present
+        if (!cycle.getContributorWallets().contains(contributorWallet)) {
+            cycle.getContributorWallets().add(contributorWallet);
+            log.info(
+                    "Added contributor {} to cycle {}",
+                    contributorWallet.getWalletReference(),
+                    cycle.getCycleReference()
+            );
+        }
+
+        cycleRepository.save(cycle);
+
+        log.info(
+                "Updated cycle {} with new contribution of {} sats. Total: {} sats",
+                cycle.getCycleReference(),
+                amount,
+                cycle.getCurrentTotalContributionAmount()
+        );
+    }
+
+    void syncReceiverLnBitsWalletBalance(Wallet wallet) {
+        WalletDetails walletDetails = lightningWalletService.getUserWallet(wallet.getLightning().get("inkey"));
+
+        log.info("getLnBitsbalanceSats() wallet balance current {}",wallet.getLnBitsbalanceSats());
+        log.info("wallet balance from LnBits {}", walletDetails.balance());
+
+        log.info("proceeding to update");
+        wallet.setLnBitsbalanceSats(walletDetails.balance());
+        walletRepository.save(wallet);
+    }
+
+
+    private HashMap<String, String> recordInternalMove(
             Wallet from,
             Wallet to,
             long amount,
@@ -195,7 +247,7 @@ public class TransactionService {
             User user,
             ContributionCycle cycle
     ) {
-        transactionRepository.save(
+        Transaction internalMoveDebit = transactionRepository.save(
                 Transaction.builder()
                         .wallet(from)
                         .type(TransactionType.DEBIT)
@@ -209,7 +261,7 @@ public class TransactionService {
                         .build()
         );
 
-        transactionRepository.save(
+        Transaction internalMoveCredit = transactionRepository.save(
                 Transaction.builder()
                         .wallet(to)
                         .type(TransactionType.CREDIT)
@@ -222,6 +274,11 @@ public class TransactionService {
                         .occurredAt(ZonedDateTime.now())
                         .build()
         );
+
+        HashMap<String, String> recordInternalMoves = new HashMap<>();
+        recordInternalMoves.put("INTERNAL_MOVE_CREDIT", internalMoveCredit.getTransactionReference().toString());
+        recordInternalMoves.put("INTERNAL_MOVE_DEBIT", internalMoveDebit.getTransactionReference().toString());
+        return  recordInternalMoves;
     }
 
 
