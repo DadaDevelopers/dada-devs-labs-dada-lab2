@@ -8,10 +8,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.time.ZonedDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -59,6 +63,9 @@ public class Transaction {
     private Integer rotationIndex;
 
     private String memo;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, String> metadata = new HashMap<>();
 
     private ZonedDateTime occurredAt;
 

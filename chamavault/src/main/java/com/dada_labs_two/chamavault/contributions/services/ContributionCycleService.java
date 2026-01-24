@@ -29,10 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -67,6 +64,7 @@ public class ContributionCycleService {
         if (cycleRepository.existsByChamaAndStatus(chama, ContributionCycleStatus.ACTIVE)) {
             throw new IllegalStateException("Active cycle already exists");
         }
+        log.info("Creating new cycle for chama '{}'", chama.getName());
 
         ChamaRules rules = chamaRulesRepository
                 .findByChama(chama)
@@ -85,6 +83,7 @@ public class ContributionCycleService {
 
 
         int nextRotationIndex = chama.getCurrentRotationIndex() + 1;
+        Long expectedTotalContributionAmount = activeMembers.size() * rules.getContributionAmount();
 
         ChamaMember beneficiary =
                 activeMembers.get((nextRotationIndex - 1) % activeMembers.size());
@@ -102,6 +101,9 @@ public class ContributionCycleService {
                         .rotationIndex(nextRotationIndex)
                         .status(ContributionCycleStatus.ACTIVE)
                         .startAt(startAt)
+                        .currentTotalContributionAmount(0L)
+                        .expectedTotalContributionAmount(expectedTotalContributionAmount)
+                        .contributorWallets(new ArrayList<>())
                         .contributionAmount(rules.getContributionAmount())
                         .endAt(endAt)
                         .build()
@@ -186,7 +188,8 @@ public class ContributionCycleService {
     private Wallet createCycleWallet(ChamaMember chamaMember, ChamaRules rules, int nextRotationIndex) {
         //5. Create Individual lightning Wallet
         WalletResponse lw= lightningWalletService.createUserWallet("contribution for " +
-                chamaMember.getUser().getUsername() + " chama rotation: "+ nextRotationIndex);
+                chamaMember.getUser().getUsername() + " chama rotation: "+ nextRotationIndex +
+                " chama:" + chamaMember.getChama().getName());
         log.info("LW created user wallet: {}", lw);
 
         Map<String, String> lightningMap = new HashMap<>();
@@ -220,6 +223,7 @@ public class ContributionCycleService {
                         .ownerReference(chamaMember.getUser().getUserReference())
                         .chama(chamaMember.getChama())
                         .lightning(lightningMap)
+                        .walletPurpose("contribution lightning address for beneficiary "+ lnUsername)
                         .balanceSats(0L)
                         .active(true)
                         .build()

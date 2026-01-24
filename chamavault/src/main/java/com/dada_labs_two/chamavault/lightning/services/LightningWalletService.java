@@ -48,7 +48,7 @@ public class LightningWalletService {
 
     public WalletDetails getUserWallet(String userWalletKey) {
         WalletDetails wallet = client.getWallet(userWalletKey);
-        long sats = wallet.balance() / 1000; // msats → sats
+        long sats = wallet.balance(); // sats
         return wallet;
     }
 

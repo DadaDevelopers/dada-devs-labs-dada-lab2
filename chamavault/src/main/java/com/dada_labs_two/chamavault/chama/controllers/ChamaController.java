@@ -3,10 +3,7 @@ package com.dada_labs_two.chamavault.chama.controllers;
 import com.dada_labs_two.chamavault.chama.constants.ChamaRole;
 import com.dada_labs_two.chamavault.chama.constants.ChamaVisibility;
 import com.dada_labs_two.chamavault.chama.constants.MembershipStatus;
-import com.dada_labs_two.chamavault.chama.dtos.ChamaInviteDTO;
-import com.dada_labs_two.chamavault.chama.dtos.CreateChamaDTO;
-import com.dada_labs_two.chamavault.chama.dtos.CreateChamaInviteDTO;
-import com.dada_labs_two.chamavault.chama.dtos.JoinChamaByInviteCodeDTO;
+import com.dada_labs_two.chamavault.chama.dtos.*;
 import com.dada_labs_two.chamavault.chama.models.Chama;
 import com.dada_labs_two.chamavault.chama.models.ChamaInvite;
 import com.dada_labs_two.chamavault.chama.models.ChamaMember;
@@ -34,6 +31,11 @@ public class ChamaController {
     @GetMapping
     public ResponseEntity<Page<Chama>> getAllChamas(Pageable pageable, @RequestParam(required = false) ChamaVisibility visibility) {
         return ResponseEntity.ok(chamaService.getChamas(pageable, visibility));
+    }
+
+    @GetMapping("/{chamaReference}")
+    public ResponseEntity<ChamaDetailsDTO> getChamaById(@PathVariable UUID chamaReference) {
+        return ResponseEntity.ok(chamaService.getChamaById(chamaReference));
     }
 
     @
