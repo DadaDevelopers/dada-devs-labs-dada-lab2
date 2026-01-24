@@ -185,7 +185,7 @@ export default function CreateChamaForm() {
 
       localStorage.removeItem("createChamaStep1");
       alert("Chama created successfully 🎉");
-      router.push(`/userdashboard/chama/${data.chamaReference}`);
+      router.push(`/userdashboard/contribute/${data.chamaReference}`);
     } catch (err) {
       alert("Something went wrong");
     } finally {

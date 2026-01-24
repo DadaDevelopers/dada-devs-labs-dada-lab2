@@ -438,7 +438,7 @@ export default function Dashboard() {
               <span className="text-xs sm:text-sm font-medium text-gray-900">Receive</span>
             </button>
           </Link>
-          <Link href="/userdashboard/chama">
+          <Link href="/userdashboard/contribute">
             <button className="bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-3 hover:bg-emerald-50 transition flex flex-col items-center gap-2">
               <svg width="40" height="29" viewBox="0 0 40 29" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M38.0986 8.16406V19.5693L25.0781 24.0156L14.252 19.4648L14.1191 19.7773L13.5391 19.8643V23.8096L7.26953 27.6631L1 23.8086V16.042L4.42969 13.9336L4.59082 13.834L4.64648 13.6533L6.03613 9.0918L13.4277 1.91113L27.458 1.00977L38.0986 8.16406ZM14.5918 6.57031L7.82227 11.5264H6.19434L7.7002 12.4521L13.5391 16.041V17.5303L14.333 16.9521L15.8643 15.8379L24.1064 17.6396L24.501 17.7256L24.668 17.3594L27.2061 11.8066L27.3105 11.5771L27.1885 11.3574L24.6328 6.73145L24.4893 6.47363H14.7236L14.5918 6.57031Z" fill="white" stroke="#059669"/>
