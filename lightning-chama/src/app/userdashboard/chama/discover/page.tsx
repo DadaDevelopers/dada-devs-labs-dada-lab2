@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Users, DollarSign, Calendar, X, Check } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
-import Image from 'next/image';
 import Link from 'next/link';
 
 type Chama = {
@@ -70,7 +69,7 @@ export default function DiscoverChamasPage() {
 
         const data = await res.json();
         setChamas(data.content || []);
-      } catch {
+      } catch (err) {
         setError('Unable to load chamas');
       } finally {
         setLoading(false);
@@ -253,7 +252,7 @@ export default function DiscoverChamasPage() {
                       <div className="flex shrink-0">
                         <div className={`w-12 h-12 rounded-full ${colors.bg} flex items-center justify-center relative`}>
                           {chama.iconUrl ? (
-                            <Image
+                            <img 
                               src={chama.iconUrl} 
                               alt={chama.name}
                               className="w-full h-full rounded-full object-cover"
@@ -338,7 +337,7 @@ export default function DiscoverChamasPage() {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-[#191919]">Join {selectedChama.name}</h3>
-                <p className="text-sm text-gray-600 mt-1">Select the role you^apos;d like to join as</p>
+                <p className="text-sm text-gray-600 mt-1">Select the role you'd like to join as</p>
               </div>
               <button onClick={closeRoleModal}>
                 <X />
