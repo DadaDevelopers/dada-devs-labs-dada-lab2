@@ -257,7 +257,7 @@ export default function ChamasPage() {
           !error &&
           chamas.map((chama) => (
             <div key={chama.chamaReference} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-              <Link href={`/userdashboard/chama/${chama.chamaReference}`}>
+              <Link href={`/userdashboard/contribute/${chama.chamaReference}`}>
                 <div className="p-4 flex items-start gap-4 hover:bg-gray-50 transition">
                   {/* Icon */}
                   <div className="flex flex-col items-center gap-1">
