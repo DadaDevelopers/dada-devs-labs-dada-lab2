@@ -9,12 +9,14 @@ import lombok.NoArgsConstructor;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class ChamaGroupWalletDTO {
+    private UUID walletReference;
     private String walletPurpose;
     private WalletType walletType;
     private Long balanceSats;

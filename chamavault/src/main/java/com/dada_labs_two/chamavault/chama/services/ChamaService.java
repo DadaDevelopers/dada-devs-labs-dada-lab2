@@ -226,6 +226,7 @@ public class ChamaService {
 
                     return ChamaGroupWalletDTO.builder()
                             .walletPurpose(w.getWalletPurpose())
+                            .walletReference(w.getWalletReference())
                             .walletType(w.getWalletType())
                             .balanceSats(w.getBalanceSats())
                             .lnBitsbalanceSats(w.getLnBitsbalanceSats())
