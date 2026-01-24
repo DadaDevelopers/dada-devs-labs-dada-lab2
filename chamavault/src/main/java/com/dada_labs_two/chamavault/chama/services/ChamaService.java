@@ -201,6 +201,7 @@ public class ChamaService {
                             .currentTotalContributionAmount(contributionCycle.getCurrentTotalContributionAmount())
                             .expectedTotalContributionAmount(contributionCycle.getExpectedTotalContributionAmount())
                             .beneficiaryName(contributionCycle.getBeneficiaryUser().getUser().getUsername())
+                            .beneficiaryWalletReference(contributionCycle.getWallet().getWalletReference())
                             .rotationIndex(contributionCycle.getRotationIndex())
                             .status(contributionCycle.getStatus())
                             .startAt(contributionCycle.getStartAt())
