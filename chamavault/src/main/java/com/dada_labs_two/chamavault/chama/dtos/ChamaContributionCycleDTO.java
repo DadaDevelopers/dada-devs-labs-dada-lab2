@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -15,6 +16,7 @@ import java.util.List;
 @NoArgsConstructor
 public class ChamaContributionCycleDTO {
     private Integer cycleReference;
+    private UUID beneficiaryWalletReference;
     private Long currentTotalContributionAmount;
     private Long expectedTotalContributionAmount;
     private String beneficiaryName;
