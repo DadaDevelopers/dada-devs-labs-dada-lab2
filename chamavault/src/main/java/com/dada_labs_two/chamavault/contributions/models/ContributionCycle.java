@@ -15,6 +15,8 @@ import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -34,6 +36,8 @@ public class ContributionCycle {
     private Chama chama;
 
     private Long contributionAmount = 0L;
+    private Long currentTotalContributionAmount = 0L;
+    private Long expectedTotalContributionAmount = 0L;
 
     @ManyToOne
     @JoinColumn(name = "wallet_reference")
@@ -58,4 +62,13 @@ public class ContributionCycle {
     private ZonedDateTime updatedAt;
 
     private ZonedDateTime deletedAt;
+
+    // field to track all contributor wallets
+    @ManyToMany
+    @JoinTable(
+            name = "cycle_contributors",
+            joinColumns = @JoinColumn(name = "cycle_reference"),
+            inverseJoinColumns = @JoinColumn(name = "wallet_reference")
+    )
+    private List<Wallet> contributorWallets = new ArrayList<>();
 }

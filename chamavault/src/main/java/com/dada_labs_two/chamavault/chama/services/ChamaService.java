@@ -3,9 +3,7 @@ package com.dada_labs_two.chamavault.chama.services;
 import com.dada_labs_two.chamavault.chama.constants.ChamaRole;
 import com.dada_labs_two.chamavault.chama.constants.ChamaVisibility;
 import com.dada_labs_two.chamavault.chama.constants.MembershipStatus;
-import com.dada_labs_two.chamavault.chama.dtos.CreateChamaDTO;
-import com.dada_labs_two.chamavault.chama.dtos.CreateChamaInviteDTO;
-import com.dada_labs_two.chamavault.chama.dtos.JoinChamaByInviteCodeDTO;
+import com.dada_labs_two.chamavault.chama.dtos.*;
 import com.dada_labs_two.chamavault.chama.models.Chama;
 import com.dada_labs_two.chamavault.chama.models.ChamaInvite;
 import com.dada_labs_two.chamavault.chama.models.ChamaMember;
@@ -14,6 +12,8 @@ import com.dada_labs_two.chamavault.chama.repositories.ChamaInviteRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaMemberRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRulesRepository;
+import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
+import com.dada_labs_two.chamavault.contributions.repositories.ContributionCycleRepository;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.LnurlPayLinkResponse;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
@@ -39,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -56,6 +57,7 @@ public class ChamaService {
     private final WalletRepository walletRepository;
     private final ChamaRulesRepository chamaRulesRepository;
     private final ChamaInviteRepository chamaInviteRepository;
+    private final ContributionCycleRepository contributionCycleRepository;
 
     @Transactional
     public Chama createChama(CreateChamaDTO createChamaDTO) {
@@ -122,6 +124,7 @@ public class ChamaService {
         lightningMap.put("balance_msat", lw.balance_msat());
 
         wallet.setLightning(lightningMap);
+        wallet.setWalletPurpose("General wallet for the chama");
         wallet = walletRepository.save(wallet);
 
         //6. Assign group lightning  address
@@ -150,6 +153,88 @@ public class ChamaService {
             return chamaRepository.findAll(pageable);
         }
         return chamaRepository.findAllByVisibility(pageable, visibility);
+    }
+
+    public ChamaDetailsDTO getChamaById(UUID chamaReference) {
+        Chama chama = chamaRepository.findById(chamaReference).orElseThrow(()->
+                new RuntimeException("Chama not found by reference: " + chamaReference));
+
+        ChamaRules rules = chamaRulesRepository.findByChama(chama).orElse(null);
+
+        List<Wallet> chamaWallets = walletRepository.findAllByOwnerReference(chama.getChamaReference());
+
+        Page<ContributionCycle> contributionCycles = contributionCycleRepository.findAllByChama(null, chama);
+
+
+
+        return ChamaDetailsDTO.builder()
+                .chama(ChamaDTO.builder()
+                        .chamaReference(chama.getChamaReference())
+                        .name(chama.getName())
+                        .description(chama.getDescription())
+                        .contributionAmount(chama.getContributionAmount())
+                        .iconUrl(chama.getIconUrl())
+                        .visibility(chama.getVisibility())
+                        .maxMembers(chama.getMaxMembers())
+                        .currentRotationIndex(chama.getCurrentRotationIndex())
+                        .createdAt(chama.getCreatedAt())
+                        .deletedAt(chama.getDeletedAt())
+                        .chamaCreator(ChamaCreatorDTO.builder()
+                                .msisdn(chama.getCreatedBy().getMsisdn())
+                                .username(chama.getCreatedBy().getUsername())
+                                .build())
+                        .build())
+                .contributionCycles(contributionCycles.map(contributionCycle ->  {
+                        List<String> usersAlreadyContributed = new ArrayList<>();
+
+                        contributionCycle.getContributorWallets().stream().map(wallet -> {
+                            UUID walletOwner = wallet.getOwnerReference();
+                            User contributedUser = userRepository.findById(walletOwner).orElse(null);
+
+                            if(contributedUser != null)
+                                usersAlreadyContributed.add(contributedUser.getUsername());
+                            return contributedUser.getUsername();
+                        });
+
+                    return ChamaContributionCycleDTO.builder()
+                            .cycleReference(contributionCycle.getCycleReference())
+                            .currentTotalContributionAmount(contributionCycle.getCurrentTotalContributionAmount())
+                            .expectedTotalContributionAmount(contributionCycle.getExpectedTotalContributionAmount())
+                            .beneficiaryName(contributionCycle.getBeneficiaryUser().getUser().getUsername())
+                            .rotationIndex(contributionCycle.getRotationIndex())
+                            .status(contributionCycle.getStatus())
+                            .startAt(contributionCycle.getStartAt())
+                            .endAt(contributionCycle.getEndAt())
+                            .usersAlreadyContributed(usersAlreadyContributed)
+                            .build();
+                }).stream().toList())
+                .rules(rules == null? null : ChamaRulesDTO.builder()
+                        .requiresApproval(rules.getRequiresApproval())
+                        .contributionAmount(rules.getContributionAmount())
+                        .requiredApprovals(rules.getRequiredApprovals())
+                        .frequency(rules.getFrequency())
+                        .build())
+                .wallets(chamaWallets.stream().map(w ->  {
+
+                    Map<String, String> lightningMap = new HashMap<>();
+                    lightningMap.put("walletName", w.getLightning().get("walletName"));
+                    lightningMap.put("currency", w.getLightning().get("currency"));
+                    lightningMap.put("balance_msat", w.getLightning().get("balance_msat"));
+                    lightningMap.put("lnAddressUrl", w.getLightning().get("lnAddressUrl"));
+                    lightningMap.put("lnAddressUsername", w.getLightning().get("lnAddressUsername"));
+
+
+                    return ChamaGroupWalletDTO.builder()
+                            .walletPurpose(w.getWalletPurpose())
+                            .walletType(w.getWalletType())
+                            .balanceSats(w.getBalanceSats())
+                            .lnBitsbalanceSats(w.getLnBitsbalanceSats())
+                            .active(w.getActive())
+                            .createdAt(w.getCreatedAt())
+                            .lightning(lightningMap)
+                            .build();
+                    }).toList())
+                .build();
     }
 
     public List<Chama> findChamasByUserMsisdn(String msisdn, MembershipStatus status) {

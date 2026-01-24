@@ -35,12 +35,16 @@ public class Wallet {
 
     private UUID ownerReference; // Chama OR User
 
+    private String walletPurpose;
+
     @ManyToOne
     @JoinColumn(name = "chama_reference")
     private Chama chama;
 
     @Column(nullable = false)
     private Long balanceSats = 0L;
+
+    private Long lnBitsbalanceSats = 0L;
 
     @Column(nullable = false)
     private Boolean active = true;
