@@ -205,9 +205,11 @@ public class ContributionCycleService {
 
         //6. Assign group lightning  address
         String lnUsername = chamaMember.getUser().getUsername()
-                .concat("-rotation-").concat(nextRotationIndex +"")
+                .concat("-rotation").concat(nextRotationIndex +"")
                 .toLowerCase()
                 .replaceAll("[^a-z0-9_-]", "-");
+        lnUsername.concat("@chama-vault");
+        log.info("lnUsername: {}", lnUsername);
         long min = rules.getContributionAmount();        // sat
         long max = 1_000_000_000; // 1,000,000 sats
         LnurlPayLinkResponse lnAddress  = lightningWalletService.createLightningAddress(lw.adminkey(),
