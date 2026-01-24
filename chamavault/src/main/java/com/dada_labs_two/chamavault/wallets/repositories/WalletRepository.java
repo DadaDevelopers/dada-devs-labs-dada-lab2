@@ -13,6 +13,7 @@ import java.util.UUID;
 
 public interface WalletRepository extends JpaRepository<Wallet, UUID> {
     Page<Wallet> findAllByOwnerReference(Pageable pageable,  UUID ownerReference);
+    List<Wallet> findAllByOwnerReference(UUID ownerReference);
 
     Optional<Wallet> findByOwnerReferenceAndWalletTypeAndChamaAndActive(UUID ownerReference, WalletType walletType,
                                                                Chama chama, Boolean active);
