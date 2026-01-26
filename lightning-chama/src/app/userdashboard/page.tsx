@@ -135,6 +135,7 @@ export default function Dashboard() {
           throw new Error('Failed to fetch activities');
         }
 
+        
         const data = await res.json();
 
         // Sort newest first
