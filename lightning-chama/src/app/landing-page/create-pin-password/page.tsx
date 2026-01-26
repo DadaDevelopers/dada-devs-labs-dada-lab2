@@ -1,17 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Eye, EyeOff } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export default function SetPinPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  // Phone passed from verify-number page
-  const msisdn = searchParams.get("phone");
+  // Read phone from URL on client only
+  const [msisdn, setMsisdn] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setMsisdn(params.get("phone"));
+  }, []);
 
   const [fullName, setFullName] = useState("");
   const [pin, setPin] = useState("");
@@ -35,7 +39,7 @@ export default function SetPinPage() {
       return;
     }
 
-    //  EXACTLY 4 DIGIT PIN
+    // EXACTLY 4 DIGIT PIN
     if (!/^\d{4}$/.test(pin)) {
       setError("PIN must be exactly 4 digits.");
       return;
@@ -78,15 +82,12 @@ export default function SetPinPage() {
         return;
       }
 
-      // Save token
       localStorage.setItem("token", data.token);
-      localStorage.setItem('userReference', data.user.userReference);
-      localStorage.setItem('msisdn', data.user.msisdn);
+      localStorage.setItem("userReference", data.user.userReference);
+      localStorage.setItem("msisdn", data.user.msisdn);
 
-      //  Success → Dashboard
       router.push("/userdashboard");
-
-    } catch (err) {
+    } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
@@ -95,7 +96,6 @@ export default function SetPinPage() {
 
   return (
     <section className="min-h-screen bg-white px-6 py-8 flex flex-col items-center">
-
       {/* Go Back */}
       <div className="w-full max-w-md">
         <Link
@@ -109,7 +109,6 @@ export default function SetPinPage() {
 
       {/* Content */}
       <div className="w-full max-w-md mt-10 text-center">
-
         {/* Logo */}
         <div className="flex justify-center mb-6">
           <Image
@@ -120,17 +119,14 @@ export default function SetPinPage() {
           />
         </div>
 
-        {/* Heading */}
         <h1 className="text-2xl font-semibold text-gray-900">Set PIN</h1>
         <p className="text-black mt-1">
           Set PIN that will be used for transactions
         </p>
 
-        {/* Form */}
         <div className="mt-8 space-y-5 text-left">
-
           {/* Full Name */}
-          <div className="text-gray-600">
+          <div>
             <label className="block text-sm font-medium text-gray-900 mb-1">
               Full Name
             </label>
@@ -144,7 +140,7 @@ export default function SetPinPage() {
           </div>
 
           {/* PIN */}
-          <div className="text-gray-700 relative">
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-900 mb-1">
               Set PIN
             </label>
@@ -153,20 +149,19 @@ export default function SetPinPage() {
               maxLength={4}
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12
-                         focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12"
             />
             <button
               type="button"
               onClick={() => setShowPin(!showPin)}
-              className="absolute right-4 top-[38px] text-gray-500 hover:text-emerald-600"
+              className="absolute right-4 top-[38px]"
             >
               {showPin ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
 
           {/* Confirm PIN */}
-          <div className="text-gray-600 relative">
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-900 mb-1">
               Confirm PIN
             </label>
@@ -174,14 +169,15 @@ export default function SetPinPage() {
               type={showConfirmPin ? "text" : "password"}
               maxLength={4}
               value={confirmPin}
-              onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12
-                         focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              onChange={(e) =>
+                setConfirmPin(e.target.value.replace(/\D/g, ""))
+              }
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12"
             />
             <button
               type="button"
               onClick={() => setShowConfirmPin(!showConfirmPin)}
-              className="absolute right-4 top-[38px] text-gray-500 hover:text-emerald-600"
+              className="absolute right-4 top-[38px]"
             >
               {showConfirmPin ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -193,32 +189,24 @@ export default function SetPinPage() {
               type="checkbox"
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
-              className="mt-1 h-4 w-4 accent-emerald-600 cursor-pointer"
+              className="mt-1 h-4 w-4 accent-emerald-600"
             />
             <p className="text-sm font-medium text-gray-900">
               I understood the{" "}
-              <span className="text-emerald-600 cursor-pointer">
-                terms & policy
-              </span>
+              <span className="text-emerald-600">terms & policy</span>
             </p>
           </div>
 
-          {/* Error */}
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
-          {/* Submit */}
           <button
             onClick={handleSubmit}
             disabled={loading}
             className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700
-                       disabled:opacity-60 text-white py-3 rounded-lg
-                       font-medium transition"
+                       disabled:opacity-60 text-white py-3 rounded-lg"
           >
             {loading ? "Processing..." : "Go to Dashboard"}
           </button>
-
         </div>
       </div>
     </section>

@@ -3,14 +3,18 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export default function VerifyNumber() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  // phone passed from create-account page
-  const phone = searchParams.get("phone");
+  // Read phone from URL on client only
+  const [phone, setPhone] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setPhone(params.get("phone"));
+  }, []);
 
   const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
   const [timer, setTimer] = useState(25);
@@ -37,59 +41,55 @@ export default function VerifyNumber() {
   };
 
   const handleVerify = async () => {
-  setError("");
+    setError("");
 
-  const code = otp.join("");
-  if (code.length !== 6) {
-    setError("Please enter the full 6-digit code.");
-    return;
-  }
-
-  if (!phone) {
-    setError("Phone number missing.");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const response = await fetch(
-      "https://dada-devs-labs-dada-lab2.onrender.com/codes/pre-registration/code-validation",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ownerMsisdn: phone,
-          code,
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      setError("Invalid or expired code.");
+    const code = otp.join("");
+    if (code.length !== 6) {
+      setError("Please enter the full 6-digit code.");
       return;
     }
 
-    // SUCCESS
-    // PASS PHONE TO NEXT STEP
-router.push(
-  `/landing-page/create-pin-password?phone=${encodeURIComponent(phone)}`
-);
+    if (!phone) {
+      setError("Phone number missing.");
+      return;
+    }
 
-  } catch (err) {
-    setError("Failed to connect to server. Try again.");
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true);
 
+    try {
+      const response = await fetch(
+        "https://dada-devs-labs-dada-lab2.onrender.com/codes/pre-registration/code-validation",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ownerMsisdn: phone,
+            code,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError("Invalid or expired code.");
+        return;
+      }
+
+      // SUCCESS → pass phone to next step
+      router.push(
+        `/landing-page/create-pin-password?phone=${encodeURIComponent(phone)}`
+      );
+    } catch {
+      setError("Failed to connect to server. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <section className="min-h-screen bg-white flex justify-center px-4">
       <div className="w-full max-w-sm pt-6">
-
         {/* Go Back */}
         <div className="flex items-center mb-6">
           <Link href="/" className="flex items-center gap-2 text-gray-600">
@@ -135,9 +135,7 @@ router.push(
 
         {/* Error */}
         {error && (
-          <p className="text-sm text-red-600 text-center mb-3">
-            {error}
-          </p>
+          <p className="text-sm text-red-600 text-center mb-3">{error}</p>
         )}
 
         {/* Resend */}
@@ -153,7 +151,6 @@ router.push(
         >
           {loading ? "Verifying..." : "Continue"}
         </button>
-
       </div>
     </section>
   );
