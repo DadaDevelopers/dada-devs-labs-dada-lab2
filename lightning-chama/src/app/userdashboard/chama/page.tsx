@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { ArrowLeft, Users, Check, X } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
+import Image from "next/image";
 
 type Chama = {
   chamaReference: string;
@@ -249,7 +250,7 @@ export default function ChamasPage() {
 
         {!loading && !error && chamas.length === 0 && (
           <p className="text-sm text-gray-500">
-            You don't have any {statusFilter.toLowerCase()} chamas yet.
+            You don&apos;t have any {statusFilter.toLowerCase()} chamas yet.
           </p>
         )}
 
@@ -262,7 +263,7 @@ export default function ChamasPage() {
                   {/* Icon */}
                   <div className="flex flex-col items-center gap-1">
                     <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100">
-                      <img
+                      <Image
                         src={chama.iconUrl || "/placeholder.png"}
                         alt={chama.name}
                         className="w-full h-full object-cover"
@@ -375,7 +376,19 @@ export default function ChamasPage() {
       {/* Create Chama */}
       <Link href="/userdashboard/chama/createchama">
         <div className="mx-6 mb-8 flex items-center gap-4 border border-gray-300 rounded-xl p-4 hover:bg-gray-50 transition">
-          <div className="text-2xl">➕</div>
+          <div className="text-2xl">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g clipPath="url(#clip0_827_2947)">
+              <circle cx="32" cy="32" r="32" fill="#92B1F5"/>
+              <path d="M31 33H25V31H31V25H33V31H39V33H33V39H31V33Z" fill="#1D1B20"/>
+              </g>
+              <defs>
+              <clipPath id="clip0_827_2947">
+              <rect width="64" height="64" fill="white"/>
+              </clipPath>
+              </defs>
+            </svg>
+            </div>
           <span className="font-medium text-lg text-gray-700">
             Create Chama
           </span>

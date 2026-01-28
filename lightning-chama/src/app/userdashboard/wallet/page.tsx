@@ -58,12 +58,14 @@ const WalletPage = () => {
           </Link>
           
           <button className="flex flex-col items-center gap-2">
+            <Link href="/userdashboard/wallet/recieve" className="flex flex-col items-center gap-2">
             <div className="w-14 h-14 sm:w-16 sm:h-16 bg-teal-700 rounded-full flex items-center justify-center hover:bg-teal-800 transition shadow-md">
               <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M7 7L17 17M17 17H7M17 17V7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
             <span className="text-xs sm:text-sm font-medium text-gray-900">Receive</span>
+            </Link>
           </button>
         </div>
 
