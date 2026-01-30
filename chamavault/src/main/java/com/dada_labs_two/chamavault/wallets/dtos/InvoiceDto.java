@@ -7,6 +7,7 @@ public record InvoiceDto(
         String paymentHash,
         long amountSats,
         long amountMsats,
+        long amountFees,
         String qrCode,
         ZonedDateTime expiresAt
 ) {}
