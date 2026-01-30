@@ -9,6 +9,7 @@ public record InvoiceStatusDto(
         Long amountSats,
         Long fees,
         InvoiceStatus status,
-        ZonedDateTime paidAt
+        ZonedDateTime paidAt,
+        ZonedDateTime expiresAt
 ) {}
 
