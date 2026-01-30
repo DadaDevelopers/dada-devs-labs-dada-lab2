@@ -58,6 +58,7 @@ public class InvoiceController {
                         .paymentHash(paymentHash)
                         .invoicerCreator(wallet)
                         .bolt11(bolt11)
+                        .fees(0L)
                         .amountSats(request.amountSats())
                         .status(InvoiceStatus.PENDING)
                         .expiresAt(Bolt11Utils.extractExpiry(bolt11))
