@@ -72,7 +72,7 @@ public class InvoiceController {
     }
 
 
-    @GetMapping("/api/v1/invoices/{paymentHash}")
+    @GetMapping("/invoices/{paymentHash}")
     public ResponseEntity<InvoiceStatusDto> getInvoiceStatus(@PathVariable String paymentHash) {
 
         Invoice invoice = invoiceRepository.findByPaymentHash(paymentHash)
