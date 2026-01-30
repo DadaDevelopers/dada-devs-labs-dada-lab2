@@ -3,11 +3,15 @@ package com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos;
 import java.time.ZonedDateTime;
 
 public record PaymentStatus(
+        Boolean paid,
+        String status,
+        String preimage,
+        PaymentDetailsDTO details,
+
         String payment_hash,
-        boolean paid,
-        boolean out,
-        long amount,       // millisats (negative for outgoing)
-        long fee_msat,    // msats (negative)
+        Boolean out,
+        Long amount,       // millisats (negative for outgoing)
+        Long fee_msat,    // msats (negative)
         String memo,
         String bolt11,
         ZonedDateTime time

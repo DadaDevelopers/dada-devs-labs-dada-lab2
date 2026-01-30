@@ -1,5 +1,6 @@
 package com.dada_labs_two.chamavault.wallets.controllers;
 
+import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.PaymentStatus;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
 import com.dada_labs_two.chamavault.users.repository.InvoiceRepository;
 import com.dada_labs_two.chamavault.wallets.constants.InvoiceStatus;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.UUID;
 
@@ -68,8 +70,9 @@ public class InvoiceController {
                 paymentHash,
                 request.amountSats(),
                 request.amountSats() * 1000,
+                invoice.getFees(),
                 qr,
-                ZonedDateTime.now().plusMinutes(15)
+                Bolt11Utils.extractExpiry(bolt11)
         ));
     }
 
@@ -83,12 +86,30 @@ public class InvoiceController {
 
     @GetMapping("/invoices/{paymentHash}")
     public ResponseEntity<InvoiceStatusDto> getInvoiceStatus(@PathVariable String paymentHash) {
-
         Invoice invoice = invoiceRepository.findByPaymentHash(paymentHash)
                 .orElseThrow();
 
+        Wallet invoiceCreator = invoice.getInvoicerCreator();
+
+        PaymentStatus status = lightningWalletService.checkInvoicePaymentStatus(
+                invoiceCreator.getLightning().get("inkey"), paymentHash);
+        
+        if (status.paid())
+            invoice.setStatus(InvoiceStatus.PAID);
+        else if (ZonedDateTime.now().isAfter(invoice.getExpiresAt()))
+            invoice.setStatus(InvoiceStatus.EXPIRED);
+        else
+            invoice.setStatus(InvoiceStatus.PENDING);
+
+        invoice.setFees(status.details().getFee());
+
+        invoice = invoiceRepository.save(invoice);
+
+
         return ResponseEntity.ok(new InvoiceStatusDto(
                 invoice.getPaymentHash(),
+                invoice.getAmountSats(),
+                invoice.getFees(),
                 invoice.getStatus(),
                 invoice.getPaidAt()
         ));
@@ -103,7 +124,8 @@ public class InvoiceController {
                 invoice.getBolt11(),                  // invoice
                 invoice.getPaymentHash(),             // paymentHash
                 amountSats,                            // amountSats
-                amountSats * 1000,                     // amountMsats (converted)
+                amountSats * 1000, // amountMsats (converted)
+                invoice.getFees(),
                 qrCodeService.generateBase64Png(invoice.getBolt11()), // qrCode (regenerated)
                 invoice.getExpiresAt()                 // expiresAt
         );

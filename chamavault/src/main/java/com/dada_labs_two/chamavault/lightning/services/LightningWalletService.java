@@ -82,6 +82,16 @@ public class LightningWalletService {
         return client.listPayments(walletKey);
     }
 
+    public PaymentStatus checkInvoicePaymentStatus(String walletInKey, String invoicePaymentHash) {
+        PaymentStatus status = client.getPayment(walletInKey, invoicePaymentHash);
+
+        if (status.paid()) {
+            // settled
+        }
+
+        return status;
+    }
+
 
 //
 //    public InvoiceResponse createInvoice(String walletKey) {
