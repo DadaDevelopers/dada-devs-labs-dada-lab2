@@ -6,6 +6,8 @@ import java.time.ZonedDateTime;
 
 public record InvoiceStatusDto(
         String paymentHash,
+        Long amountSats,
+        Long fees,
         InvoiceStatus status,
         ZonedDateTime paidAt
 ) {}
