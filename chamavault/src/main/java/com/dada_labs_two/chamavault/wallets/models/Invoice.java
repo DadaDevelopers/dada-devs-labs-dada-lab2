@@ -43,6 +43,8 @@ public class Invoice {
 
     private Long amountSats;
 
+    private Long fees;
+
     @Enumerated(EnumType.STRING)
     private InvoiceStatus status;
 
