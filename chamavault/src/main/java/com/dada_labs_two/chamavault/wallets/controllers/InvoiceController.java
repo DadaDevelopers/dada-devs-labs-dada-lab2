@@ -112,7 +112,8 @@ public class InvoiceController {
                 invoice.getAmountSats(),
                 invoice.getFees(),
                 invoice.getStatus(),
-                invoice.getPaidAt()
+                invoice.getPaidAt(),
+                invoice.getExpiresAt()
         ));
     }
 
