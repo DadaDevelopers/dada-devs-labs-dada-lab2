@@ -12,6 +12,8 @@ import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
 import com.dada_labs_two.chamavault.wallets.services.Bolt11Utils;
 import com.dada_labs_two.chamavault.wallets.services.QrCodeService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -71,6 +73,13 @@ public class InvoiceController {
         ));
     }
 
+    @GetMapping("/user-invoices/{walletId}")
+    public ResponseEntity<Page<InvoiceDto>> getInvoice(Pageable pageable, @PathVariable UUID walletId ) {
+        Wallet wallet = walletRepository.findById(walletId).orElseThrow();
+
+        return ResponseEntity.ok(toDtoPage(invoiceRepository.findAllByInvoicerCreator(pageable, wallet)));
+    }
+
 
     @GetMapping("/invoices/{paymentHash}")
     public ResponseEntity<InvoiceStatusDto> getInvoiceStatus(@PathVariable String paymentHash) {
@@ -85,5 +94,27 @@ public class InvoiceController {
         ));
     }
 
+
+    public InvoiceDto toDto(Invoice invoice) {
+        // Handle null safety for amountSats just in case
+        long amountSats = invoice.getAmountSats() != null ? invoice.getAmountSats() : 0L;
+
+        return new InvoiceDto(
+                invoice.getBolt11(),                  // invoice
+                invoice.getPaymentHash(),             // paymentHash
+                amountSats,                            // amountSats
+                amountSats * 1000,                     // amountMsats (converted)
+                qrCodeService.generateBase64Png(invoice.getBolt11()), // qrCode (regenerated)
+                invoice.getExpiresAt()                 // expiresAt
+        );
+    }
+
+    /**
+     * Helper method to map a Page of Invoices to a Page of InvoiceDtos.
+     * Useful for the controller endpoint using Pageable.
+     */
+    public Page<InvoiceDto> toDtoPage(Page<Invoice> invoices) {
+        return invoices.map(this::toDto);
+    }
 }
 
