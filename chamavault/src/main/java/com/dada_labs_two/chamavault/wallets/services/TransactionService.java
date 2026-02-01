@@ -291,7 +291,7 @@ public class TransactionService {
         log.info("wallet balance from LnBits {}", walletDetails.balance());
 
         log.info("proceeding to update");
-        wallet.setLnBitsbalanceSats(walletDetails.balance());
+        wallet.setLnBitsbalanceSats(walletDetails.balance()/1000);
         wallet.setBalanceSats(walletDetails.balance());
         walletRepository.save(wallet);
     }
