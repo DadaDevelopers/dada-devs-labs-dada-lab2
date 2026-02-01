@@ -256,4 +256,19 @@ public class ContributionCycleService {
         return cycleRepository.findAllByChama(pageable, chama);
     }
 
+    public List<ContributionCycle> getUnpaidContributionCycles(UUID userRef) {
+        return cycleRepository.findUnpaidCyclesForUser(
+                userRef,
+                List.of(
+                        ContributionCycleStatus.ACTIVE,
+                        ContributionCycleStatus.CLOSED,
+                        ContributionCycleStatus.COMPLETED
+                )
+        );
+    }
+
+
+
+
+
 }
