@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowUpRight, ChevronDown, Wallet, X, Copy, Clock, CheckCircle, AlertCircle, Layers, Eye, Plus, Check } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, Wallet, X, Copy, Clock, CheckCircle, AlertCircle, Layers, Eye, Plus, Check, Filter, Search } from 'lucide-react';
 import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import BalanceHero from '@/components/BalanceHero';
@@ -35,7 +35,7 @@ type Invoice = {
   amountFees: number;
   qrCode: string;
   expiresAt: string;
-  status?: string; // 'PENDING' | 'PAID' | 'EXPIRED'
+  status: string; // 'PENDING' | 'PAID' | 'EXPIRED'
   paidAt?: string;
 };
 
@@ -60,6 +60,11 @@ const WalletPage = () => {
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [loadingRate, setLoadingRate] = useState(true);
   const [lastFetched, setLastFetched] = useState<number | null>(null);
+  
+  // New states for invoice filtering
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterExpanded, setFilterExpanded] = useState(false);
   
   const CACHE_DURATION_MS = 5 * 60 * 1000;
 
@@ -95,26 +100,99 @@ const WalletPage = () => {
   }, [wallets, selectedWalletRef]);
 
   const getInvoiceMeta = (invoice: Invoice) => {
+    // First check if status is explicitly provided in the API response
     if (invoice.status) {
       if (invoice.status === 'EXPIRED') {
-        return { label: 'EXPIRED', color: 'bg-red-50 text-red-700 border-red-100', icon: Clock, showPaid: false };
+        return { 
+          label: 'EXPIRED', 
+          color: 'bg-red-50 text-red-700 border-red-100', 
+          icon: Clock, 
+          showPaid: false,
+          bgColor: 'bg-red-50',
+          textColor: 'text-red-700',
+          borderColor: 'border-red-200'
+        };
       }
       if (invoice.status === 'PAID') {
-        return { label: 'PAID', color: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: CheckCircle, showPaid: true };
+        return { 
+          label: 'PAID', 
+          color: 'bg-emerald-50 text-emerald-700 border-emerald-100', 
+          icon: CheckCircle, 
+          showPaid: true,
+          bgColor: 'bg-emerald-50',
+          textColor: 'text-emerald-700',
+          borderColor: 'border-emerald-200'
+        };
+      }
+      if (invoice.status === 'PENDING') {
+        return { 
+          label: 'PENDING', 
+          color: 'bg-yellow-50 text-yellow-700 border-yellow-100', 
+          icon: Clock, 
+          showPaid: false,
+          bgColor: 'bg-yellow-50',
+          textColor: 'text-yellow-700',
+          borderColor: 'border-yellow-200'
+        };
       }
     }
     
+    // Fallback to checking dates if status is not provided
     const now = new Date();
     const expiry = new Date(invoice.expiresAt);
     if (expiry < now) {
-      return { label: 'EXPIRED', color: 'bg-red-50 text-red-700 border-red-100', icon: Clock, showPaid: false };
+      return { 
+        label: 'EXPIRED', 
+        color: 'bg-red-50 text-red-700 border-red-100', 
+        icon: Clock, 
+        showPaid: false,
+        bgColor: 'bg-red-50',
+        textColor: 'text-red-700',
+        borderColor: 'border-red-200'
+      };
     }
     if (invoice.paidAt) {
-      return { label: 'PAID', color: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: CheckCircle, showPaid: true };
+      return { 
+        label: 'PAID', 
+        color: 'bg-emerald-50 text-emerald-700 border-emerald-100', 
+        icon: CheckCircle, 
+        showPaid: true,
+        bgColor: 'bg-emerald-50',
+        textColor: 'text-emerald-700',
+        borderColor: 'border-emerald-200'
+      };
     }
 
-    return { label: 'PENDING', color: 'bg-yellow-50 text-yellow-700 border-yellow-100', icon: Clock, showPaid: false };
+    return { 
+      label: 'PENDING', 
+      color: 'bg-yellow-50 text-yellow-700 border-yellow-100', 
+      icon: Clock, 
+      showPaid: false,
+      bgColor: 'bg-yellow-50',
+      textColor: 'text-yellow-700',
+      borderColor: 'border-yellow-200'
+    };
   };
+
+  // Filter invoices based on status and search query
+  const filteredInvoices = useMemo(() => {
+    let filtered = invoices;
+    
+    // Filter by status
+    if (statusFilter !== 'ALL') {
+      filtered = filtered.filter(invoice => invoice.status === statusFilter);
+    }
+    
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(invoice => 
+        invoice.paymentHash.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        invoice.amountSats.toString().includes(searchQuery)
+      );
+    }
+    
+    return filtered;
+  }, [invoices, statusFilter, searchQuery]);
 
   // --- HANDLERS ---
 
@@ -240,13 +318,14 @@ const WalletPage = () => {
         setSelectedInvoice(null);
         setSelectedWalletDetails(null);
         setWalletsExpanded(false);
+        setFilterExpanded(false);
       }
     };
-    if (selectedInvoice || selectedWalletDetails || walletsExpanded) {
+    if (selectedInvoice || selectedWalletDetails || walletsExpanded || filterExpanded) {
       document.addEventListener('keydown', esc);
       return () => document.removeEventListener('keydown', esc);
     }
-  }, [selectedInvoice, selectedWalletDetails, walletsExpanded]);
+  }, [selectedInvoice, selectedWalletDetails, walletsExpanded, filterExpanded]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -299,7 +378,6 @@ const WalletPage = () => {
             </div>
 
             {/* SCROLLABLE LIST */}
-            {/* This div is the key change. It adds max-h and overflow-y-auto */}
             <div className="max-h-[400px] overflow-y-auto divide-y divide-gray-100">
               {wallets.map((wallet) => (
                 <div key={wallet.walletReference} className="p-4">
@@ -399,12 +477,55 @@ const WalletPage = () => {
 
         {/* Transaction History */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
-            <span>Past Invoices</span>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Past Invoices</h2>
             {selectedWalletRef === 'ALL' && (
                 <span className="text-sm font-normal text-gray-500">Select a wallet to view invoices</span>
             )}
-          </h2>
+            {selectedWalletRef !== 'ALL' && invoices.length > 0 && (
+              <button
+                onClick={() => setFilterExpanded(!filterExpanded)}
+                className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 transition"
+              >
+                <Filter size={16} />
+                Filter
+              </button>
+            )}
+          </div>
+          
+          {/* Filter Panel */}
+          {filterExpanded && selectedWalletRef !== 'ALL' && (
+            <div className="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="ALL">All Status</option>
+                    <option value="PAID">Paid</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="EXPIRED">Expired</option>
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by hash or amount"
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           
           {loading || loadingInvoices ? (
              <div className="space-y-4">
@@ -417,30 +538,76 @@ const WalletPage = () => {
               <Wallet className="w-10 h-10 text-gray-300 mx-auto mb-2" />
               <p className="text-sm text-gray-500">Select a specific wallet above to view its transaction history.</p>
             </div>
-          ) : (
-            <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
-              {invoices.map((invoice, index) => (
-                <div 
-                  key={index} 
-                  onClick={() => setSelectedInvoice(invoice)}
-                  className="flex items-start gap-4 p-4 hover:bg-gray-50 transition cursor-pointer"
+          ) : filteredInvoices.length === 0 ? (
+            <div className="text-center py-8 bg-white rounded-xl border border-dashed border-gray-300">
+              <Wallet className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">No invoices found.</p>
+              {statusFilter !== 'ALL' || searchQuery && (
+                <button
+                  onClick={() => {
+                    setStatusFilter('ALL');
+                    setSearchQuery('');
+                  }}
+                  className="mt-2 text-sm text-emerald-600 hover:text-emerald-700"
                 >
-                  <div className="w-10 h-10 bg-gray-100 rounded-2xl flex items-center justify-center shrink-0">
-                    <Wallet className="w-5 h-5 text-emerald-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 mb-1 truncate">
-                      Hash: {invoice.paymentHash.substring(0, 15)}...
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {invoice.amountSats} Sats • {new Date(invoice.expiresAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-              {invoices.length === 0 && (
-                <p className="text-center py-4 text-sm text-gray-400">No invoices found for this wallet.</p>
+                  Clear filters
+                </button>
               )}
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Hash</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredInvoices.map((invoice, index) => {
+                      const meta = getInvoiceMeta(invoice);
+                      return (
+                        <tr 
+                          key={index} 
+                          onClick={() => setSelectedInvoice(invoice)}
+                          className="hover:bg-gray-50 transition cursor-pointer"
+                        >
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.bgColor} ${meta.textColor}`}>
+                              <meta.icon size={12} className="mr-1" />
+                              {meta.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {invoice.amountSats.toLocaleString()} sats
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {convertSatsToKes(invoice.amountSats).toFixed(2)} KES
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm text-gray-900 truncate max-w-xs">
+                              {invoice.paymentHash.substring(0, 20)}...
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {new Date(invoice.expiresAt).toLocaleDateString()}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(invoice.expiresAt).toLocaleTimeString()}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -544,7 +711,7 @@ const WalletPage = () => {
                 {(() => {
                   const meta = getInvoiceMeta(selectedInvoice);
                   return (
-                    <div className={`absolute -bottom-2 -right-2 ${meta.color} px-3 py-1.5 rounded-full text-xs font-bold border border-white shadow-sm flex items-center gap-1.5`}>
+                    <div className={`absolute -bottom-2 -right-2 ${meta.bgColor} ${meta.textColor} px-3 py-1.5 rounded-full text-xs font-bold border ${meta.borderColor} shadow-sm flex items-center gap-1.5`}>
                       <meta.icon size={12} />
                       {meta.label}
                     </div>
