@@ -139,7 +139,7 @@ public class TransactionService {
 
         String paymentHash1 =
                 lightningWalletService.payInvoice(
-                        fundingWallet.getLightning().get("inkey"),
+                        fundingWallet.getLightning().get("adminkey"),
                         contributorInvoice
                 );
 
@@ -164,7 +164,7 @@ public class TransactionService {
 
         String paymentHash2 =
                 lightningWalletService.payInvoice(
-                        contributorWallet.getLightning().get("inkey"),
+                        contributorWallet.getLightning().get("adminkey"),
                         beneficiaryInvoice
                 );
 
