@@ -73,6 +73,7 @@ public class InvoiceController {
                 request.amountSats() * 1000,
                 invoice.getFees(),
                 qr,
+                invoice.getStatus(),
                 Bolt11Utils.extractExpiry(bolt11)
         ));
     }
@@ -151,6 +152,7 @@ public class InvoiceController {
                 amountSats * 1000, // amountMsats (converted)
                 invoice.getFees(),
                 qrCodeService.generateBase64Png(invoice.getBolt11()), // qrCode (regenerated)
+                invoice.getStatus(),
                 invoice.getExpiresAt()                 // expiresAt
         );
     }
@@ -160,7 +162,8 @@ public class InvoiceController {
      * Useful for the controller endpoint using Pageable.
      */
     public Page<InvoiceDto> toDtoPage(Page<Invoice> invoices) {
-        return invoices.map(this::toDto);
+        return invoices.map(invoice ->  toDto(invoice));
+
     }
 }
 
