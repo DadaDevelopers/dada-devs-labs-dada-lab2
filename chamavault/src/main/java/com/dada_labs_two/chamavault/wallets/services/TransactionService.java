@@ -173,6 +173,8 @@ public class TransactionService {
 
         //sync receiver wallet
         syncReceiverLnBitsWalletBalance(cycle.getWallet());
+        syncSenderLnBitsWalletBalance(fundingWallet);
+        syncSenderLnBitsWalletBalance(contributorWallet);
 
         // Ledger: Lightning payment to beneficiary
         return transactionRepository.save(
@@ -193,6 +195,53 @@ public class TransactionService {
                         .build()
         );
 
+    }
+
+    @Transactional
+    public Transaction topUpAWallet(UUID senderWalletId, UUID recipientWalletId, Long amountSats, String memo) {
+        Wallet senderWallet = walletRepository.findById(senderWalletId).orElseThrow(() -> new RuntimeException("Sender wallet not found"));
+
+        if (senderWallet.getWalletType() == WalletType.CHAMA_GROUP)
+            throw new RuntimeException("Withdrawal may not be permitted on CHAMA_GROUP wallets");
+
+        Wallet recipientWallet = walletRepository.findById(recipientWalletId).orElseThrow(() -> new RuntimeException("Recipient wallet not found"));
+
+        //create invoice on behalf of recipient, then make a payment on behalf of sender
+        String recipientInvoice =
+                lightningWalletService.createInvoice(
+                        recipientWallet.getLightning().get("inkey"),
+                        amountSats,
+                        memo
+                );
+        log.info("invoice successfully created for recipient wallet {}", recipientWalletId);
+
+        String paymentHash2 =
+                lightningWalletService.payInvoice(
+                        senderWallet.getLightning().get("adminkey"),
+                        recipientInvoice
+                );
+        log.info("paymentHash2 successfully created for senderWallet wallet {}", senderWallet.getLightning().get("adminkey"));
+
+        //Sync Wallets
+        syncReceiverLnBitsWalletBalance(senderWallet);
+        syncSenderLnBitsWalletBalance(recipientWallet);
+
+        // Ledger: Lightning payment to beneficiary
+         return transactionRepository.save(
+                Transaction.builder()
+                        .wallet(senderWallet)
+                        .type(TransactionType.DEBIT)
+                        .source(TransactionSource.LN_INVOICE)
+                        .amountSats(amountSats)
+                        .externalRef(paymentHash2)
+                        .initiatedBy(senderWallet.getOwnerReference())
+                        .counterpartyUser(recipientWallet.getOwnerReference())
+                        .rotationIndex(null)
+                        .memo(memo)
+                        .metadata(new HashMap<>())
+                        .occurredAt(ZonedDateTime.now())
+                        .build()
+        );
     }
 
     /**
@@ -228,6 +277,14 @@ public class TransactionService {
     }
 
     void syncReceiverLnBitsWalletBalance(Wallet wallet) {
+        syncWithLnBitsWalletBalance(wallet);
+    }
+
+    void syncSenderLnBitsWalletBalance(Wallet wallet) {
+        syncWithLnBitsWalletBalance(wallet);
+    }
+
+    void syncWithLnBitsWalletBalance(Wallet wallet) {
         WalletDetails walletDetails = lightningWalletService.getUserWallet(wallet.getLightning().get("inkey"));
 
         log.info("getLnBitsbalanceSats() wallet balance current {}",wallet.getLnBitsbalanceSats());

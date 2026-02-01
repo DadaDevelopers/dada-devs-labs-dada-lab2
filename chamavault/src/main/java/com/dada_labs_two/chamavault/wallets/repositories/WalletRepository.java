@@ -6,7 +6,10 @@ import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -18,5 +21,18 @@ public interface WalletRepository extends JpaRepository<Wallet, UUID> {
     Optional<Wallet> findByOwnerReferenceAndWalletTypeAndChamaAndActive(UUID ownerReference, WalletType walletType,
                                                                Chama chama, Boolean active);
     List<Wallet> findByActiveTrue();
+
+    @Query("""
+        SELECT w FROM Wallet w
+        WHERE w.active = true
+        AND (
+            w.lastBalanceCheck IS NULL
+            OR w.lastBalanceCheck < :cutoff
+        )
+    """)
+    Page<Wallet> findWalletsToPoll(
+            @Param("cutoff") Instant cutoff,
+            Pageable pageable
+    );
 
 }

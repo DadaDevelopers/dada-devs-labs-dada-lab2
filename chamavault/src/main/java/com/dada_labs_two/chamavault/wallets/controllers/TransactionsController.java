@@ -1,6 +1,7 @@
 package com.dada_labs_two.chamavault.wallets.controllers;
 
 import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
+import com.dada_labs_two.chamavault.wallets.dtos.CreateTopUpDTO;
 import com.dada_labs_two.chamavault.wallets.models.Transaction;
 import com.dada_labs_two.chamavault.wallets.services.TransactionService;
 import lombok.RequiredArgsConstructor;
@@ -31,5 +32,11 @@ public class TransactionsController {
     @GetMapping("/find-by/{rotationIndex}")
     Page<Transaction> findByRotationIndex(@PathVariable Integer rotationIndex, Pageable pageable) {
         return transactionService.findByRotationIndex(rotationIndex, pageable);
+    }
+
+    @PostMapping("/wallet-top-up")
+    ResponseEntity<Transaction> makeInternalWalletTopUp(@RequestBody CreateTopUpDTO request) {
+        return ResponseEntity.ok(transactionService.topUpAWallet(request.senderWalletId(),
+                request.recipientWalletId(), request.amountSats(), request.memo()));
     }
 }
