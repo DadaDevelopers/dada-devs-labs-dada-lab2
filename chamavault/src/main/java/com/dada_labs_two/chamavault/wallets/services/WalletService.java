@@ -41,6 +41,10 @@ public class WalletService {
         });
     }
 
+    public Wallet getWalletById(UUID walletId) {
+        return walletRepository.findById(walletId).orElseThrow(()-> new RuntimeException("Wallet not found"));
+    }
+
     public Wallet createUserWallet(String msisdn, String walletName) {
         User user = userRepository.findByMsisdn(msisdn).orElseThrow(() ->
                 new RuntimeException("User is not registered in the system"));
@@ -104,7 +108,7 @@ public class WalletService {
 
     }
 
-    @Scheduled(fixedDelayString = "${wallet.poller.delay-ms:30000}")
+    @Scheduled(fixedDelayString = "${wallet.poller.delay-ms:600000}")
     void updateWalletBalance() {
 
         log.info("Starting paged wallet balance update");
