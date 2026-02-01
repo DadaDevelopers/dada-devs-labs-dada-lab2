@@ -51,6 +51,18 @@ export function Navbar({ isAuthenticated = false, userName = '' }: NavbarProps) 
     // If it's a logout item, handle logout
     if (item.isLogout) {
       handleLogout();
+    } else {
+      // For regular navigation items, navigate to the href
+      if (item.href.startsWith('#')) {
+        // For anchor links, scroll to the section
+        const element = document.querySelector(item.href);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      } else {
+        // For page routes, use the router
+        router.push(item.href);
+      }
     }
   };
 
