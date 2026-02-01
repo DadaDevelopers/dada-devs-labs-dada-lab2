@@ -32,4 +32,9 @@ public class WalletController {
     ResponseEntity<Page<Wallet>> getWallet(@PathVariable("ownerReference") UUID ownerReference, Pageable pageable) {
         return ResponseEntity.ok(walletService.findAllByOwnerReference(pageable, ownerReference));
     }
+
+    @GetMapping("/fetch-by-id/{walletId}")
+    ResponseEntity<Wallet> fetchWalletById(@PathVariable("walletId") UUID walletId) {
+        return ResponseEntity.ok(walletService.getWalletById(walletId));
+    }
 }
