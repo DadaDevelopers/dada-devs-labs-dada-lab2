@@ -19,6 +19,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+
+//CREATE INDEX idx_wallet_owner ON wallets(owner_reference);
+//CREATE INDEX idx_cycle_start ON contribution_cycles(start_at);
 @Entity
 @Table(name = "contribution_cycles")
 @Data

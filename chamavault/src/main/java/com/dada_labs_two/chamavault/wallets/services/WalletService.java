@@ -108,7 +108,7 @@ public class WalletService {
 
     }
 
-    @Scheduled(fixedDelayString = "${wallet.poller.delay-ms:600000}")
+//    @Scheduled(fixedDelayString = "${wallet.poller.delay-ms:600000}")
     void updateWalletBalance() {
 
         log.info("Starting paged wallet balance update");
