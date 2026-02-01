@@ -256,14 +256,15 @@ public class ContributionCycleService {
         return cycleRepository.findAllByChama(pageable, chama);
     }
 
-    public List<ContributionCycle> getUnpaidContributionCycles(UUID userRef) {
+    public Page<ContributionCycle> getUnpaidContributionCycles(UUID userRef, Pageable page) {
         return cycleRepository.findUnpaidCyclesForUser(
                 userRef,
                 List.of(
                         ContributionCycleStatus.ACTIVE,
                         ContributionCycleStatus.CLOSED,
                         ContributionCycleStatus.COMPLETED
-                )
+                ),
+                page
         );
     }
 

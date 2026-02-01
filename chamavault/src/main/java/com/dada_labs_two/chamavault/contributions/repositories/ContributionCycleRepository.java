@@ -47,9 +47,11 @@ public interface ContributionCycleRepository extends JpaRepository<ContributionC
           WHERE w.ownerReference = :userRef
       )
     """)
-    List<ContributionCycle> findUnpaidCyclesForUser(
+    Page<ContributionCycle> findUnpaidCyclesForUser(
             @Param("userRef") UUID userRef,
-            @Param("statuses") List<ContributionCycleStatus> statuses
+            @Param("statuses") List<ContributionCycleStatus> statuses,
+            Pageable pageable
     );
+
 
 }
