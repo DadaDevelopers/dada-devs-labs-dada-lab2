@@ -35,7 +35,10 @@ public class WalletService {
     private final UserRepository userRepository;
 
     public Page<Wallet> findAllByOwnerReference(Pageable pageable, UUID ownerReference) {
-        return walletRepository.findAllByOwnerReference(pageable, ownerReference);
+        return walletRepository.findAllByOwnerReference(pageable, ownerReference).map(wallet -> {
+            updateSingleWallet(wallet);
+            return wallet;
+        });
     }
 
     public Wallet createUserWallet(String msisdn, String walletName) {
@@ -124,11 +127,11 @@ public class WalletService {
     }
 
     @Transactional
-    public void updateSingleWallet(Wallet wallet) {
+    public Wallet updateSingleWallet(Wallet wallet) {
 
         if (wallet.getLightning() == null || StringUtils.isBlank(wallet.getLightning().get("inkey"))) {
             log.info("No input wallet found for wallet: {}", wallet);
-            return;
+            return null;
         }
 
         WalletDetails details =
@@ -138,12 +141,16 @@ public class WalletService {
         long localBalance = wallet.getLnBitsbalanceSats() == null ? 0L : wallet.getLnBitsbalanceSats();
 
         if (!Objects.equals(localBalance, remoteBalance)) {
+
+            log.info("updating balance for wallet: {} from locale balance of {} to remote balance of {}",
+                    wallet.getWalletReference(), localBalance, remoteBalance);
             wallet.setLnBitsbalanceSats(remoteBalance);
+            wallet.setBalanceSats(remoteBalance);
             wallet.setLastActivityAt(Instant.now());
         }
 
         wallet.setLastBalanceCheck(Instant.now());
-        walletRepository.save(wallet);
+        return walletRepository.save(wallet);
     }
 
 
