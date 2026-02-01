@@ -257,6 +257,7 @@ public class ContributionCycleService {
     }
 
     public Page<ContributionCycle> getUnpaidContributionCycles(UUID userRef, Pageable page) {
+        log.info("Fetched User reference {}", userRef);
         return cycleRepository.findUnpaidCyclesForUser(
                 userRef,
                 List.of(
