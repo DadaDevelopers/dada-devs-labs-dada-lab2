@@ -263,7 +263,7 @@ export default function ChamasPage() {
                   {/* Icon */}
                   <div className="flex flex-col items-center gap-1">
                     <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100">
-                      <Image
+                      <img
                         src={chama.iconUrl || "/placeholder.png"}
                         alt={chama.name}
                         className="w-full h-full object-cover"

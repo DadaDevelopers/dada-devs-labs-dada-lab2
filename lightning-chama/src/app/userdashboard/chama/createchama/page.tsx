@@ -4,7 +4,6 @@ import { ArrowLeft, ImageUp } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 
 export default function CreateChama() {
   const [formData, setFormData] = useState<{
@@ -172,7 +171,7 @@ export default function CreateChama() {
                 {formData.uploading ? (
                   <span className="text-gray-500 text-xs">Uploading...</span>
                 ) : formData.logoUrl ? (
-                  <Image src={formData.logoUrl} alt="Logo Preview" className="w-full h-full object-cover rounded-lg" />
+                  <img src={formData.logoUrl} alt="Logo Preview" className="w-full h-full object-cover rounded-lg" />
                 ) : (
                   <ImageUp className="w-8 h-8 text-gray-400" />
                 )}
