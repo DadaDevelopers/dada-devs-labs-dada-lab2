@@ -8,6 +8,8 @@ import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -28,4 +30,26 @@ public interface ContributionCycleRepository extends JpaRepository<ContributionC
                                                                Chama chama);
 
     Optional<ContributionCycle> findByWalletAndStatus(Wallet contributionWallet, ContributionCycleStatus contributionCycleStatus);
+
+
+    @Query("""
+    SELECT cc
+    FROM ContributionCycle cc
+    JOIN cc.chama c
+    JOIN ChamaMember cm ON cm.chama = c
+    WHERE cm.user.userReference = :userRef
+      AND cm.status = 'ACTIVE'
+      AND cc.startAt >= cm.joinedAt
+      AND cc.status IN :statuses
+      AND NOT EXISTS (
+          SELECT w
+          FROM cc.contributorWallets w
+          WHERE w.ownerReference = :userRef
+      )
+    """)
+    List<ContributionCycle> findUnpaidCyclesForUser(
+            @Param("userRef") UUID userRef,
+            @Param("statuses") List<ContributionCycleStatus> statuses
+    );
+
 }
