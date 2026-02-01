@@ -2,6 +2,7 @@ package com.dada_labs_two.chamavault.wallets.services;
 
 import com.dada_labs_two.chamavault.chama.models.Chama;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRepository;
+import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletDetails;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
 import com.dada_labs_two.chamavault.users.models.User;
@@ -10,15 +11,19 @@ import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import com.dada_labs_two.chamavault.wallets.dtos.CreateWalletDTO;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
+import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -95,4 +100,53 @@ public class WalletService {
         return wallet;
 
     }
+
+    @Scheduled(fixedDelayString = "${wallet.poller.delay-ms:30000}")
+    void updateWalletBalance() {
+
+        log.info("Starting paged wallet balance update");
+
+        Instant cutoff = Instant.now().minus(Duration.ofMinutes(5));
+        Pageable pageable = PageRequest.of(0, 100);
+
+        Page<Wallet> page;
+
+        do {
+            page = walletRepository.findWalletsToPoll(cutoff, pageable);
+
+            for (Wallet wallet : page.getContent()) {
+                updateSingleWallet(wallet);
+            }
+
+            pageable = page.hasNext() ? page.nextPageable() : Pageable.unpaged();
+
+        } while (page.hasNext());
+    }
+
+    @Transactional
+    public void updateSingleWallet(Wallet wallet) {
+
+        if (wallet.getLightning() == null || StringUtils.isBlank(wallet.getLightning().get("inkey"))) {
+            log.info("No input wallet found for wallet: {}", wallet);
+            return;
+        }
+
+        WalletDetails details =
+                lightningWalletService.getUserWallet(wallet.getLightning().get("inkey"));
+
+        long remoteBalance = details.balance();
+        long localBalance = wallet.getLnBitsbalanceSats() == null ? 0L : wallet.getLnBitsbalanceSats();
+
+        if (!Objects.equals(localBalance, remoteBalance)) {
+            wallet.setLnBitsbalanceSats(remoteBalance);
+            wallet.setLastActivityAt(Instant.now());
+        }
+
+        wallet.setLastBalanceCheck(Instant.now());
+        walletRepository.save(wallet);
+    }
+
+
+
+
 }

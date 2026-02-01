@@ -13,13 +13,20 @@ import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 @Entity
-@Table(name = "wallets")
+@Table(
+        name = "wallets",
+        indexes = {
+                @Index(name = "idx_wallet_active", columnList = "active"),
+                @Index(name = "idx_wallet_last_balance_check", columnList = "last_balance_check")
+        }
+)
 @Data
 @Builder
 @NoArgsConstructor
@@ -59,4 +66,10 @@ public class Wallet {
     private ZonedDateTime updatedAt;
 
     private ZonedDateTime deletedAt;
+
+    @Column(name = "last_balance_check")
+    private Instant lastBalanceCheck;
+
+    @Column(name = "last_activity_at")
+    private Instant lastActivityAt;
 }

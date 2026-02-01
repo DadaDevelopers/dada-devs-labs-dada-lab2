@@ -81,7 +81,29 @@ public class InvoiceController {
     public ResponseEntity<Page<InvoiceDto>> getInvoice(Pageable pageable, @PathVariable UUID walletId ) {
         Wallet wallet = walletRepository.findById(walletId).orElseThrow();
 
-        return ResponseEntity.ok(toDtoPage(invoiceRepository.findAllByInvoicerCreator(pageable, wallet)));
+        var invoices = invoiceRepository.findAllByInvoicerCreator(pageable, wallet);
+
+        return ResponseEntity.ok(toDtoPage(invoiceRepository.findAllByInvoicerCreator(pageable, wallet)
+                .map(invoice -> {
+                    //check lnbits
+                    String paymentHash = invoice.getPaymentHash();
+
+                    PaymentStatus status = lightningWalletService.checkInvoicePaymentStatus(
+                            invoice.getInvoicerCreator().getLightning().get("inkey"), paymentHash);
+
+                    if (status.paid())
+                        invoice.setStatus(InvoiceStatus.PAID);
+                    else if (ZonedDateTime.now().isAfter(invoice.getExpiresAt()))
+                        invoice.setStatus(InvoiceStatus.EXPIRED);
+                    else
+                        invoice.setStatus(InvoiceStatus.PENDING);
+
+                    invoice.setFees(status.details().getFee());
+
+                    invoice = invoiceRepository.save(invoice);
+
+                    return invoice;
+                })));
     }
 
 
