@@ -292,6 +292,7 @@ public class TransactionService {
 
         log.info("proceeding to update");
         wallet.setLnBitsbalanceSats(walletDetails.balance());
+        wallet.setBalanceSats(walletDetails.balance());
         walletRepository.save(wallet);
     }
 
