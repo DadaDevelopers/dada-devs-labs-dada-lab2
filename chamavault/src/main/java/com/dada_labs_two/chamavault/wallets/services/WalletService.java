@@ -144,8 +144,8 @@ public class WalletService {
 
             log.info("updating balance for wallet: {} from locale balance of {} to remote balance of {}",
                     wallet.getWalletReference(), localBalance, remoteBalance);
-            wallet.setLnBitsbalanceSats(remoteBalance/1000);
-            wallet.setBalanceSats(remoteBalance);
+            wallet.setLnBitsbalanceSats(remoteBalance);
+            wallet.setBalanceSats(remoteBalance/1000);
             wallet.setLastActivityAt(Instant.now());
         }
 
