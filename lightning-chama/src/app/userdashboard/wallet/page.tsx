@@ -1,19 +1,30 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { ArrowUpRight, ChevronDown, Wallet, X, Copy, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { ArrowUpRight, ChevronDown, Wallet, X, Copy, Clock, CheckCircle, AlertCircle, Layers, Eye, Plus, Check } from 'lucide-react';
 import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import BalanceHero from '@/components/BalanceHero';
 
-// Types
+// --- TYPES ---
+
+type LightningNode = {
+  name: string;
+  id: string;
+  adminkey: string;
+  inkey: string;
+  currency: string;
+  balance_msat?: string;
+};
+
 type Wallet = {
   walletReference: string;
   walletType: string;
   balanceSats: number;
-  lightning: {
-    name: string;
-  };
+  lightning: LightningNode;
+  active?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 type Invoice = {
@@ -29,31 +40,110 @@ type Invoice = {
 };
 
 const WalletPage = () => {
+  // --- STATE ---
+
   const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  
+  const [selectedWalletRef, setSelectedWalletRef] = useState<string | 'ALL'>('ALL');
   
   const [loading, setLoading] = useState(true);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
-
-  // Modal States
+  const [walletsExpanded, setWalletsExpanded] = useState(false);
+  
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [selectedWalletDetails, setSelectedWalletDetails] = useState<Wallet | null>(null);
+  
   const [copiedHash, setCopiedHash] = useState(false);
+  const [walletDetailsCopied, setWalletDetailsCopied] = useState<string | null>(null);
 
-  // Exchange rate state
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [loadingRate, setLoadingRate] = useState(true);
   const [lastFetched, setLastFetched] = useState<number | null>(null);
   
   const CACHE_DURATION_MS = 5 * 60 * 1000;
 
-  // Format Sats to BTC
+  // --- HELPERS ---
+
   const formatBtc = (sats: number) => {
     const btc = sats / 100000000;
     return btc.toFixed(5);
   };
 
-  // 1. Fetch Exchange Rate
+  const convertSatsToKes = (sats: number): number => {
+    if (!exchangeRate) return 0;
+    const btcAmount = sats / 100000000;
+    return btcAmount * exchangeRate;
+  };
+
+  const walletData = useMemo(() => {
+    if (wallets.length === 0) return { balance: 0, walletObj: null };
+
+    if (selectedWalletRef === 'ALL') {
+      const totalBalance = wallets.reduce((sum, w) => sum + (w.balanceSats || 0), 0);
+      return { balance: totalBalance, walletObj: null };
+    } else {
+      const found = wallets.find((w) => w.walletReference === selectedWalletRef);
+      return { balance: found?.balanceSats || 0, walletObj: found || null };
+    }
+  }, [wallets, selectedWalletRef]);
+
+  const activeWalletName = useMemo(() => {
+    if (selectedWalletRef === 'ALL') return "(All Wallets)";
+    const found = wallets.find((w) => w.walletReference === selectedWalletRef);
+    return found ? `(${found.lightning.name})` : "";
+  }, [wallets, selectedWalletRef]);
+
+  const getInvoiceMeta = (invoice: Invoice) => {
+    if (invoice.status) {
+      if (invoice.status === 'EXPIRED') {
+        return { label: 'EXPIRED', color: 'bg-red-50 text-red-700 border-red-100', icon: Clock, showPaid: false };
+      }
+      if (invoice.status === 'PAID') {
+        return { label: 'PAID', color: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: CheckCircle, showPaid: true };
+      }
+    }
+    
+    const now = new Date();
+    const expiry = new Date(invoice.expiresAt);
+    if (expiry < now) {
+      return { label: 'EXPIRED', color: 'bg-red-50 text-red-700 border-red-100', icon: Clock, showPaid: false };
+    }
+    if (invoice.paidAt) {
+      return { label: 'PAID', color: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: CheckCircle, showPaid: true };
+    }
+
+    return { label: 'PENDING', color: 'bg-yellow-50 text-yellow-700 border-yellow-100', icon: Clock, showPaid: false };
+  };
+
+  // --- HANDLERS ---
+
+  const toggleWallets = () => setWalletsExpanded(!walletsExpanded);
+
+  const selectWallet = (ref: string | 'ALL') => {
+    setSelectedWalletRef(ref);
+    setWalletsExpanded(false);
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('selectedWalletRef', ref);
+    }
+  };
+
+  const copyHash = async () => {
+    if (selectedInvoice?.paymentHash) {
+      await navigator.clipboard.writeText(selectedInvoice.paymentHash);
+      setCopiedHash(true);
+      setTimeout(() => setCopiedHash(false), 2000);
+    }
+  };
+
+  const copyWalletDetail = async (text: string, field: string) => {
+    await navigator.clipboard.writeText(text);
+    setWalletDetailsCopied(field);
+    setTimeout(() => setWalletDetailsCopied(null), 1500);
+  };
+
+  // --- EFFECTS ---
+
   useEffect(() => {
     const fetchExchangeRate = async () => {
       if (lastFetched && Date.now() - lastFetched < CACHE_DURATION_MS) {
@@ -81,7 +171,6 @@ const WalletPage = () => {
     fetchExchangeRate();
   }, []);
 
-  // 2. Fetch Wallets
   useEffect(() => {
     const fetchWallets = async () => {
       try {
@@ -97,8 +186,12 @@ const WalletPage = () => {
         
         if (walletRes.ok && walletData.content) {
           setWallets(walletData.content);
-          if (walletData.content.length > 0) {
-            setSelectedWallet(walletData.content[0]);
+          
+          const storedRef = localStorage.getItem('selectedWalletRef');
+          if (storedRef) {
+             setSelectedWalletRef(storedRef);
+          } else if (walletData.content.length > 0) {
+             setSelectedWalletRef('ALL');
           }
         }
       } catch (error) {
@@ -110,18 +203,21 @@ const WalletPage = () => {
     fetchWallets();
   }, []);
 
-  // 3. Fetch Invoices
   useEffect(() => {
     const fetchInvoices = async () => {
-      if (!selectedWallet) {
+      if (selectedWalletRef === 'ALL' || !wallets.length) {
         setInvoices([]);
         return;
       }
+
+      const currentWallet = wallets.find(w => w.walletReference === selectedWalletRef);
+      if (!currentWallet) return;
+
       setLoadingInvoices(true);
       try {
         const token = localStorage.getItem('token');
         const invoiceRes = await fetch(
-          `https://dada-devs-labs-dada-lab2.onrender.com/api/v1/wallets/user-invoices/${selectedWallet.walletReference}`,
+          `https://dada-devs-labs-dada-lab2.onrender.com/api/v1/wallets/user-invoices/${currentWallet.walletReference}`,
           { headers: { 'Authorization': `Bearer ${token}` } }
         );
         const invoiceData = await invoiceRes.json();
@@ -136,90 +232,21 @@ const WalletPage = () => {
       }
     };
     fetchInvoices();
-  }, [selectedWallet]);
+  }, [selectedWalletRef, wallets]);
 
-  // 4. Handle Modal Closing (ESC key)
   useEffect(() => {
     const esc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setSelectedInvoice(null);
+        setSelectedWalletDetails(null);
+        setWalletsExpanded(false);
       }
     };
-    if (selectedInvoice) document.addEventListener('keydown', esc);
-    return () => document.removeEventListener('keydown', esc);
-  }, [selectedInvoice]);
-
-  // Helpers
-  const convertSatsToKes = (sats: number): number => {
-    if (!exchangeRate) return 0;
-    const btcAmount = sats / 100000000;
-    return btcAmount * exchangeRate;
-  };
-
-  const handleWalletChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const walletId = e.target.value;
-    const found = wallets.find((w) => w.walletReference === walletId);
-    if (found) setSelectedWallet(found);
-  };
-
-  const copyHash = async () => {
-    if (selectedInvoice?.paymentHash) {
-      await navigator.clipboard.writeText(selectedInvoice.paymentHash);
-      setCopiedHash(true);
-      setTimeout(() => setCopiedHash(false), 2000);
+    if (selectedInvoice || selectedWalletDetails || walletsExpanded) {
+      document.addEventListener('keydown', esc);
+      return () => document.removeEventListener('keydown', esc);
     }
-  };
-
-  // Helper to determine UI properties based on API status
-  const getInvoiceMeta = (invoice: Invoice) => {
-    // 1. Check for explicit API status field
-    if (invoice.status) {
-      if (invoice.status === 'EXPIRED') {
-        return { 
-          label: 'EXPIRED', 
-          color: 'bg-red-50 text-red-700 border-red-100', 
-          icon: Clock,
-          showPaid: false 
-        };
-      }
-      if (invoice.status === 'PAID') {
-        return { 
-          label: 'PAID', 
-          color: 'bg-emerald-50 text-emerald-700 border-emerald-100', 
-          icon: CheckCircle,
-          showPaid: true 
-        };
-      }
-    }
-    
-    // 2. Fallback: Infer status from dates
-    const now = new Date();
-    const expiry = new Date(invoice.expiresAt);
-    if (expiry < now) {
-      return { 
-        label: 'EXPIRED', 
-        color: 'bg-red-50 text-red-700 border-red-100', 
-        icon: Clock,
-        showPaid: false 
-      };
-    }
-    if (invoice.paidAt) {
-      return { 
-        label: 'PAID', 
-        color: 'bg-emerald-50 text-emerald-700 border-emerald-100', 
-        icon: CheckCircle,
-        showPaid: true 
-      };
-    }
-
-    // Default
-    return { 
-      label: 'PENDING', 
-      color: 'bg-yellow-50 text-yellow-700 border-yellow-100', 
-      icon: Clock,
-      showPaid: false 
-    };
-  };
+  }, [selectedInvoice, selectedWalletDetails, walletsExpanded]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -230,35 +257,111 @@ const WalletPage = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
-        {/* Wallet Selector */}
-        <div className="mt-16 mb-0 max-w-xs">
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-            Select Wallet
-          </label>
-          <div className="relative">
-            <select
-              value={selectedWallet?.walletReference || ''}
-              onChange={handleWalletChange}
-              className="w-full appearance-none bg-white border border-gray-300 text-gray-900 py-3 px-4 pr-8 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer"
+        {/* WALLET SELECTOR */}
+        <div className="relative z-30 mb-2 mt-14">
+          <button
+            onClick={toggleWallets}
+            className="flex items-center justify-between w-full bg-white px-4 py-3 rounded-xl shadow-sm border border-gray-100 hover:bg-gray-50 transition"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-[#191919] uppercase tracking-wider">My Wallets</span>
+              <span className="text-sm font-medium text-emerald-600">
+                {activeWalletName}
+              </span>
+            </div>
+            <ChevronDown 
+              size={20} 
+              className={`text-gray-500 transition-transform duration-300 ${walletsExpanded ? 'rotate-90' : ''}`} 
+            />
+          </button>
+
+          <div
+            className={`absolute w-full bg-white rounded-xl shadow-lg overflow-hidden mt-1 transition-all duration-300 origin-top z-50 ${
+              walletsExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+            }`}
+          >
+            {/* ALL WALLETS (Fixed Header) */}
+            <div
+              onClick={() => selectWallet('ALL')}
+              className={`p-4 cursor-pointer flex justify-between items-center transition ${
+                selectedWalletRef === 'ALL' ? 'bg-emerald-50 hover:bg-emerald-100' : 'hover:bg-gray-50'
+              }`}
             >
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <Layers size={16} className="text-emerald-700" />
+                </div>
+                <span className="font-medium text-[#191919]">All Wallets</span>
+              </div>
+              <span className="text-sm font-semibold text-gray-700">
+                {wallets.reduce((s, w) => s + w.balanceSats, 0).toLocaleString()} sats
+              </span>
+            </div>
+
+            {/* SCROLLABLE LIST */}
+            {/* This div is the key change. It adds max-h and overflow-y-auto */}
+            <div className="max-h-[400px] overflow-y-auto divide-y divide-gray-100">
               {wallets.map((wallet) => (
-                <option key={wallet.walletReference} value={wallet.walletReference}>
-                  {wallet.lightning.name} ({wallet.walletType})
-                </option>
+                <div key={wallet.walletReference} className="p-4">
+                  <div
+                    onClick={() => selectWallet(wallet.walletReference)}
+                    className={`cursor-pointer flex justify-between items-center rounded-lg p-2 mb-2 transition ${
+                      selectedWalletRef === wallet.walletReference
+                        ? 'bg-emerald-50'
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-800">
+                        {wallet.lightning.name}
+                        <span className="text-gray-400 text-xs ml-1">({wallet.walletType})</span>
+                      </p>
+                      {selectedWalletRef === wallet.walletReference && (
+                        <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full">
+                          Active
+                        </span>
+                      )}
+                    </div>
+
+                    <span className="font-semibold text-sm text-gray-900">
+                      {wallet.balanceSats.toLocaleString()} sats
+                    </span>
+                  </div>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedWalletDetails(wallet);
+                      setWalletsExpanded(false);
+                    }}
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition ml-2"
+                  >
+                    <Eye size={14} />
+                    View Details
+                  </button>
+                </div>
               ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
-              <ChevronDown size={20} />
+            </div>
+
+            {/* CREATE NEW WALLET SECTION (Fixed Footer) */}
+            <div className="p-3 bg-gray-50 border-t border-gray-100 shrink-0">
+               <Link 
+                  href="/userdashboard/wallet/newwallet"
+                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-white border border-emerald-200 rounded-xl text-sm font-bold text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400 transition shadow-sm"
+               >
+                  <Plus size={18} />
+                  Create New Wallet
+               </Link>
             </div>
           </div>
         </div>
 
         {/* Balance Hero */}
-        {selectedWallet ? (
+        {!loading ? (
           <div>
             <BalanceHero 
-              btcAmount={formatBtc(selectedWallet.balanceSats)} 
-              kshAmount={convertSatsToKes(selectedWallet.balanceSats).toLocaleString()} 
+              btcAmount={formatBtc(walletData.balance)} 
+              kshAmount={convertSatsToKes(walletData.balance).toLocaleString()} 
               className="mb-6"
             />
             {exchangeRate && !loadingRate && (
@@ -298,7 +401,9 @@ const WalletPage = () => {
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
             <span>Past Invoices</span>
-            {!loading && !loadingInvoices && invoices.length === 0 && <span className="text-sm font-normal text-gray-500">No history</span>}
+            {selectedWalletRef === 'ALL' && (
+                <span className="text-sm font-normal text-gray-500">Select a wallet to view invoices</span>
+            )}
           </h2>
           
           {loading || loadingInvoices ? (
@@ -307,6 +412,11 @@ const WalletPage = () => {
                  <div key={i} className="h-16 bg-gray-100 rounded-xl w-full animate-pulse"></div>
                ))}
              </div>
+          ) : selectedWalletRef === 'ALL' ? (
+            <div className="text-center py-8 bg-white rounded-xl border border-dashed border-gray-300">
+              <Wallet className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">Select a specific wallet above to view its transaction history.</p>
+            </div>
           ) : (
             <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
               {invoices.map((invoice, index) => (
@@ -328,24 +438,97 @@ const WalletPage = () => {
                   </div>
                 </div>
               ))}
+              {invoices.length === 0 && (
+                <p className="text-center py-4 text-sm text-gray-400">No invoices found for this wallet.</p>
+              )}
             </div>
           )}
         </div>
       </main>
 
+      {/* WALLET DETAILS MODAL */}
+      {selectedWalletDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn"
+            onClick={() => setSelectedWalletDetails(null)}
+          />
+          <div className="relative bg-white rounded-xl p-6 w-[92%] max-w-md animate-scaleIn max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-[#191919]">Wallet Details</h3>
+                <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-xs ${
+                  selectedWalletDetails.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'
+                }`}>
+                  {selectedWalletDetails.active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+              <button onClick={() => setSelectedWalletDetails(null)}>
+                <X />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-sm">
+               <div className="flex gap-2 items-start justify-between">
+                 <p className="font-medium text-gray-500">Wallet Name</p>
+                 <span className="text-right font-semibold text-[#191919]">{selectedWalletDetails.lightning.name}</span>
+               </div>
+               <div className="flex gap-2 items-start justify-between">
+                 <p className="font-medium text-gray-500">Type</p>
+                 <span className="bg-gray-100 px-2 py-1 rounded text-xs text-[#191919]">{selectedWalletDetails.walletType}</span>
+               </div>
+               <div className="border-t border-gray-100 my-2"></div>
+               <div className="flex gap-2 items-start justify-between">
+                 <p className="font-medium text-gray-500">Balance</p>
+                 <span className="font-bold text-emerald-600">{selectedWalletDetails.balanceSats.toLocaleString()} sats</span>
+               </div>
+               <div className="flex gap-2 items-start justify-between">
+                 <p className="font-medium text-gray-500">Reference</p>
+                 <button onClick={() => copyWalletDetail(selectedWalletDetails.walletReference, 'ref')} className="flex items-center gap-1 text-blue-600 text-xs">
+                    {selectedWalletDetails.walletReference.substring(0,8)}... {walletDetailsCopied === 'ref' ? <Check size={12}/> : <Copy size={12}/>}
+                 </button>
+               </div>
+               
+               <div className="bg-amber-50 p-3 rounded-lg border border-amber-100 mt-4">
+                 <p className="text-xs font-bold text-amber-800 uppercase mb-2">Technical Details</p>
+                 
+                 <div className="mb-2">
+                    <p className="text-[10px] text-amber-600 uppercase font-bold">Admin Key</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-mono truncate w-4/5 text-gray-700 bg-white/50 px-1 rounded">{selectedWalletDetails.lightning.adminkey}</p>
+                      <Copy size={14} className="cursor-pointer text-amber-700 shrink-0" onClick={() => copyWalletDetail(selectedWalletDetails.lightning.adminkey, 'admin')} />
+                    </div>
+                 </div>
+
+                 <div className="mb-2">
+                    <p className="text-[10px] text-amber-600 uppercase font-bold">In Key</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-mono truncate w-4/5 text-gray-700 bg-white/50 px-1 rounded">{selectedWalletDetails.lightning.inkey}</p>
+                      <Copy size={14} className="cursor-pointer text-amber-700 shrink-0" onClick={() => copyWalletDetail(selectedWalletDetails.lightning.inkey, 'inkey')} />
+                    </div>
+                 </div>
+                 
+                 <div>
+                    <p className="text-[10px] text-amber-600 uppercase font-bold">Lightning ID</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-mono truncate w-4/5 text-gray-700 bg-white/50 px-1 rounded">{selectedWalletDetails.lightning.id}</p>
+                      <Copy size={14} className="cursor-pointer text-amber-700 shrink-0" onClick={() => copyWalletDetail(selectedWalletDetails.lightning.id, 'id')} />
+                    </div>
+                 </div>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* INVOICE DETAILS MODAL */}
       {selectedInvoice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn"
             onClick={() => setSelectedInvoice(null)}
           />
-          
-          {/* Modal Card */}
           <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-scaleIn z-10">
-            
-            {/* Header */}
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-gray-900">Invoice Details</h3>
               <button onClick={() => setSelectedInvoice(null)} className="text-gray-400 hover:text-gray-600">
@@ -353,14 +536,11 @@ const WalletPage = () => {
               </button>
             </div>
 
-            {/* QR Code */}
             <div className="flex flex-col items-center justify-center mb-6">
               <div className="relative group">
                 <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100">
                   <img src={selectedInvoice.qrCode} alt="Invoice QR" className="w-48 h-48 object-contain mix-blend-multiply" />
                 </div>
-                
-                {/* Status Badge */}
                 {(() => {
                   const meta = getInvoiceMeta(selectedInvoice);
                   return (
@@ -373,9 +553,7 @@ const WalletPage = () => {
               </div>
             </div>
 
-            {/* Amount, Fees & Details */}
             <div className="space-y-4">
-              {/* Main Amount */}
               <div className="text-center">
                 <p className="text-3xl font-extrabold text-gray-900 mb-1">
                   {selectedInvoice.amountSats.toLocaleString()} <span className="text-lg font-medium text-gray-500">sats</span>
@@ -385,7 +563,6 @@ const WalletPage = () => {
                 </p>
               </div>
 
-              {/* Fees Section */}
               <div className="flex justify-center items-center gap-2">
                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Transaction Fee</span>
                  <span className="text-sm font-medium text-gray-700">
@@ -393,7 +570,6 @@ const WalletPage = () => {
                  </span>
               </div>
 
-              {/* Status Message inside modal */}
               {(() => {
                  const meta = getInvoiceMeta(selectedInvoice);
                  if (meta.label === 'EXPIRED') {
@@ -438,7 +614,6 @@ const WalletPage = () => {
               </div>
             </div>
 
-            {/* Footer */}
             <button 
               onClick={() => setSelectedInvoice(null)}
               className="mt-8 w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition"
