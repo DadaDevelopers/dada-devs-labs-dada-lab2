@@ -33,11 +33,11 @@ public class ContributionCycleController {
     @GetMapping("/unpaid")
     public ResponseEntity<Page<ContributionCycleDto>> getUnpaidCycles(
             @PageableDefault(size = 10, sort = "startAt", direction = Sort.Direction.DESC) Pageable pageable,
-            @AuthenticationPrincipal User user
+            @RequestParam UUID userReference
     ) {
         Page<ContributionCycle> cycles =
                 contributionCycleService.getUnpaidContributionCycles(
-                        user.getUserReference(), pageable
+                        userReference, pageable
                 );
 
         Page<ContributionCycleDto> dtoPage = cycles.map(this::toDto);
