@@ -1,6 +1,7 @@
 package com.dada_labs_two.chamavault.lightning.integration.LNbits;
 
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -10,6 +11,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
 
+@Slf4j
 @Component
 public class LNbitsClient {
 
@@ -94,28 +96,33 @@ public class LNbitsClient {
                 .block();
     }
 
-    public PayInvoiceResponse payInvoice(
-            String walletKey,
-            String bolt11Invoice
-    ) {
+    public PayInvoiceResponse payInvoice(String walletKey, String bolt11Invoice) {
+
         PayInvoiceRequest request = new PayInvoiceRequest(
                 bolt11Invoice,
-                true // out=true = pay
+                true
         );
 
-        return webClient.post()
+        log.info("Starting payment for wallet {}", walletKey);
+
+        PayInvoiceResponse response = webClient.post()
                 .uri("/api/v1/payments")
                 .header("X-Api-Key", walletKey)
                 .bodyValue(request)
                 .retrieve()
                 .onStatus(
                         status -> status.isError(),
-                        response -> response.bodyToMono(String.class)
+                        clientResponse -> clientResponse.bodyToMono(String.class)
                                 .map(body -> new RuntimeException("LNbits error: " + body))
                 )
                 .bodyToMono(PayInvoiceResponse.class)
                 .block();
+
+        log.debug("PayInvoice response: {}", response);
+
+        return response;
     }
+
 
 
     public PayInvoiceResponse payInvoice(String walletKey, PayInvoiceRequest request) {

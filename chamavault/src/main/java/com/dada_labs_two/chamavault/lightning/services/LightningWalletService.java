@@ -71,9 +71,10 @@ public class LightningWalletService {
         PayInvoiceResponse response =
                 client.payInvoice(walletInKey, bolt11Invoice);
 
-        if (!response.paid()) {
-            throw new IllegalStateException("Invoice not paid");
-        }
+//        if (!response.paid()) {
+//
+//            throw new IllegalStateException("Invoice not paid");
+//        }
 
         return response.payment_hash(); // IMPORTANT for ledger
     }
