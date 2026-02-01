@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Bell, Menu } from 'lucide-react';
 import logo from '@/assets/Ellipse 1.svg';
 
@@ -10,8 +11,9 @@ type NavbarProps = {
   userName?: string;
 };
 
-export function Navbar({ isAuthenticated = false, userName = '',}: NavbarProps) {
+export function Navbar({ isAuthenticated = false, userName = '' }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const router = useRouter();
 
   const publicNavItems = [
     { label: 'Home', href: '#' },
@@ -26,19 +28,37 @@ export function Navbar({ isAuthenticated = false, userName = '',}: NavbarProps) 
     { label: 'Chama', href: '/userdashboard/chama' },
     { label: 'Wallet', href: '/userdashboard/wallet' },
     { label: 'Profile Settings', href: '/profile' },
-    { label: 'Logout', href: '/landing-page' },
+    { label: 'Logout', href: '/landing-page', isLogout: true },
   ];
 
-  const navItems = isAuthenticated
-    ? dashboardNavItems
-    : publicNavItems;
+  const navItems = isAuthenticated ? dashboardNavItems : publicNavItems;
+
+  const handleLogout = () => {
+    // Clear all items from local storage
+    localStorage.clear();
+    
+    // Close the menu
+    setIsMenuOpen(false);
+    
+    // Navigate to landing page
+    router.push('/landing-page');
+  };
+
+  const handleNavItemClick = (item: any) => {
+    // Close the menu
+    setIsMenuOpen(false);
+    
+    // If it's a logout item, handle logout
+    if (item.isLogout) {
+      handleLogout();
+    }
+  };
 
   return (
     <>
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
         <div className="px-6 py-4 flex justify-between items-center">
-
           {/* Left: Logo + User Name */}
           <div className="flex items-center gap-3">
             <Image
@@ -58,7 +78,6 @@ export function Navbar({ isAuthenticated = false, userName = '',}: NavbarProps) 
 
           {/* Right: Icons */}
           <div className="flex items-center gap-3">
-
             {isAuthenticated && (
               <button className="relative p-2 hover:bg-gray-100 rounded-full transition">
                 <Bell className="w-6 h-6 text-gray-700" />
@@ -86,13 +105,13 @@ export function Navbar({ isAuthenticated = false, userName = '',}: NavbarProps) 
             </button>
 
             {navItems.map((item) => (
-              <a
+              <div
                 key={item.label}
-                href={item.href}
-                className="block py-3 px-4 text-white rounded-lg hover:bg-emerald-700 transition"
+                onClick={() => handleNavItemClick(item)}
+                className="block py-3 px-4 text-white rounded-lg hover:bg-emerald-700 transition cursor-pointer"
               >
                 {item.label}
-              </a>
+              </div>
             ))}
           </div>
         )}

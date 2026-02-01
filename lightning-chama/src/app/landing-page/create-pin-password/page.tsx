@@ -14,7 +14,11 @@ export default function SetPinPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setMsisdn(params.get("phone"));
+    const phone = params.get("phone");
+    // Remove all spaces from the phone number
+    if (phone) {
+      setMsisdn(phone.replace(/\s+/g, ''));
+    }
   }, []);
 
   const [fullName, setFullName] = useState("");
@@ -135,7 +139,7 @@ export default function SetPinPage() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-3
-                         focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                         focus:outline-none focus:ring-2 focus:ring-emerald-600 text-[#191919]"
             />
           </div>
 
@@ -149,7 +153,7 @@ export default function SetPinPage() {
               maxLength={4}
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 text-[#191919]"
             />
             <button
               type="button"
@@ -172,7 +176,7 @@ export default function SetPinPage() {
               onChange={(e) =>
                 setConfirmPin(e.target.value.replace(/\D/g, ""))
               }
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 text-[#191919]"
             />
             <button
               type="button"
