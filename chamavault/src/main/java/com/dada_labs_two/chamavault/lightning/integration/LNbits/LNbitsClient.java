@@ -100,7 +100,7 @@ public class LNbitsClient {
 
         PayInvoiceRequest request = new PayInvoiceRequest(
                 bolt11Invoice,
-                true
+                true // out=true = pay
         );
 
         log.info("Starting payment for wallet {}", walletKey);
