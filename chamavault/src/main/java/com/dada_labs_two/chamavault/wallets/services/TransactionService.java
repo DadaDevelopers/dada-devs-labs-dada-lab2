@@ -71,7 +71,7 @@ public class TransactionService {
 
         WalletResponse lw = lightningWalletService.createUserWallet(
                 beneficiaryWallet.getLightning().get("walletName")
-                        + " from " + contributor.getUsername()
+                        + " from " + contributor.getUsername() + "@" + System.currentTimeMillis()
         );
         log.info("LW created user wallet: {}", lw);
 
