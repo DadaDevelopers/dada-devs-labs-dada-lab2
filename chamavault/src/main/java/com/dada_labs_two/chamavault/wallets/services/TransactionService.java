@@ -89,6 +89,7 @@ public class TransactionService {
         String lnUsername = contributor.getUsername()
                 .concat("-rotation-")
                 .concat(cycle.getRotationIndex() + "-contribution")
+                .concat("@" + randomCharGenerator())
                 .toLowerCase()
                 .replaceAll("[^a-z0-9_-]", "-");
 
@@ -195,6 +196,21 @@ public class TransactionService {
                         .build()
         );
 
+    }
+
+    public  static String randomCharGenerator() {
+        char[] chars="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789".toCharArray();
+        int max=100000000;
+        int random=(int) (Math.random()*max);
+        StringBuffer sb=new StringBuffer();
+
+        while (random>0)
+        {
+            sb.append(chars[random % chars.length]);
+            random /= chars.length;
+        }
+
+        return "VAULT-WALLET-" + sb.toString();
     }
 
     @Transactional
