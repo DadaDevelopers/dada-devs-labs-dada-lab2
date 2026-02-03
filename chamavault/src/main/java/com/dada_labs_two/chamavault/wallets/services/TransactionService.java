@@ -47,17 +47,26 @@ public class TransactionService {
     ) {
         ContributionCycle cycle = cycleRepository.findById(contributionCycleReference)
                 .orElseThrow();
+        log.info("contribution cycle was successfully fetched {}", cycle.getStatus());
 
         User contributor = userRepository.findByMsisdn(msisdn)
                 .orElseThrow();
 
+        String beneficiaryLnUsername = cycle.getBeneficiaryUser().getUser().getUsername()
+                .concat("-rotation").concat(cycle.getRotationIndex() +"")
+                .toLowerCase()
+                .replaceAll("[^a-z0-9_-]", "-");
+        String walletPurpose = "contribution lightning address for beneficiary "+ beneficiaryLnUsername;
+
         Wallet beneficiaryWallet =
-                walletRepository.findByOwnerReferenceAndWalletTypeAndChamaAndActive(
+                walletRepository.findByWalletPurposeAndOwnerReferenceAndWalletTypeAndChamaAndActive(
+                        walletPurpose,
                         cycle.getBeneficiaryUser().getUser().getUserReference(),
                         WalletType.CONTRIBUTION,
                         cycle.getChama(),
                         true
                 ).orElseThrow();
+        log.info("beneficiary wallet {}", beneficiaryWallet.getWalletPurpose());
 
         Wallet fundingWallet = null;
         if (moveFundsFromPreviousAccounts) {

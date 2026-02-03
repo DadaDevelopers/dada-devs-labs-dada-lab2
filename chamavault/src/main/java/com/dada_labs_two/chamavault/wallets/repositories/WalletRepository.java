@@ -22,6 +22,11 @@ public interface WalletRepository extends JpaRepository<Wallet, UUID> {
                                                                Chama chama, Boolean active);
     List<Wallet> findByActiveTrue();
 
+    Optional<Wallet> findByWalletPurposeAndOwnerReferenceAndWalletTypeAndChamaAndActive(String walletPurpose,
+                                                                                        UUID ownerReference,
+                                                                                        WalletType walletType,
+                                                                                        Chama chama, Boolean active);
+
     @Query("""
         SELECT w FROM Wallet w
         WHERE w.active = true
