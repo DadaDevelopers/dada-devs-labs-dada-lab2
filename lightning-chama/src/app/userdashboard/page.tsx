@@ -491,7 +491,7 @@ export default function Dashboard() {
               {chamas.slice(0, 4).map((chama) => (
                 <Link
                   key={chama.chamaReference}
-                  href={`/userdashboard/chama/${chama.chamaReference}`}
+                  href={`/userdashboard/contribute/${chama.chamaReference}`}
                 >
                   <div className="flex flex-col items-center gap-2 cursor-pointer">
                     <div className="w-14 h-14 md:w-16 md:h-16 rounded-full overflow-hidden shadow-sm hover:scale-105 transition">

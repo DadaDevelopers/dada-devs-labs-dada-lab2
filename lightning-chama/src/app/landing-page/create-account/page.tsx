@@ -96,7 +96,7 @@ export default function CreateAccount() {
 
           <input
             type="tel"
-            placeholder="+254700000004"
+            placeholder="254700000004"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className="w-full rounded-xl border border-gray-300 px-4 py-3
