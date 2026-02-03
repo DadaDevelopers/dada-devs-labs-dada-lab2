@@ -711,7 +711,7 @@ export default function ChamasContribution() {
                   </div>
                   <button 
                     onClick={() => openTopUpModal(wallet.walletReference)}
-                    className="w-full mt-3 text-sm bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="w-full mt-3 text-sm bg-yellow-600 hover:bg-teal-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
                     Contribute To This Wallet
                     <ArrowUp className="w-4 h-4" />
