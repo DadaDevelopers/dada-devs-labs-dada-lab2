@@ -1,7 +1,6 @@
 "use client";
 import Link from 'next/link';
-import React from 'react';
-import { ArrowLeft, Zap, Shield, Eye, Globe, CheckCircle, Info } from 'lucide-react';
+import { ArrowLeft, Zap, Shield, Eye, Globe, CheckCircle } from 'lucide-react';
 
 export default function LearnAboutBitcoin() {
   const features = [
