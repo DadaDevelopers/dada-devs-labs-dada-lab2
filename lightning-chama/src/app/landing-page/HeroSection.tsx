@@ -43,9 +43,11 @@ export function HeroSection() {
           </div>
 
           {/* Bitcoin Button */}
+          <Link href="/landing-page/learnbitcoin">
           <button className="px-10 py-4 mb-14 mt-2 bg-orange-50 text-[#F7931A] border-2 border-[#F7931A] rounded-2xl text-lg font-semibold cursor-pointer hover:bg-orange-100 transition-colors">
             Learn About Bitcoin
           </button>
+          </Link>
         </div>
       </div>
     </section>
