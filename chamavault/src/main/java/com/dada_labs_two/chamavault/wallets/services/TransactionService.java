@@ -3,6 +3,7 @@ package com.dada_labs_two.chamavault.wallets.services;
 import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
 import com.dada_labs_two.chamavault.contributions.repositories.ContributionCycleRepository;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.LnurlPayLinkResponse;
+import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.PaymentFees;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletDetails;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
@@ -205,6 +206,58 @@ public class TransactionService {
                         .build()
         );
 
+    }
+
+    public Transaction makeInvoicePayment(UUID payerWalletId, String beneficiaryInvoice) {
+        Wallet payerWallet = walletRepository.findById(payerWalletId).orElseThrow(() ->
+                new RuntimeException("Payer wallet not found"));
+
+        Long amountSats = Bolt11Utils.extractAmountSats(beneficiaryInvoice);
+        String description = Bolt11Utils.extractDescription(beneficiaryInvoice).orElse("making payment for invoice");
+
+        String paymentHash2 =
+                lightningWalletService.payInvoice(
+                        payerWallet.getLightning().get("adminkey"),
+                        beneficiaryInvoice
+                );
+
+        //sync receiver wallet
+        syncSenderLnBitsWalletBalance(payerWallet);
+
+        PaymentFees fees = null;
+        try {
+             fees= lightningWalletService.getPaymentFee(payerWallet.getLightning().get("adminkey"), paymentHash2);
+            log.info("Fees payment for payer wallet: " + fees.toString());
+        } catch (Exception e) {
+            log.info("Payment fees not available yet");
+            log.info("Exited with status {}",e.getMessage());
+            log.info(e.getMessage(), e);
+            fees = new PaymentFees(7L, 7*1000);
+        }
+
+
+
+        // Ledger: Lightning payment to beneficiary
+        return transactionRepository.save(
+                Transaction.builder()
+                        .wallet(payerWallet)
+                        .type(TransactionType.DEBIT)
+                        .source(TransactionSource.LN_INVOICE)
+                        .amountSats(amountSats)
+                        .externalRef(paymentHash2)
+                        .initiatedBy(null)
+                        .counterpartyUser(
+                                payerWallet.getOwnerReference()
+                        )
+                        .rotationIndex(null)
+                        .memo(description)
+                        .metadata(Map.of(
+                                "paymentHash", paymentHash2,
+                                "feeSats", String.valueOf(fees.feeSats())
+                        ))
+                        .occurredAt(ZonedDateTime.now())
+                        .build()
+        );
     }
 
     public  static String randomCharGenerator() {

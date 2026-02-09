@@ -46,6 +46,10 @@ public class LightningWalletService {
         return ln;
     }
 
+    public PaymentFees getPaymentFee(String walletKey, String paymentHash) {
+        return client.getPaymentFees(walletKey, paymentHash);
+    }
+
     public WalletDetails getUserWallet(String userWalletKey) {
         WalletDetails wallet = client.getWallet(userWalletKey);
         long sats = wallet.balance(); // sats
