@@ -186,6 +186,32 @@ public class LNbitsClient {
                 .block();
     }
 
+    /* ---------- Fees ---------- */
+
+    public PaymentFees getPaymentFees(String walletKey, String paymentHash) {
+
+        PaymentStatus payment = webClient.get()
+                .uri("/api/v1/payments/{hash}", paymentHash)
+                .header("X-Api-Key", walletKey)
+                .retrieve()
+                .onStatus(
+                        status -> status.isError(),
+                        response -> response.bodyToMono(String.class)
+                                .map(body -> new RuntimeException("LNbits error: " + body))
+                )
+                .bodyToMono(PaymentStatus.class)
+                .block();
+
+        if (payment == null || payment.fee_msat() == null) {
+            throw new IllegalStateException("Payment fees not available yet");
+        }
+
+        long feeSats = Math.abs(payment.fee_msat())/1_000;
+        long feeMsats = feeSats;
+
+        return new PaymentFees(feeSats, feeMsats);
+    }
+
 
 
 }

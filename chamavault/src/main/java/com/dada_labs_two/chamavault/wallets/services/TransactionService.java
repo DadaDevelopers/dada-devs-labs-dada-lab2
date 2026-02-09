@@ -3,6 +3,7 @@ package com.dada_labs_two.chamavault.wallets.services;
 import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
 import com.dada_labs_two.chamavault.contributions.repositories.ContributionCycleRepository;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.LnurlPayLinkResponse;
+import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.PaymentFees;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletDetails;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
@@ -211,9 +212,7 @@ public class TransactionService {
         Wallet payerWallet = walletRepository.findById(payerWalletId).orElseThrow(() ->
                 new RuntimeException("Payer wallet not found"));
 
-        String paymentHash = Bolt11Utils.extractPaymentHash(beneficiaryInvoice);
         Long amountSats = Bolt11Utils.extractAmountSats(beneficiaryInvoice);
-        ZonedDateTime expirityDate = Bolt11Utils.extractExpiry(beneficiaryInvoice);
         String description = Bolt11Utils.extractDescription(beneficiaryInvoice).orElse("making payment for invoice");
 
         String paymentHash2 =
@@ -224,6 +223,19 @@ public class TransactionService {
 
         //sync receiver wallet
         syncSenderLnBitsWalletBalance(payerWallet);
+
+        PaymentFees fees = null;
+        try {
+             fees= lightningWalletService.getPaymentFee(payerWallet.getLightning().get("adminkey"), paymentHash2);
+            log.info("Fees payment for payer wallet: " + fees.toString());
+        } catch (Exception e) {
+            log.info("Payment fees not available yet");
+            log.info("Exited with status {}",e.getMessage());
+            log.info(e.getMessage(), e);
+            fees = new PaymentFees(7L, 7*1000);
+        }
+
+
 
         // Ledger: Lightning payment to beneficiary
         return transactionRepository.save(
@@ -239,7 +251,10 @@ public class TransactionService {
                         )
                         .rotationIndex(null)
                         .memo(description)
-                        .metadata(new HashMap<>())
+                        .metadata(Map.of(
+                                "paymentHash", paymentHash2,
+                                "feeSats", String.valueOf(fees.feeSats())
+                        ))
                         .occurredAt(ZonedDateTime.now())
                         .build()
         );
