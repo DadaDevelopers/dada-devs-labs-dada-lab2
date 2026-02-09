@@ -2,6 +2,7 @@ package com.dada_labs_two.chamavault.wallets.controllers;
 
 import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
 import com.dada_labs_two.chamavault.wallets.dtos.CreateTopUpDTO;
+import com.dada_labs_two.chamavault.wallets.dtos.InvoicePreviewDTO;
 import com.dada_labs_two.chamavault.wallets.dtos.MakeInvoicePaymentDTO;
 import com.dada_labs_two.chamavault.wallets.models.Transaction;
 import com.dada_labs_two.chamavault.wallets.services.TransactionService;
@@ -34,6 +35,11 @@ public class TransactionsController {
     ResponseEntity<Transaction> payInvoicePayment(@RequestBody MakeInvoicePaymentDTO makeInvoicePaymentDTO) {
         return ResponseEntity.ok(transactionService.makeInvoicePayment(makeInvoicePaymentDTO.payerWalletId(),
                 makeInvoicePaymentDTO.beneficiaryInvoice()));
+    }
+
+    @GetMapping("/invoice-preview")
+    ResponseEntity<InvoicePreviewDTO> invoicePreview(@RequestParam String invoiceHash) {
+        return ResponseEntity.ok(transactionService.invoicePreview(invoiceHash));
     }
 
     @GetMapping("/find-by/{rotationIndex}")
