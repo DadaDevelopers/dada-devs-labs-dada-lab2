@@ -336,8 +336,8 @@ export default function Dashboard() {
 
           {/* Dropdown */}
           <div
-            className={`absolute w-full bg-white rounded-xl shadow-sm divide-y overflow-hidden transition-all duration-300
-              ${walletsExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'} z-50`}
+            className={`absolute w-full bg-white rounded-xl shadow-sm divide-y overflow-y-auto transition-all duration-300
+              ${walletsExpanded ? 'max-h-[50vh] opacity-100' : 'max-h-0 opacity-0'} z-50`}
           >
             {/* ALL WALLETS */}
             <div
