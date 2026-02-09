@@ -12,6 +12,7 @@ import com.dada_labs_two.chamavault.users.repository.UserRepository;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionSource;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionType;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
+import com.dada_labs_two.chamavault.wallets.dtos.InvoicePreviewDTO;
 import com.dada_labs_two.chamavault.wallets.models.Transaction;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.TransactionRepository;
@@ -206,6 +207,15 @@ public class TransactionService {
                         .build()
         );
 
+    }
+
+    public InvoicePreviewDTO invoicePreview(String beneficiaryInvoice) {
+        Long amountSats = Bolt11Utils.extractAmountSats(beneficiaryInvoice);
+        ZonedDateTime expiry = Bolt11Utils.extractExpiry(beneficiaryInvoice);
+        String memo = Bolt11Utils.extractDescription(beneficiaryInvoice).orElse("making payment for invoice");
+        Long interimFeeSats = 7L;
+
+        return new InvoicePreviewDTO(amountSats, expiry, memo, interimFeeSats);
     }
 
     public Transaction makeInvoicePayment(UUID payerWalletId, String beneficiaryInvoice) {
