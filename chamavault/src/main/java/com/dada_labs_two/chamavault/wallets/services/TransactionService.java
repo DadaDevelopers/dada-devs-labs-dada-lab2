@@ -207,6 +207,44 @@ public class TransactionService {
 
     }
 
+    public Transaction makeInvoicePayment(UUID payerWalletId, String beneficiaryInvoice) {
+        Wallet payerWallet = walletRepository.findById(payerWalletId).orElseThrow(() ->
+                new RuntimeException("Payer wallet not found"));
+
+        String paymentHash = Bolt11Utils.extractPaymentHash(beneficiaryInvoice);
+        Long amountSats = Bolt11Utils.extractAmountSats(beneficiaryInvoice);
+        ZonedDateTime expirityDate = Bolt11Utils.extractExpiry(beneficiaryInvoice);
+        String description = Bolt11Utils.extractDescription(beneficiaryInvoice).orElse("making payment for invoice");
+
+        String paymentHash2 =
+                lightningWalletService.payInvoice(
+                        payerWallet.getLightning().get("adminkey"),
+                        beneficiaryInvoice
+                );
+
+        //sync receiver wallet
+        syncSenderLnBitsWalletBalance(payerWallet);
+
+        // Ledger: Lightning payment to beneficiary
+        return transactionRepository.save(
+                Transaction.builder()
+                        .wallet(payerWallet)
+                        .type(TransactionType.DEBIT)
+                        .source(TransactionSource.LN_INVOICE)
+                        .amountSats(amountSats)
+                        .externalRef(paymentHash2)
+                        .initiatedBy(null)
+                        .counterpartyUser(
+                                payerWallet.getOwnerReference()
+                        )
+                        .rotationIndex(null)
+                        .memo(description)
+                        .metadata(new HashMap<>())
+                        .occurredAt(ZonedDateTime.now())
+                        .build()
+        );
+    }
+
     public  static String randomCharGenerator() {
         char[] chars="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789".toCharArray();
         int max=100000000;
