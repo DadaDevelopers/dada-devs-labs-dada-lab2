@@ -2,6 +2,7 @@ package com.dada_labs_two.chamavault.wallets.controllers;
 
 import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
 import com.dada_labs_two.chamavault.wallets.dtos.CreateTopUpDTO;
+import com.dada_labs_two.chamavault.wallets.dtos.MakeInvoicePaymentDTO;
 import com.dada_labs_two.chamavault.wallets.models.Transaction;
 import com.dada_labs_two.chamavault.wallets.services.TransactionService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,12 @@ public class TransactionsController {
         ;
         return ResponseEntity.ok(transactionService.makeRotationalPayments(
                 contributionCycleReference,msisdn, moveFundsFromPreviousAccounts, walletToMoveFundsFrom));
+    }
+
+    @PostMapping("/pay-invoice")
+    ResponseEntity<Transaction> payInvoicePayment(@RequestBody MakeInvoicePaymentDTO makeInvoicePaymentDTO) {
+        return ResponseEntity.ok(transactionService.makeInvoicePayment(makeInvoicePaymentDTO.payerWalletId(),
+                makeInvoicePaymentDTO.beneficiaryInvoice()));
     }
 
     @GetMapping("/find-by/{rotationIndex}")
