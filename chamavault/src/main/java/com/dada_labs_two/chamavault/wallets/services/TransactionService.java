@@ -245,6 +245,7 @@ public class TransactionService {
                         .source(TransactionSource.LN_INVOICE)
                         .amountSats(amountSats)
                         .externalRef(paymentHash2)
+                        .feeSats(fees.feeSats())
                         .initiatedBy(null)
                         .counterpartyUser(
                                 payerWallet.getOwnerReference()
