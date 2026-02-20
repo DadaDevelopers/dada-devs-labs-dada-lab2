@@ -18,7 +18,10 @@ public class LightningWalletService {
 
     public LightningWalletService(LNbitsClient client,
                          @Value("${lnbits.admin-key}") String adminKey,
-                         @Value("${lnbits.user-id}") String userId) {
+                         @Value("${lnbits.user-id}") String userId
+    ) {
+        adminKey  = "1a74377235df4c60bec65a4c200596cf";
+        userId  = "d727cba226cb4ec3885f5c893bc2640e";
         this.client = client;
         this.adminKey = adminKey;
         this.userId = userId;
