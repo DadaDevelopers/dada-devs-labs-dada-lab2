@@ -22,6 +22,7 @@ public class LNbitsClient {
                 .baseUrl(baseUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
+
     }
 
     /* ---------- Wallets ---------- */
