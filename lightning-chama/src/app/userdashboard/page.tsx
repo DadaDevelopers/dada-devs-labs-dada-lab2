@@ -91,7 +91,7 @@ export default function Dashboard() {
         }
 
         const res = await fetch(
-          'https://dada-devs-labs-dada-lab2.onrender.com/chama',
+          'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama',
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -123,7 +123,7 @@ export default function Dashboard() {
         }
 
         const res = await fetch(
-          `https://dada-devs-labs-dada-lab2.onrender.com/users/${msisdn}/profile`,
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/users/${msisdn}/profile`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -164,7 +164,7 @@ export default function Dashboard() {
         }
 
         const res = await fetch(
-          `https://dada-devs-labs-dada-lab2.onrender.com/wallets/${ownerRef}`,
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerRef}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

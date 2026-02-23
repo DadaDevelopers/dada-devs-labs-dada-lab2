@@ -106,7 +106,7 @@ export default function SendPage() {
 
         // Call Preview API
         const response = await fetch(
-          `https://dada-devs-labs-dada-lab2.onrender.com/transactions/invoice-preview?invoiceHash=${encodeURIComponent(recipientInput)}`,
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/invoice-preview?invoiceHash=${encodeURIComponent(recipientInput)}`,
           {
             headers: { 'Authorization': `Bearer ${token}` }
           }
@@ -141,7 +141,7 @@ export default function SendPage() {
       if (!token) throw new Error("Authentication token missing.");
 
       const response = await fetch(
-        `https://dada-devs-labs-dada-lab2.onrender.com/wallets/fetch-by-id/${recipientInput}`,
+        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/fetch-by-id/${recipientInput}`,
         {
           headers: { 'Authorization': `Bearer ${token}` }
         }
@@ -185,7 +185,7 @@ export default function SendPage() {
         };
 
         const response = await fetch(
-          "https://dada-devs-labs-dada-lab2.onrender.com/transactions/pay-invoice",
+          "https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/pay-invoice",
           {
             method: 'POST',
             headers: {
@@ -226,7 +226,7 @@ export default function SendPage() {
       };
 
       const response = await fetch(
-        "https://dada-devs-labs-dada-lab2.onrender.com/transactions/wallet-top-up",
+        "https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/wallet-top-up",
         {
           method: 'POST',
           headers: {

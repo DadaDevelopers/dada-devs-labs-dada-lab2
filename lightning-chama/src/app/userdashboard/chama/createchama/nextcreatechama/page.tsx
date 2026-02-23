@@ -165,7 +165,7 @@ export default function CreateChamaForm() {
 
     try {
       const response = await fetch(
-        "https://dada-devs-labs-dada-lab2.onrender.com/chama",
+        "https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama",
         {
           method: "POST",
           headers: {
