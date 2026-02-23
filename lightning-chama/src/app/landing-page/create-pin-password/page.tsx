@@ -63,7 +63,7 @@ export default function SetPinPage() {
       setLoading(true);
 
       const response = await fetch(
-        "https://dada-devs-labs-dada-lab2.onrender.com/api/users/setup/sign-up",
+        "https://dada-devs-labs-dada-lab2-chamavault.onrender.com/api/users/setup/sign-up",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

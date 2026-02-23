@@ -117,7 +117,7 @@ export default function ChamasContribution() {
         if (!token) { setError('Not authenticated'); return; }
         
         // 1. Fetch Chama Details
-        const detailsResponse = await fetch(`https://dada-devs-labs-dada-lab2.onrender.com/chama/${chamaId}`, {
+        const detailsResponse = await fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${chamaId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         
@@ -127,7 +127,7 @@ export default function ChamasContribution() {
         }
 
         // 2. Fetch Contribution Cycles
-        const cyclesResponse = await fetch(`https://dada-devs-labs-dada-lab2.onrender.com/contribution-cycles/chama/${chamaId}?size=5`, {
+        const cyclesResponse = await fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/contribution-cycles/chama/${chamaId}?size=5`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         
@@ -141,7 +141,7 @@ export default function ChamasContribution() {
         }
         
         // 3. Fetch Members
-        const membersResponse = await fetch(`https://dada-devs-labs-dada-lab2.onrender.com/chama/${chamaId}/members-by-status/ACTIVE`, {
+        const membersResponse = await fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${chamaId}/members-by-status/ACTIVE`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         
@@ -155,7 +155,7 @@ export default function ChamasContribution() {
         if (token && ownerRef) {
             try {
                 const walletRes = await fetch(
-                    `https://dada-devs-labs-dada-lab2.onrender.com/wallets/${ownerRef}`,
+                    `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerRef}`,
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
                 if (walletRes.ok) {
@@ -267,7 +267,7 @@ export default function ChamasContribution() {
       });
 
       const response = await fetch(
-        `https://dada-devs-labs-dada-lab2.onrender.com/transactions/make-rotational-payments?${params.toString()}`,
+        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/make-rotational-payments?${params.toString()}`,
         {
           method: 'POST',
           headers: {
@@ -290,7 +290,7 @@ export default function ChamasContribution() {
           const token = localStorage.getItem('token');
           if (!token) return;
           // Refetch cycles specifically to update progress
-          const cyclesResponse = await fetch(`https://dada-devs-labs-dada-lab2.onrender.com/contribution-cycles/chama/${chamaId}?size=5`, {
+          const cyclesResponse = await fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/contribution-cycles/chama/${chamaId}?size=5`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (cyclesResponse.ok) {
@@ -356,7 +356,7 @@ export default function ChamasContribution() {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `https://dada-devs-labs-dada-lab2.onrender.com/wallets/fetch-by-id/${topUpState.walletRef}`,
+        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/fetch-by-id/${topUpState.walletRef}`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       const data = await response.json();
@@ -386,7 +386,7 @@ export default function ChamasContribution() {
         memo: topUpState.memo || "Top up from Chama Page"
       };
       const response = await fetch(
-        "https://dada-devs-labs-dada-lab2.onrender.com/transactions/wallet-top-up",
+        "https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/wallet-top-up",
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
