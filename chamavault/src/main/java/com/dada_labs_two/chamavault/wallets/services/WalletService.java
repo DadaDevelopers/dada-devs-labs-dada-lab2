@@ -45,6 +45,7 @@ public class WalletService {
         return walletRepository.findById(walletId).orElseThrow(()-> new RuntimeException("Wallet not found"));
     }
 
+    @Transactional
     public Wallet createUserWallet(String msisdn, String walletName) {
         User user = userRepository.findByMsisdn(msisdn).orElseThrow(() ->
                 new RuntimeException("User is not registered in the system"));
