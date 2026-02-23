@@ -58,7 +58,7 @@ export default function VerifyNumber() {
 
     try {
       const response = await fetch(
-        "https://dada-devs-labs-dada-lab2.onrender.com/codes/pre-registration/code-validation",
+        "https://dada-devs-labs-dada-lab2-chamavault.onrender.com/codes/pre-registration/code-validation",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

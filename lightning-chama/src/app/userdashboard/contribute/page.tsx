@@ -170,7 +170,7 @@ export default function ChamasContribution() {
         if (!token || !userReference) return;
 
         const walletRes = await fetch(
-          `https://dada-devs-labs-dada-lab2.onrender.com/wallets/${userReference}`,
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${userReference}`,
           { headers: { 'Authorization': `Bearer ${token}` } }
         );
         const walletData = await walletRes.json();
@@ -198,7 +198,7 @@ export default function ChamasContribution() {
           return;
         }
 
-        const url = `https://dada-devs-labs-dada-lab2.onrender.com/contribution-cycles/unpaid?page=${page}&size=10&userReference=${userReference}`;
+        const url = `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/contribution-cycles/unpaid?page=${page}&size=10&userReference=${userReference}`;
 
         const response = await fetch(url, {
           method: 'GET',
@@ -259,7 +259,7 @@ export default function ChamasContribution() {
       });
 
       const response = await fetch(
-        `https://dada-devs-labs-dada-lab2.onrender.com/transactions/make-rotational-payments?${params.toString()}`,
+        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/make-rotational-payments?${params.toString()}`,
         {
           method: 'POST',
           headers: {
