@@ -700,7 +700,7 @@ export default function ChamasContribution() {
                     <div className="text-right">
                       <p className="text-xs text-gray-500">Balance</p>
                       <p className="font-bold text-lg text-gray-900">
-                        KES {convertSatsToKes(wallet.balanceSats || 0).toLocaleString()}
+                        KES {convertSatsToKes((wallet.lnBitsbalanceSats/1000) || 0).toLocaleString()}
                       </p>
                       <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${
                         wallet.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'
