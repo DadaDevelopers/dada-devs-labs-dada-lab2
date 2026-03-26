@@ -1,5 +1,7 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -159,7 +161,7 @@ export default function ChamasContribution() {
       }
     };
     fetchExchangeRate();
-  }, []);
+  }, [CACHE_DURATION_MS, exchangeRate, lastFetched]);
 
   // 2. Fetch User Wallets
   useEffect(() => {
@@ -357,7 +359,7 @@ export default function ChamasContribution() {
                <p className="text-gray-500">You have no unpaid contribution cycles at the moment.</p>
              </div>
           ) : (
-            Object.entries(groupedCycles).map(([chamaName, chamaCycles]) => {
+            Object.entries(groupedCycles).map(([, chamaCycles]) => {
               const chama = chamaCycles[0].chama;
               
               return (
@@ -367,7 +369,7 @@ export default function ChamasContribution() {
                     <div className="flex items-start gap-5">
                       <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden border border-gray-100">
                         {chama.iconUrl ? (
-                          <img src={chama.iconUrl} alt={chama.name} className="w-full h-full object-cover" />
+                          <Image src={chama.iconUrl} alt={chama.name} className="w-full h-full object-cover" width={64} height={64} />
                         ) : (
                           <span className="text-2xl font-bold text-emerald-600">{chama.name.charAt(0)}</span>
                         )}
@@ -411,7 +413,7 @@ export default function ChamasContribution() {
                           {/* Card Header */}
                           <div className="p-5 border-b border-gray-100 flex justify-between items-start">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-white font-bold text-sm">
+                              <div className="w-10 h-10 rounded-full bg-linear-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-white font-bold text-sm">
                                 {cycle.beneficiaryUsername.charAt(0).toUpperCase()}
                               </div>
                               <div>

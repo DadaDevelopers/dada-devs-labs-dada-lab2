@@ -1,69 +1,57 @@
 "use client";
-import Link from "next/link";
+
 export function HowItWorksSection() {
+  const steps = [
+    {
+      number: "1",
+      title: "Create or Join a Chama",
+      description: "Find or create a group and add members by phone.",
+    },
+    {
+      number: "2",
+      title: "Contribute (USSD or App)",
+      description: "Dial *XYZ# or use the app to contribute.",
+    },
+    {
+      number: "3",
+      title: "Withdraw & Settle",
+      description: "Admin approves withdrawals → instant Lightning payout.",
+    },
+  ];
+
   return (
-    <section id="how-it-works" className="py-12 px-5 bg-[#F3F7FF] mt-4">
-      <div className="max-w-2xl mx-auto">
+    <section id="how-it-works" className="bg-white px-8 py-16">
+      <div className="max-w-md mx-auto flex flex-col gap-6">
         {/* Section Title */}
-        <h2 className="text-3xl sm:text-4xl font-bold text-center text-gray-900 mb-12">
-          How it works
+        <h2
+          className="text-2xl font-bold text-[#064E3B] text-center"
+          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+        >
+          How It Works
         </h2>
 
         {/* Steps */}
-        <div className="space-y-6 mb-10">
-          {/* Step 1 */}
-          <div className="flex items-start gap-4 pb-6 border-b border-gray-300">
-            <div className="shrink-0 w-12 h-12 bg-[#059669] rounded-full flex items-center justify-center text-white text-xl font-bold">
-              1
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-normal  text-[#000000] mb-1">
-                Create or Join a Chama
-              </h3>
-              <p className="text-gray-500 text-sm leading-relaxed">
-                Find or create a group and add members by phone.
-              </p>
-            </div>
-          </div>
+        <div className="flex flex-col gap-8">
+          {steps.map((step) => (
+            <div key={step.number} className="flex flex-row items-start gap-5">
+              {/* Number Badge */}
+              <div className="shrink-0 w-12 h-12 bg-[#F0FDF4] border border-[#D1FAE5] rounded-2xl flex items-center justify-center">
+                <span className="text-xl font-bold text-[#059669]">
+                  {step.number}
+                </span>
+              </div>
 
-          {/* Step 2 */}
-          <div className="flex items-start gap-4 pb-6 border-b border-gray-300">
-            <div className="shrink-0 w-12 h-12 bg-[#059669] rounded-full flex items-center justify-center text-white text-xl font-bold">
-              2
+              {/* Content */}
+              <div className="flex flex-col gap-1">
+                <h3 className="text-lg font-bold text-[#064E3B] leading-7">
+                  {step.title}
+                </h3>
+                <p className="text-base text-[#64748B] leading-6">
+                  {step.description}
+                </p>
+              </div>
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-normal text-[#000000] mb-1">
-                Contribute (USSD or App)
-              </h3>
-              <p className="text-gray-500 text-sm leading-relaxed">
-                Dial *XYZ# or use the app to contribute.
-              </p>
-            </div>
-          </div>
-
-          {/* Step 3 */}
-          <div className="flex items-start gap-4 pb-6 border-b border-gray-300">
-            <div className="shrink-0 w-12 h-12 bg-[#059669] rounded-full flex items-center justify-center text-white text-xl font-bold">
-              3
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-normal text-[#000000] mb-1">
-                Withdraw & Settle
-              </h3>
-              <p className="text-gray-500 text-sm leading-relaxed">
-                Admin approves withdrawals → instant Lightning payout.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Get Started Button */}
-        <div className="flex justify-center">
-        < Link href="/landing-page/create-account">
-          <button className="w-full max-w-sm px-20 py-4 bg-[#059669] text-white border-none rounded-xl text-lg font-semibold cursor-pointer hover:bg-[#059669] transition-colors shadow-md">
-            Get Started
-          </button>
-        </Link>
+          ))}
         </div>
       </div>
     </section>
