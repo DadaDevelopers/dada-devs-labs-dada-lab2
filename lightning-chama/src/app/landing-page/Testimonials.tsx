@@ -1,64 +1,56 @@
-import Image from "next/image";
+"use client";
+
+const testimonials = [
+  {
+    name: "Alice",
+    initials: "A",
+    review:
+      "ChamaVault has completely changed the way I manage savings with my group. Contributions are on time and everything is transparent!",
+  },
+  {
+    name: "Bob",
+    initials: "B",
+    review:
+      "I love the community aspect of the platform. Our Chama has never been more organized. The Lightning payouts are instant!",
+  },
+];
+
+const Stars = () => (
+  <span className="text-[#F59E0B] text-base tracking-tight">★★★★★</span>
+);
 
 export default function Testimonials() {
   return (
-    <section className="w-full px-5 sm:px-6 py-12 sm:py-14 bg-white flex flex-col items-center overflow-x-hidden">
-      <h2 className="text-center text-[24px] sm:text-[26px] font-bold text-black mb-10 sm:mb-12 px-2">
-        What Our Users Say
-      </h2>
-      {/* Cards Row */}
-      <div className="w-full max-w-4xl flex flex-col md:flex-row items-stretch justify-center gap-5 sm:gap-6">
-        {/* CARD 1 - Alice */}
-        <div className="bg-[#F5F5F5] rounded-lg shadow-sm p-6 sm:p-7 w-full md:flex-1">
-          {/* Header - User and Stars on same line */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Image
-                src="/user1.svg"
-                alt="Alice"
-                width={100}
-                height={100}
-                  className="rounded-full w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20"
-              />
+    <section className="bg-white px-8 py-16">
+      <div className="max-w-md mx-auto flex flex-col gap-10">
+        {/* Heading */}
+        <h2
+          className="text-2xl font-bold text-[#064E3B] text-center"
+          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+        >
+          What Our Users Say
+        </h2>
+
+        {/* Cards */}
+        <div className="flex flex-col gap-6">
+          {testimonials.map((t, i) => (
+            <div
+              key={i}
+              className="bg-[#F8FAFC] border border-[#F1F5F9] rounded-3xl p-6 flex flex-col gap-4"
+            >
+              {/* User row */}
+              <div className="flex flex-row items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-[#059669] border-2 border-[#059669] flex items-center justify-center shrink-0">
+                  <span className="text-white font-bold text-lg">{t.initials}</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-base font-bold text-[#064E3B]">{t.name}</span>
+                  <Stars />
+                </div>
+              </div>
+              <p className="text-base text-[#334155] leading-6">{t.review}</p>
             </div>
-            <div className="flex gap-1">
-              <span className="text-[#FFC107] text-lg">⭐</span>
-              <span className="text-[#FFC107] text-lg">⭐</span>
-              <span className="text-[#FFC107] text-lg">⭐</span>
-              <span className="text-[#FFC107] text-lg">⭐</span>
-              <span className="text-[#FFC107] text-lg">⭐</span>
-            </div>
-          </div>
-          {/* Text */}
-          <p className="text-[15px] sm:text-[16px] text-black leading-relaxed">
-            Chama has changed the way I save!
-          </p>
-        </div>
-        {/* CARD 2 - Bob */}
-        <div className="bg-[#F5F5F5] rounded-lg shadow-sm p-6 sm:p-7 w-full md:flex-1">
-          {/* Header - User and Stars on same line */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Image
-                src="/user2.svg"
-                alt="Bob"
-                width={100}
-                height={100}
-                  className="rounded-full w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20"
-              />
-            </div>
-            <div className="flex gap-1">
-              <span className="text-[#FFC107] text-lg">⭐</span>
-              <span className="text-[#FFC107] text-lg">⭐</span>
-              <span className="text-[#FFC107] text-lg">⭐</span>
-              <span className="text-[#FFC107] text-lg">⭐</span>
-              <span className="text-[#FFC107] text-lg">⭐</span>
-            </div>
-          </div>
-          {/* Text */}
-          <p className="text-[15px] sm:text-[16px] text-black leading-relaxed">
-            I love the community aspect of the platform.
-          </p>
+          ))}
         </div>
       </div>
     </section>
