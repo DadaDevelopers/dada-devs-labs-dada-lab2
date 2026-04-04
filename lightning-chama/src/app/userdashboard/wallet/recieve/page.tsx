@@ -54,7 +54,7 @@ export default function LightningQRPage() {
         if (!token || !userReference) throw new Error("User not authenticated");
 
         const res = await fetch(
-          `https://dada-devs-labs-dada-lab2.onrender.com/wallets/${userReference}`,
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${userReference}`,
           { headers: { 'Authorization': `Bearer ${token}` } }
         );
         const data = await res.json();
@@ -81,7 +81,7 @@ export default function LightningQRPage() {
         try {
           const token = localStorage.getItem('token');
           const res = await fetch(
-            `https://dada-devs-labs-dada-lab2.onrender.com/api/v1/wallets/invoices/${invoiceData.paymentHash}`,
+            `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/api/v1/wallets/invoices/${invoiceData.paymentHash}`,
             { headers: { 'Authorization': `Bearer ${token}` } }
           );
 
@@ -118,7 +118,7 @@ export default function LightningQRPage() {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(
-        `https://dada-devs-labs-dada-lab2.onrender.com/api/v1/wallets/${selectedWallet.walletReference}/invoice`,
+        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/api/v1/wallets/${selectedWallet.walletReference}/invoice`,
         {
           method: 'POST',
           headers: {
