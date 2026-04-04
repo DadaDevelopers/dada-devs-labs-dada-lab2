@@ -1,8 +1,7 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowUp, Users, ArrowLeft, TrendingUp, Calendar, Crown, User, CheckCircle, XCircle, Wallet, CreditCard, Info, AlertCircle, X, Loader2, ChevronDown, ChevronUp, Zap } from 'lucide-react';
-import { Navbar } from '@/components/Navbar';
-import Link from 'next/link';
+import { ArrowLeft, User, CheckCircle, XCircle, Wallet, AlertCircle, X, Loader2, ChevronDown, ChevronUp, Zap, Bell, MoreVertical } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 
 // Helper to format time ago
@@ -41,7 +40,6 @@ export default function ChamasContribution() {
   // --- USER WALLETS STATE ---
   const [userWallets, setUserWallets] = useState<any[]>([]);
   const [loadingWallets, setLoadingWallets] = useState(true);
-  const [walletError, setWalletError] = useState('');
 
   // --- WALLET TOP UP STATE (For Chama Wallets) ---
   const [topUpState, setTopUpState] = useState({
@@ -100,7 +98,7 @@ export default function ChamasContribution() {
       }
     };
     fetchExchangeRate();
-  }, [exchangeRate, lastFetched]);
+  }, [exchangeRate, lastFetched, CACHE_DURATION_MS]);
 
   const convertSatsToKes = (sats: number): number => {
     if (!exchangeRate) return 0;
@@ -213,15 +211,11 @@ export default function ChamasContribution() {
     ) || false;
   }, [activeCycle, currentUserRef]);
 
-  const chamaWallet = wallets.find((wallet: any) => wallet.walletType === 'CHAMA_GROUP');
-  const chamaWalletReference = chamaWallet?.walletReference || '';
 
   const currentSats = displayCycle?.currentTotalContributionAmount || 0;
   const expectedSats = displayCycle?.expectedTotalContributionAmount || 0;
   
   const currentAmount = convertSatsToKes(currentSats);
-  const targetAmount = convertSatsToKes(expectedSats);
-  const contributionAmount = displayCycle ? convertSatsToKes(displayCycle.contributionAmount || 0) : 0;
   const contributionSats = displayCycle?.contributionAmount || 0;
   
   const progress = expectedSats > 0 ? (currentSats / expectedSats) * 100 : 0;
@@ -403,19 +397,6 @@ export default function ChamasContribution() {
     }
   };
 
-  // Navigation Handlers (Fallbacks)
-  const handleNavigateToChamaContribution = () => {
-    // For the "Contribute to Group" button, we can trigger the top up modal if a wallet exists
-    if (chamaWalletReference) {
-        openTopUpModal(chamaWalletReference);
-    }
-  };
-  
-  const handleNavigateToWalletContribution = (walletId: string) => {
-    if (!walletId) return;
-    openTopUpModal(walletId);
-  };
-
   const openCycleDetails = (cycle: any) => {
     setSelectedCycle(cycle);
     setShowCycleDetailsModal(true);
@@ -454,386 +435,358 @@ export default function ChamasContribution() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar isAuthenticated={true} userName='' />
-      <div className="w-full max-w-md flex items-center">
-        <Link href="/userdashboard/chama" className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
-          <ArrowLeft />
-          <span className="text-lg text-gray-700">Go Back</span>
-        </Link>
-      </div>
-      <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
-        {/* Group Goal Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">{chama.name}</h2>
-            <div className="flex items-center gap-1 text-sm text-gray-600">
-              <Users className="w-4 h-4" />
-              <span>{totalMembers} members</span>
-            </div>
+    <div className="min-h-screen bg-white flex flex-col items-center">
+
+      {/* ── Header ── */}
+      <header
+        className="sticky top-0 z-2 w-full flex items-center justify-between px-4"
+        style={{
+          height: 73,
+          background: 'rgba(255,255,255,0.8)',
+          borderBottom: '1px solid #E2E8F0',
+          backdropFilter: 'blur(6px)',
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push('/userdashboard/chama')}
+            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#0F172A]" />
+          </button>
+          <div>
+            <p className="text-[18px] font-bold text-[#0F172A] leading-[22px]">{chama?.name}</p>
+            <p className="text-[12px] text-[#64748B] leading-4">Group Contribution</p>
           </div>
+        </div>
+        <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors">
+          <MoreVertical className="w-4 h-4 text-[#0F172A]" />
+        </button>
+      </header>
 
-          <div className="space-y-3 mb-6">
-            <div className="flex items-end justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Current Balance</p>
-                <p className="text-xl font-bold text-gray-900">
-                  KES {currentAmount.toLocaleString()}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-gray-600 mb-1">Target</p>
-                <p className="text-xl font-semibold text-gray-700">
-                  KES {targetAmount.toLocaleString()}
-                </p>
-              </div>
-            </div>
+      {/* ── Main ── */}
+      <main className="w-full max-w-md flex flex-col items-center gap-4 px-4 pt-4 pb-32">
 
-            <div className="space-y-2">
-              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+        {/* Financial Summary Hero */}
+        <div
+          className="w-full rounded-xl p-6 relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, #00875A 0%, #047857 100%)',
+            boxShadow: '0px 10px 15px -3px rgba(0,0,0,0.1), 0px 4px 6px -4px rgba(0,0,0,0.1)',
+          }}
+        >
+          {/* decoration blob */}
+          <div
+            className="absolute w-32 h-32 -right-8 -bottom-8 rounded-full pointer-events-none"
+            style={{ background: 'rgba(255,255,255,0.1)', filter: 'blur(20px)' }}
+          />
+          <div className="relative z-10 flex flex-col gap-1">
+            <p className="text-[14px] font-medium text-[#ECFDF5]">Current Balance</p>
+            <h2 className="text-[30px] font-bold text-white leading-9">
+              KES {loadingRate ? '—' : formatKes(currentAmount)}
+            </h2>
+            <div className="mt-3 flex flex-col gap-3">
+              <div className="flex items-end justify-between">
+                <p className="text-[12px] text-[#ECFDF5]">
+                  {activeCycle?.contributorWallets?.length || 0} of {totalMembers} members contributed
+                </p>
+                <p className="text-[12px] font-bold text-white">{progress.toFixed(0)}%</p>
+              </div>
+              <div className="w-full h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.2)' }}>
                 <div
-                  className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(progress, 100)}%` }}
-                ></div>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-emerald-600 font-medium">{progress.toFixed(1)}% achieved</span>
-                <span className="text-gray-600">KES {(targetAmount - currentAmount).toLocaleString()} remaining</span>
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(progress, 100)}%`, background: 'rgba(255,255,255,0.7)' }}
+                />
               </div>
             </div>
-          </div>
-
-          <div className="space-y-1 mb-4 border-t border-gray-100 pt-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Current Beneficiary:</span>
-              <span className="font-medium text-gray-900">
-                {displayCycle?.beneficiaryUser?.user?.username || 'N/A'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Rotation Index:</span>
-              <span className="font-medium text-gray-900">
-                {displayCycle?.rotationIndex || 'N/A'}
-              </span>
-            </div>
-          </div>
-
-          <div className={`rounded-xl p-4 mb-6 ${
-            activeCycle 
-              ? 'bg-gradient-to-br from-emerald-50 to-teal-50' 
-              : 'bg-gray-100'
-          }`}>
-            <div className="flex items-center gap-3">
-              <div className={`rounded-lg p-2 ${activeCycle ? 'bg-white' : 'bg-gray-200'}`}>
-                <Calendar className={`w-5 h-5 ${activeCycle ? 'text-emerald-600' : 'text-gray-500'}`} />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm text-gray-600">
-                  {activeCycle ? 'Active Cycle' : 'Cycle Closed'}
-                </p>
-                {isBeneficiary ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <Crown className="w-4 h-4 text-amber-500" />
-                    <span className="font-semibold text-amber-700">You are receiving this round</span>
-                  </div>
-                ) : hasContributed ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                    <span className="font-semibold text-emerald-700">You have contributed</span>
-                  </div>
-                ) : activeCycle ? (
-                  <p className="font-semibold text-gray-900">
-                    KES {contributionAmount.toLocaleString()} for this round
-                  </p>
-                ) : (
-                  <p className="font-medium text-gray-700">
-                    The contribution period for this round has passed.
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            {/* UPDATED: Triggers Rotational Payment Modal */}
-            <button 
-              onClick={() => displayCycle && handleInitiatePayment(displayCycle)}
-              disabled={!cycles.length || isBeneficiary || hasContributed}
-              className={`flex-1 text-md font-medium py-3.5 px-2 rounded-xl transition-colors flex items-center justify-center gap-2 ${
-                (!cycles.length || isBeneficiary || hasContributed)
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-              }`}
-            >
-              {isBeneficiary ? "Beneficiary" : hasContributed ? "Contributed" : (activeCycle ? 'Contribute to Cycle' : 'Make Late Contribution')}
-              {!isBeneficiary && !hasContributed && <ArrowUp className="w-5 h-5" />}
-            </button>
-            <button 
-              onClick={handleNavigateToChamaContribution}
-              disabled={!chamaWalletReference}
-              className={`flex-1 text-md font-medium py-3.5 px-6 rounded-xl transition-colors ${
-                chamaWalletReference
-                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-900' 
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              Contribute to Group
-            </button>
           </div>
         </div>
 
-        {/* Current Cycle Info */}
-        {activeCycle && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Current Contribution Cycle</h3>
+        {/* Active Cycle Alert — only shown when current user is beneficiary */}
+        {isBeneficiary && (
+          <div
+            className="w-full rounded-xl flex flex-col gap-4 px-4 pt-4 pb-6"
+            style={{
+              background: 'rgba(0,135,90,0.05)',
+              border: '2px solid rgba(0,135,90,0.2)',
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-lg bg-[#00875A] flex items-center justify-center shrink-0 p-2">
+                <Bell className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <p className="text-[16px] font-bold text-[#0F172A] leading-6">
+                  You are receiving this round
+                </p>
+                <p className="text-[14px] text-[#475569] leading-5">
+                  You are the current beneficiary for this cycle. Funds will be deposited to your wallet.
+                </p>
+              </div>
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                  <span className="text-sm font-medium text-gray-900">Status</span>
-                </div>
-                <span className="text-sm font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
-                  {activeCycle.status}
-                </span>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-900">Current Beneficiary</span>
-                <span className="text-sm text-gray-700">{activeCycle.beneficiaryUser?.user?.username}</span>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-900">Rotation Index</span>
-                <span className="text-sm text-gray-700">{activeCycle.rotationIndex}</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-900">Cycle Ends</span>
-                <span className="text-sm text-gray-700">
-                  {new Date(activeCycle.endAt).toLocaleString()}
-                </span>
-              </div>
-
-              {isBeneficiary && (
-                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2 text-amber-600 bg-amber-50 p-3 rounded-lg">
-                    <Crown className="w-5 h-5" />
-                    <span className="text-sm font-medium">You are the beneficiary for this cycle.</span>
-                </div>
-              )}
-              {hasContributed && !isBeneficiary && (
-                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2 text-emerald-600 bg-emerald-50 p-3 rounded-lg">
-                    <CheckCircle className="w-5 h-5" />
-                    <span className="text-sm font-medium">You have successfully contributed to this cycle.</span>
-                </div>
-              )}
-            </div>
-            
-            {/* UPDATED: Also triggers Rotational Payment Modal */}
-            <button 
-              onClick={() => handleInitiatePayment(activeCycle)}
-              disabled={isBeneficiary || hasContributed}
-              className={`w-full mt-4 text-md font-medium py-3.5 px-2 rounded-xl transition-colors flex items-center justify-center gap-2 ${
-                isBeneficiary || hasContributed
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-              }`}
-            >
-              {isBeneficiary ? "Cannot Contribute (Beneficiary)" : hasContributed ? "Already Contributed" : "Contribute to Cycle"}
-              {!isBeneficiary && !hasContributed && <ArrowUp className="w-5 h-5" />}
-            </button>
-          </div>
-        )}
-
-        {!activeCycle && displayCycle && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Last Contribution Cycle</h3>
-              <span className="text-sm font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-700">
-                {displayCycle.status}
-              </span>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-900">Beneficiary</span>
-                <span className="text-sm text-gray-700">{displayCycle.beneficiaryUser?.user?.username}</span>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-900">Rotation Index</span>
-                <span className="text-sm text-gray-700">{displayCycle.rotationIndex}</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-900">Cycle Ended</span>
-                <span className="text-sm text-gray-700">
-                  {new Date(displayCycle.endAt).toLocaleString()}
-                </span>
-              </div>
+            <div className="flex gap-2 justify-center">
+              <button className="flex-1 h-[42px] bg-[#00875A] rounded-lg text-white font-bold text-[14px] shadow-sm hover:bg-emerald-800 transition-colors">
+                View Payout
+              </button>
+              <button className="flex-1 h-[42px] border border-[#00875A] rounded-lg text-[#00875A] font-bold text-[14px] hover:bg-emerald-50 transition-colors">
+                Beneficiary Details
+              </button>
             </div>
           </div>
         )}
 
-        {/* Chama Wallets Section */}
+        {/* Main CTA */}
+        <button
+          onClick={() => displayCycle && handleInitiatePayment(displayCycle)}
+          disabled={!cycles.length || isBeneficiary || hasContributed}
+          className="w-full h-14 rounded-xl flex items-center justify-center gap-2 font-bold text-[16px] text-white disabled:opacity-50 transition-opacity"
+          style={{
+            background: '#0F172A',
+            boxShadow: '0px 4px 6px -1px rgba(0,0,0,0.1), 0px 2px 4px -2px rgba(0,0,0,0.1)',
+          }}
+        >
+          <Zap className="w-5 h-5" fill="white" />
+          {isBeneficiary
+            ? 'Beneficiary This Round'
+            : hasContributed
+            ? 'Already Contributed'
+            : activeCycle
+            ? 'Contribute to Group'
+            : 'Make Late Contribution'}
+        </button>
+
+        {/* ── CONTRIBUTION CYCLE ── */}
+        <div className="w-full flex flex-col gap-3">
+          <h3 className="text-[14px] font-bold text-[#64748B] uppercase tracking-[0.7px] px-1">
+            Contribution Cycle
+          </h3>
+          <div
+            className="w-full rounded-xl p-4"
+            style={{ background: '#F8FAFC', border: '1px solid #F1F5F9' }}
+          >
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+              {/* Status */}
+              <div className="flex flex-col gap-1">
+                <p className="text-[12px] text-[#64748B]">Status</p>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-[#22C55E]" />
+                  <p className="text-[14px] font-semibold text-[#0F172A]">
+                    {displayCycle?.status || 'N/A'}
+                  </p>
+                </div>
+              </div>
+              {/* Current Beneficiary */}
+              <div className="flex flex-col gap-1">
+                <p className="text-[12px] text-[#64748B]">Current Beneficiary</p>
+                <p className="text-[14px] font-semibold text-[#0F172A]">
+                  {displayCycle?.beneficiaryUser?.user?.username || 'N/A'}
+                  {isBeneficiary ? ' (You)' : ''}
+                </p>
+              </div>
+              {/* Rotation Index */}
+              <div className="flex flex-col gap-1">
+                <p className="text-[12px] text-[#64748B]">Rotation Index</p>
+                <p className="text-[14px] font-semibold text-[#0F172A]">
+                  #{displayCycle?.rotationIndex || 'N/A'} of {totalMembers}
+                </p>
+              </div>
+              {/* Cycle End Date */}
+              <div className="flex flex-col gap-1">
+                <p className="text-[12px] text-[#64748B]">Cycle End Date</p>
+                <p className="text-[14px] font-semibold text-[#0F172A]">
+                  {displayCycle?.endAt
+                    ? new Date(displayCycle.endAt).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })
+                    : 'N/A'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── CHAMA WALLETS ── */}
         {wallets.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Wallet className="w-5 h-5" />
+          <div className="w-full flex flex-col gap-3">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-[14px] font-bold text-[#64748B] uppercase tracking-[0.7px]">
                 Chama Wallets
               </h3>
+              <button className="text-[12px] font-bold text-[#00875A]">Manage</button>
             </div>
-            <div className="space-y-3">
-              {wallets.map((wallet: { [key: string]: any }, index: number) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900 flex items-center gap-2">
-                        <CreditCard className="w-4 h-4 text-gray-500" />
-                        {wallet.lightning?.walletName || `Wallet ${index + 1}`}
-                      </p>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Type: <span className="font-medium">{wallet.walletType}</span>
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">Balance</p>
-                      <p className="font-bold text-lg text-gray-900">
-                        KES {convertSatsToKes((wallet.lnBitsbalanceSats/1000) || 0).toLocaleString()}
-                      </p>
-                      <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                        wallet.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'
-                      }`}>
-                        {wallet.active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => openTopUpModal(wallet.walletReference)}
-                    className="w-full mt-3 text-sm bg-yellow-600 hover:bg-teal-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+            {wallets.map((wallet: any, i: number) => (
+              <div
+                key={i}
+                className="w-full bg-white rounded-xl p-4 flex items-center justify-between"
+                style={{
+                  border: '1px solid #E2E8F0',
+                  boxShadow: '0px 1px 2px rgba(0,0,0,0.05)',
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: 'rgba(0,135,90,0.1)' }}
                   >
-                    Contribute To This Wallet
-                    <ArrowUp className="w-4 h-4" />
-                  </button>
+                    <Wallet className="w-5 h-5 text-[#00875A]" />
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-bold text-[#0F172A]">
+                      {wallet.lightning?.walletName || wallet.lightning?.name || `Wallet ${i + 1}`}
+                    </p>
+                    <p className="text-[12px] text-[#64748B]">{wallet.walletType}</p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Group Info */}
-        <div className="bg-[#CFFEEF] rounded-2xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between gap-2 mb-6">
-            <h2 className="text-gray-900 font-semibold text-lg">
-              Group members ({totalMembers})
-            </h2>
-            <button className="text-teal-700 hover:text-teal-800 font-medium text-sm transition-colors">
-              View all members
-            </button>
-          </div>
-
-          <div className="space-y-3 mb-6">
-            {visibleMembers.map((member: { [key: string]: any }) => (
-              <div key={member.reference} className="flex items-center gap-3 p-2 bg-white rounded-lg">
-                <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center text-white font-bold">
-                  {member.user.username ? member.user.username.charAt(0).toUpperCase() : 'U'}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">{member.user.username || 'Unknown User'}</p>
-                  <p className="text-xs text-gray-600">{member.user.kyc?.email || 'No email'}</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  {member.role === 'ADMIN' ? (
-                    <div className="flex items-center gap-1 bg-amber-100 text-amber-800 px-2 py-1 rounded-full text-xs font-medium">
-                      <Crown className="w-3 h-3" />
-                      Admin
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs font-medium">
-                      <User className="w-3 h-3" />
-                      Member
-                    </div>
-                  )}
-                </div>
+                <button
+                  onClick={() => openTopUpModal(wallet.walletReference)}
+                  className="px-4 py-1.5 rounded-lg text-[12px] font-bold text-[#00875A] hover:opacity-80 transition-opacity"
+                  style={{ background: 'rgba(0,135,90,0.1)' }}
+                >
+                  Contribute
+                </button>
               </div>
             ))}
           </div>
+        )}
 
-          <div className="mb-6">
-            <h3 className="text-gray-900 font-semibold text-base mb-2">
-              About the Group
-            </h3>
-            <div className="mb-4">
-              <p className="text-gray-900 font-medium text-sm mb-1">Description:</p>
-              <ul className="list-disc list-inside text-gray-800 text-sm">
-                <li>
-                  {chama.description || "No description available"}
+        {/* ── MEMBERS ── */}
+        <div className="w-full flex flex-col gap-3">
+          <h3 className="text-[14px] font-bold text-[#64748B] uppercase tracking-[0.7px] px-1">
+            Members ({totalMembers})
+          </h3>
+          <div className="flex flex-col gap-3">
+            {visibleMembers.map((member: any) => (
+              <div key={member.reference} className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                    style={{
+                      background:
+                        member.role === 'ADMIN' ? 'rgba(0,135,90,0.2)' : '#E2E8F0',
+                    }}
+                  >
+                    <User
+                      className="w-4 h-4"
+                      style={{ color: member.role === 'ADMIN' ? '#00875A' : '#64748B' }}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-bold text-[#0F172A]">
+                      {member.user.username || 'Unknown'}
+                    </p>
+                    <p className="text-[12px] text-[#64748B]">
+                      {member.user.kyc?.email || 'No email'}
+                    </p>
+                  </div>
+                </div>
+                {member.role === 'ADMIN' ? (
+                  <span
+                    className="px-2 py-0.5 rounded text-[10px] font-bold text-[#00875A] uppercase"
+                    style={{ background: 'rgba(0,135,90,0.1)' }}
+                  >
+                    Admin
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold text-[#64748B] bg-[#F1F5F9]">
+                    Member
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── ABOUT GROUP ── */}
+        <div className="w-full flex flex-col gap-3">
+          <h3 className="text-[14px] font-bold text-[#64748B] uppercase tracking-[0.7px] px-1">
+            About Group
+          </h3>
+          <div
+            className="w-full rounded-xl p-4 flex flex-col gap-4"
+            style={{ background: '#F8FAFC', border: '1px solid #F1F5F9' }}
+          >
+            <p className="text-[14px] text-[#475569] leading-[23px]">
+              {chama?.description || 'No description available.'}
+            </p>
+            <div
+              className="flex flex-col gap-2 pt-4"
+              style={{ borderTop: '1px solid #E2E8F0' }}
+            >
+              <p className="text-[12px] font-bold text-[#94A3B8]">RULES</p>
+              <ul className="flex flex-col gap-1.5">
+                <li className="flex items-start gap-2.5">
+                  <span className="text-[12px] text-[#64748B]">•</span>
+                  <span className="text-[12px] text-[#64748B]">
+                    Frequency: {rules?.frequency || 'Not specified'}
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-[12px] text-[#64748B]">•</span>
+                  <span className="text-[12px] text-[#64748B]">
+                    Requires Approval: {rules?.requiresApproval ? 'Yes' : 'No'}
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-[12px] text-[#64748B]">•</span>
+                  <span className="text-[12px] text-[#64748B]">
+                    Max Members: {chama?.maxMembers || 'N/A'} — Required Approvals:{' '}
+                    {rules?.requiredApprovals || 0}
+                  </span>
                 </li>
               </ul>
             </div>
-
-            <div className="space-y-1">
-              <p className="text-gray-900 text-sm">
-                <span className="font-medium">Frequency:</span> {rules?.frequency || "Not specified"}
-              </p>
-              <p className="text-gray-900 text-sm">
-                <span className="font-medium">Requires Approval:</span>{" "}
-                <span className="font-semibold">{rules?.requiresApproval ? "Yes" : "No"}</span>
-              </p>
-              <p className="text-gray-900 text-sm">
-                <span className="font-medium">Required Approvals:</span>{" "}
-                <span className="font-semibold">{rules?.requiredApprovals || 0}</span>
-              </p>
-              <p className="text-gray-900 text-sm">
-                <span className="font-medium">Max Members:</span>{" "}
-                <span className="font-semibold">{chama.maxMembers}</span>
-              </p>
-            </div>
           </div>
-          <button className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors">
-            Rules & Regulations
-          </button>
         </div>
-        
-        {/* Recent Activity */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-          <div className="space-y-3">
+
+        {/* ── RECENT ACTIVITY ── */}
+        <div className="w-full flex flex-col gap-3">
+          <h3 className="text-[14px] font-bold text-[#64748B] uppercase tracking-[0.7px] px-1">
+            Recent Activity
+          </h3>
+          <div className="relative flex flex-col gap-6 isolation-isolate">
+            {/* Vertical timeline line */}
+            <div
+              className="absolute left-[19px] top-0 bottom-0 w-0.5 pointer-events-none"
+              style={{
+                background:
+                  'linear-gradient(180deg, #E2E8F0 0%, #E2E8F0 50%, rgba(226,232,240,0) 100%)',
+              }}
+            />
             {activities.length > 0 ? (
-              activities.map((activity: { [key: string]: any }) => {
-                return (
-                  <div 
-                    key={activity.id} 
-                    onClick={() => openCycleDetails(activity.rawCycle)}
-                    className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-gray-200"
+              activities.map((activity: any) => (
+                <div
+                  key={activity.id}
+                  onClick={() => openCycleDetails(activity.rawCycle)}
+                  className="relative flex items-center gap-4 cursor-pointer"
+                >
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center bg-white shrink-0"
+                    style={{
+                      border: `2px solid ${activity.status === 'ACTIVE' ? '#00875A' : '#E2E8F0'}`,
+                    }}
                   >
-                    <div className={`bg-blue-100 rounded-full p-2`}>
-                      <CheckCircle className={`w-4 h-4 text-blue-600`} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">
-                        {activity.beneficiary} {activity.details}
-                      </p>
-                      <p className="text-xs text-gray-600">{timeAgo(activity.date)}</p>
-                    </div>
-                    <p className={`font-semibold text-gray-700`}>
-                      {activity.status}
-                    </p>
+                    <CheckCircle
+                      className="w-3 h-3"
+                      style={{ color: activity.status === 'ACTIVE' ? '#00875A' : '#94A3B8' }}
+                    />
                   </div>
-                );
-              })
+                  <div>
+                    <p className="text-[14px] font-bold text-[#0F172A]">
+                      {activity.beneficiary}
+                    </p>
+                    <p className="text-[12px] text-[#64748B]">{timeAgo(activity.date)}</p>
+                  </div>
+                </div>
+              ))
             ) : (
-              <p className="text-sm text-gray-500 text-center py-4">No recent activity to show.</p>
+              <p className="text-[14px] text-[#64748B] pl-14">No recent activity.</p>
             )}
           </div>
-          {activities.length > 5 && (
-            <button className="w-full mt-4 text-emerald-600 hover:text-emerald-700 font-medium text-sm py-2">
-              View All Activities
-            </button>
-          )}
         </div>
-      </div>
+
+      </main>
 
       {/* --- ROTATIONAL PAYMENT MODAL (New) --- */}
       {rotationalPaymentModal.isOpen && (
@@ -991,7 +944,7 @@ export default function ChamasContribution() {
                         {topUpState.showWalletSelector ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
                     </div>
                     {topUpState.showWalletSelector && (
-                        <div className="absolute left-0 right-0 top-[80px] bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50">
+                        <div className="absolute left-0 right-0 top-20 bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50">
                             {loadingWallets ? <div className="p-4 text-center text-sm text-gray-500">Loading wallets...</div> : 
                              userWallets.length === 0 ? <div className="p-4 text-center text-sm text-red-500">No wallets found</div> :
                              userWallets.map((wallet: any) => (
@@ -1035,7 +988,7 @@ export default function ChamasContribution() {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-2 uppercase tracking-wide text-xs">Memo (Optional)</label>
+                      <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Memo (Optional)</label>
                       <input
                         type="text"
                         value={topUpState.memo}
@@ -1202,9 +1155,9 @@ export default function ChamasContribution() {
                 : 'bg-amber-50 border border-amber-100'
             }`}>
                 {selectedCycle.contributorWallets?.some((w: any) => w.ownerReference === currentUserRef) ? (
-                    <CheckCircle className="w-6 h-6 text-emerald-600 flex-shrink-0" />
+                    <CheckCircle className="w-6 h-6 text-emerald-600 shrink-0" />
                 ) : (
-                    <XCircle className="w-6 h-6 text-amber-600 flex-shrink-0" />
+                    <XCircle className="w-6 h-6 text-amber-600 shrink-0" />
                 )}
                 <div>
                     <p className="text-sm font-semibold text-gray-900">Your Contribution Status</p>
