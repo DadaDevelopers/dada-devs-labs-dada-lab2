@@ -1,6 +1,7 @@
 package com.dada_labs_two.chamavault.wallets.repositories;
 
 import com.dada_labs_two.chamavault.chama.models.Chama;
+import com.dada_labs_two.chamavault.wallets.constants.WalletRole;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import org.springframework.data.domain.Page;
@@ -15,6 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface WalletRepository extends JpaRepository<Wallet, UUID> {
+    Optional<Wallet> findByOwnerReferenceAndWalletRole(UUID ownerReference, WalletRole  walletRole);
     Page<Wallet> findAllByOwnerReference(Pageable pageable,  UUID ownerReference);
     List<Wallet> findAllByOwnerReference(UUID ownerReference);
 
