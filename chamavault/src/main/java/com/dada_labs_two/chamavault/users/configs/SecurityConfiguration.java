@@ -58,6 +58,8 @@ public class SecurityConfiguration {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
+                "https://*.chamavault.xyz",
+                "http://*.chamavault.xyz",
                 "http://www.chamavault.xyz",
                 "http://chamavault.xyz",
                 "https://www.chamavault.xyz",
