@@ -56,7 +56,17 @@ public class SecurityConfiguration {
 
     private UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:3000","http://www.chamavault.xyz","http://chamavault.xyz", "https://dada-devs-labs-dada-lab2-chamavault.onrender.com", "https://dada-devs-labs-dada-lab2.vercel.app/")); // frontend origin
+        config.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+                "https://*.chamavault.xyz",
+                "http://*.chamavault.xyz",
+                "http://www.chamavault.xyz",
+                "http://chamavault.xyz",
+                "https://www.chamavault.xyz",
+                "https://chamavault.xyz",
+                "https://dada-devs-labs-dada-lab2-chamavault.onrender.com",
+                "https://dada-devs-labs-dada-lab2.vercel.app"
+        ));// frontend origin
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
