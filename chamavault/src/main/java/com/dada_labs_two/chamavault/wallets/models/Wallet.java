@@ -1,6 +1,8 @@
 package com.dada_labs_two.chamavault.wallets.models;
 
 import com.dada_labs_two.chamavault.chama.models.Chama;
+import com.dada_labs_two.chamavault.wallets.constants.Network;
+import com.dada_labs_two.chamavault.wallets.constants.WalletRole;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -43,6 +45,12 @@ public class Wallet {
     private UUID ownerReference; // Chama OR User
 
     private String walletPurpose;
+
+    @Enumerated(EnumType.STRING)
+    private Network walletAffiliatedNetwork;
+
+    @Enumerated(EnumType.STRING)
+    private WalletRole walletRole;
 
     @ManyToOne
     @JoinColumn(name = "chama_reference")

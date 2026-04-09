@@ -271,6 +271,11 @@ public class TransactionService {
         );
     }
 
+    public Transaction updateTransaction(Transaction transaction) {
+        log.info("Updating transaction: " + transaction.toString());
+        return transactionRepository.save(transaction);
+    }
+
     public  static String randomCharGenerator() {
         char[] chars="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789".toCharArray();
         int max=100000000;
