@@ -139,8 +139,13 @@ export default function VerifyNumber() {
         )}
 
         {/* Resend */}
-        <p className="text-center text-xs text-gray-500 mb-6">
+        <p className="text-center text-xs text-gray-500 mb-2">
           Resend code in <span className="text-emerald-600">{timer}s</span>
+        </p>
+
+        {/* Dev hint */}
+        <p className="text-center text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-6">
+          💡 Use <span className="font-bold tracking-widest">000000</span> as the verification code
         </p>
 
         {/* Continue Button */}
