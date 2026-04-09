@@ -12,9 +12,23 @@ export default function CreateAccount() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const normalizePhone = (raw: string): string => {
+    const digits = raw.replace(/\D/g, ''); // strip non-digits
+    if (digits.startsWith('254')) return digits;          // 254XXXXXXXXX → keep
+    if (digits.startsWith('0')) return '254' + digits.slice(1); // 07... → 254...
+    return digits; // fallback (already clean)
+  };
+
   const handleVerify = async () => {
     if (!phone) {
       setError('Please enter your phone number');
+      return;
+    }
+
+    const normalized = normalizePhone(phone);
+
+    if (normalized.length !== 12) {
+      setError('Enter a valid Kenyan phone number e.g. 0712345678 or 254712345678');
       return;
     }
 
@@ -28,7 +42,7 @@ export default function CreateAccount() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ownerMsisdn: phone.replace(/\s+/g, ''),
+            ownerMsisdn: normalized,
             active: true,
           }),
         }
@@ -41,11 +55,9 @@ export default function CreateAccount() {
         return;
       }
 
-      // SUCCESS → go to verify page with phone
+      // SUCCESS → go to verify page with normalized phone
       router.push(
-        `/landing-page/verify-number?phone=${encodeURIComponent(
-          phone.replace(/\s+/g, '')
-        )}`
+        `/landing-page/verify-number?phone=${encodeURIComponent(normalized)}`
       );
 
     } catch (err) {
@@ -96,7 +108,7 @@ export default function CreateAccount() {
 
           <input
             type="tel"
-            placeholder="254700000004"
+            placeholder="0712345678 or 254712345678"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className="w-full rounded-xl border border-gray-300 px-4 py-3
