@@ -66,7 +66,7 @@ public class SecurityConfiguration {
                 "https://chamavault.xyz",
                 "https://dada-devs-labs-dada-lab2-chamavault.onrender.com",
                 "https://dada-devs-labs-dada-lab2.vercel.app"
-        ));// frontend origin
+        )); // frontend origin
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
