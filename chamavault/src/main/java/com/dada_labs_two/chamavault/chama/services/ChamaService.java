@@ -112,6 +112,10 @@ public class ChamaService {
         //5. Create Group lightning Wallet
         WalletResponse lw= lightningWalletService.createUserWallet(chama.getName());
         log.info("LW created user wallet: {}", lw);
+
+        // We use the NEW wallet's admin key to enable the extension for itself
+        lightningWalletService.enableLnurlpExtension(lw.adminkey());
+
         Map<String, String> lightningMap = new HashMap<>();
         lightningMap.put("id", lw.id());
         lightningMap.put("walletName", lw.name());

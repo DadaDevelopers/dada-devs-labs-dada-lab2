@@ -214,5 +214,22 @@ public class LNbitsClient {
     }
 
 
+    public void enableExtension(String walletAdminKey, EnableExtensionRequest request) {
+        log.info("Enabling extension {} for wallet", request.extension());
 
+        webClient.post()
+                .uri("/api/v1/extension")
+                .header("X-Api-Key", walletAdminKey)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(
+                        status -> status.isError(),
+                        response -> response.bodyToMono(String.class)
+                                .map(body -> new RuntimeException("LNbits failed to enable extension: " + body))
+                )
+                // LNbits returns a JSON object on success,
+                // but we don't need the data, so we just wait for completion.
+                .bodyToMono(Void.class)
+                .block();
+    }
 }
