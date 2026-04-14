@@ -114,7 +114,7 @@ public class ChamaService {
         log.info("LW created user wallet: {}", lw);
 
         // We use the NEW wallet's admin key to enable the extension for itself
-        lightningWalletService.enableLnurlpExtension(lw.id(),lw.adminkey());
+//        lightningWalletService.enableLnurlpExtension(lw.id(),lw.adminkey());
 
         Map<String, String> lightningMap = new HashMap<>();
         lightningMap.put("id", lw.id());
@@ -137,13 +137,13 @@ public class ChamaService {
                 .replaceAll("[^a-z0-9_-]", "-");
         long min = 1_000;        // 1 sat
         long max = 1_000_000_000; // 1,000,000 sats
-        LnurlPayLinkResponse lnAddress  = lightningWalletService.createLightningAddress(lw.adminkey(),
-                "lightning address for chama group "+ chama.getName(),
-                min, max, 0, lnUsername);
-        log.info("LN address created: {}", lnAddress);
-        wallet.getLightning().put("lnAddressUrl", lnAddress.lnurl());
-        wallet.getLightning().put("lnAddressUsername", lnAddress.username());
-        wallet = walletRepository.save(wallet);
+//        LnurlPayLinkResponse lnAddress  = lightningWalletService.createLightningAddress(lw.adminkey(),
+//                "lightning address for chama group "+ chama.getName(),
+//                min, max, 0, lnUsername);
+//        log.info("LN address created: {}", lnAddress);
+//        wallet.getLightning().put("lnAddressUrl", lnAddress.lnurl());
+//        wallet.getLightning().put("lnAddressUsername", lnAddress.username());
+//        wallet = walletRepository.save(wallet);
 
         profileActionService.createProfileActions(creator, Activity.USER_REQUEST_ACCEPTED,"chama creation",
                 "chama created successfully", chama.getDescription(), "[Admins]: Welcome to Chama!",
