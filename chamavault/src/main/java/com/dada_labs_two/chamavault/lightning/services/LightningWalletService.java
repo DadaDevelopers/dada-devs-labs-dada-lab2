@@ -98,9 +98,9 @@ public class LightningWalletService {
         return status;
     }
 
-    public void enableLnurlpExtension(String userAdminKey) {
+    public void enableLnurlpExtension(String userAdminKey, String userId) {
         log.info("Enabling lnurlp extension for wallet...");
-        client.enableExtension(userAdminKey, new EnableExtensionRequest("lnurlp", true));
+        client.enableExtension(userAdminKey,userId, new EnableExtensionRequest("lnurlp", true));
     }
 
 
