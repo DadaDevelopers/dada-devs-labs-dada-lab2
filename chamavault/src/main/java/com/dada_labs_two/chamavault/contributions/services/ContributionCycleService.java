@@ -212,12 +212,12 @@ public class ContributionCycleService {
         log.info("lnUsername: {}", lnUsername);
         long min = rules.getContributionAmount();        // sat
         long max = 1_000_000_000; // 1,000,000 sats
-        LnurlPayLinkResponse lnAddress  = lightningWalletService.createLightningAddress(lw.adminkey(),
-                "contribution lightning address for beneficiary "+ lnUsername,
-                min, max, 0, lnUsername);
-        log.info("LN address created: {}", lnAddress);
-        lightningMap.put("lnAddressUrl", lnAddress.lnurl());
-        lightningMap.put("lnAddressUsername", lnAddress.username());
+//        LnurlPayLinkResponse lnAddress  = lightningWalletService.createLightningAddress(lw.adminkey(),
+//                "contribution lightning address for beneficiary "+ lnUsername,
+//                min, max, 0, lnUsername);
+//        log.info("LN address created: {}", lnAddress);
+//        lightningMap.put("lnAddressUrl", lnAddress.lnurl());
+//        lightningMap.put("lnAddressUsername", lnAddress.username());
 
         return walletRepository.save(
                 Wallet.builder()
