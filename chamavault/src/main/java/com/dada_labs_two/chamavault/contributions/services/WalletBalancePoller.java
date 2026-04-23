@@ -42,7 +42,7 @@ public class WalletBalancePoller {
     private final InvoiceRepository invoiceRepository;
     private final LightningWalletService lightningWalletService;
 
-    @Scheduled(fixedDelayString = "${wallet.poller.delay-ms:30000}")
+//    @Scheduled(fixedDelayString = "${wallet.poller.delay-ms:30000}")
     @Transactional
     public void pollWalletBalances() {
 
