@@ -104,18 +104,18 @@ public class TransactionService {
                 .toLowerCase()
                 .replaceAll("[^a-z0-9_-]", "-");
 
-        LnurlPayLinkResponse lnAddress =
-                lightningWalletService.createLightningAddress(
-                        lw.adminkey(),
-                        "Contribution for rotation " + cycle.getRotationIndex(),
-                        1_000,
-                        1_000_000_000,
-                        0,
-                        lnUsername
-                );
-        log.info("LN address created: {}", lnAddress);
-        lightning.put("lnAddressUrl", lnAddress.lnurl());
-        lightning.put("lnAddressUsername", lnAddress.username());
+//        LnurlPayLinkResponse lnAddress =
+//                lightningWalletService.createLightningAddress(
+//                        lw.adminkey(),
+//                        "Contribution for rotation " + cycle.getRotationIndex(),
+//                        1_000,
+//                        1_000_000_000,
+//                        0,
+//                        lnUsername
+//                );
+//        log.info("LN address created: {}", lnAddress);
+//        lightning.put("lnAddressUrl", lnAddress.lnurl());
+//        lightning.put("lnAddressUsername", lnAddress.username());
 
         Wallet contributorWallet = walletRepository.save(
                 Wallet.builder()
