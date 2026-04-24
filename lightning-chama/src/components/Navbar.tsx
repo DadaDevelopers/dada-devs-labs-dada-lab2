@@ -19,7 +19,7 @@ export function Navbar({ isAuthenticated = false, userName = '' }: NavbarProps) 
     { label: 'Home', href: '#' },
     { label: 'How It Works', href: '#how-it-works' },
     { label: 'Why Bitcoin', href: '#why-bitcoin' },
-    { label: 'Login', href: '#' },
+    { label: 'Login', href: '/landing-page/login' },
     { label: 'FAQs', href: '#faqs' },
   ];
 
@@ -27,7 +27,7 @@ export function Navbar({ isAuthenticated = false, userName = '' }: NavbarProps) 
     { label: 'Dashboard', href: '/userdashboard' },
     { label: 'Chama', href: '/userdashboard/chama' },
     { label: 'Wallet', href: '/userdashboard/wallet' },
-    { label: 'Profile Settings', href: '/profile' },
+    { label: 'Profile Settings', href: '/userdashboard/profile' },
     { label: 'Logout', href: '/landing-page', isLogout: true },
   ];
 
