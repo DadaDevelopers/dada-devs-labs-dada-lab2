@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,4 +20,5 @@ public interface ChamaRepository extends JpaRepository<Chama, UUID> {
     @Query("select c from Chama c where c.chamaReference = :ref")
     Optional<Chama> findByReferenceForUpdate(UUID ref);
 
+    List<Chama> findByVisibility(ChamaVisibility chamaVisibility);
 }

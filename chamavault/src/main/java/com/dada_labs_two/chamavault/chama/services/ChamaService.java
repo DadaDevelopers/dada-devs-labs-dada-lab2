@@ -17,6 +17,7 @@ import com.dada_labs_two.chamavault.contributions.repositories.ContributionCycle
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.LnurlPayLinkResponse;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
+import com.dada_labs_two.chamavault.messaging.openai.service.OpenAiService;
 import com.dada_labs_two.chamavault.project_commons.codes.dtos.CodeDTO;
 import com.dada_labs_two.chamavault.project_commons.codes.models.Code;
 import com.dada_labs_two.chamavault.project_commons.codes.services.CodeService;
@@ -30,6 +31,8 @@ import com.dada_labs_two.chamavault.users.services.UserService;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -45,6 +48,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class ChamaService {
+    private final ObjectMapper objectMapper;
+    private final OpenAiService openAiService;
     private final ProfileActionService profileActionService;
     private final UserService userService;
     private final CodeService codeService;
@@ -464,5 +469,127 @@ public class ChamaService {
         }
 
         return chamaMember;
+    }
+
+    public List<ChamaRecommendationDTO> recommendChamas(ChamaRecommendationRequest request) {
+        //1. Fetch and prefilter
+        List<Chama> chamas = chamaRepository.findByVisibility(ChamaVisibility.PUBLIC);
+        List<Chama> filtered = chamas.stream()
+                .filter(chama -> chama.getContributionAmount() <= request.getMonthlyContribution())
+                .filter(chama -> chama.getMaxMembers() > 0)
+                .limit(30)
+                .toList();
+
+        if (filtered.isEmpty()) return Collections.emptyList();
+
+        //2.Map rules
+        Map<UUID, ChamaRules> rulesMap = chamaRulesRepository.findAll().stream()
+                .collect(Collectors.toMap(r -> r.getChama().getChamaReference(), r -> r));
+
+        // 3. Prepare AI payload
+        List<Map<String, Object>> chamaPayload = filtered.stream().map(chama -> {
+            ChamaRules rules = rulesMap.get(chama.getChamaReference());
+
+            // Explicitly define the map to avoid the "Serializable & Comparable" inference
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", chama.getChamaReference().toString());
+            map.put("name", chama.getName());
+            map.put("description", chama.getDescription());
+            map.put("contribution", chama.getContributionAmount());
+            map.put("maxMembers", chama.getMaxMembers());
+            map.put("frequency", rules != null ? rules.getFrequency() : "monthly");
+            map.put("requiresApproval", rules != null && rules.getRequiresApproval());
+
+            return map;
+        }).toList();
+
+        // 4. Build prompt
+        String prompt = buildPrompt(request, chamaPayload);
+
+        try {
+            // 5. Call OpenAI via your refined service
+            // pass the prompt to getChatResponse
+            String jsonResponse = openAiService.getChatResponse(prompt);
+
+            // 6. Parse JSON response
+            return parseRecommendations(jsonResponse);
+
+        } catch (Exception e) {
+            log.error("AI Recommendation failed, falling back", e);
+            return fallbackRecommendation(filtered);
+        }
+    }
+
+
+
+    private String buildPrompt(ChamaRecommendationRequest request, List<Map<String, Object>> chamas) {
+        return """
+You are a financial assistant for Chamavault.
+Return a JSON object containing the top 3 savings groups (chamas) for this user.
+
+User preferences:
+- Goal: %s
+- Monthly: %d
+- Risk: %s
+
+Available chamas:
+%s
+
+Format your response exactly like this:
+{
+  "recommendations": [
+    {
+      "id": "uuid",
+      "score": 0.95,
+      "reason": "explanation"
+    }
+  ]
+}
+""".formatted(request.getGoal(), request.getMonthlyContribution(), request.getRiskTolerance(), chamas.toString());
+    }
+
+    private List<ChamaRecommendationDTO> parseRecommendations(String json) {
+        try {
+            String cleanedJson = extractJson(json);
+
+            JsonNode root = objectMapper.readTree(cleanedJson);
+            JsonNode recs = root.get("recommendations");
+
+            List<ChamaRecommendationDTO> dtos = new ArrayList<>();
+            recs.forEach(node -> dtos.add(ChamaRecommendationDTO.builder()
+                    .chamaReference(UUID.fromString(node.get("id").asText()))
+                    .score(node.get("score").asDouble())
+                    .reason(node.get("reason").asText())
+                    .build()));
+
+            return dtos;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse AI response: " + json, e);
+        }
+    }
+
+    private List<ChamaRecommendationDTO> fallbackRecommendation(List<Chama> chamas) {
+        return chamas.stream()
+                .sorted(Comparator.comparing(Chama::getContributionAmount))
+                .limit(3)
+                .map(chama -> ChamaRecommendationDTO.builder()
+                        .chamaReference(chama.getChamaReference())
+                        .name(chama.getName())
+                        .score(0.5)
+                        .reason("Matched based on contribution amount")
+                        .build())
+                .toList();
+    }
+
+    private String extractJson(String response) {
+        int start = response.indexOf("{");
+        int end = response.lastIndexOf("}");
+
+        if (start == -1 || end == -1) {
+            throw new RuntimeException("No valid JSON found in response: " + response);
+        }
+
+        return response.substring(start, end + 1);
     }
 }
