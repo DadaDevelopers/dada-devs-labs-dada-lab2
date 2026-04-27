@@ -99,6 +99,12 @@ public class ChamaController {
                 chamaId, approverPhone, memberId, status, action));
     }
 
+    @PostMapping("/recommend")
+    public ResponseEntity<List<ChamaRecommendationDTO>> recommendChamas(
+            @RequestBody ChamaRecommendationRequest request) {
+        return ResponseEntity.ok(chamaService.recommendChamas(request));
+    }
+
 
     ChamaInviteDTO toChamaInviteDTO(ChamaInvite chamaInvite) {
         return ChamaInviteDTO.builder()
