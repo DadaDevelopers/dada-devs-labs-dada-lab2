@@ -145,7 +145,7 @@ public class WalletService {
         long remoteBalance = details.balance();
         long localBalance = wallet.getLnBitsbalanceSats() == null ? 0L : wallet.getLnBitsbalanceSats();
 
-        if (!Objects.equals(localBalance, remoteBalance)) {
+        if (!Objects.equals(localBalance, remoteBalance) || wallet.getBalanceSats().equals(0L)) {
 
             log.info("updating balance for wallet: {} from locale balance of {} to remote balance of {}",
                     wallet.getWalletReference(), localBalance, remoteBalance);
