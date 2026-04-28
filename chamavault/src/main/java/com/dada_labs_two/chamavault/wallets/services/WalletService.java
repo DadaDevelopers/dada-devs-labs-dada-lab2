@@ -143,9 +143,7 @@ public class WalletService {
                 lightningWalletService.getUserWallet(wallet.getLightning().get("inkey"));
 
         long remoteBalance = details.balance();
-        log.info("remote balance: {}", remoteBalance);
         long localBalance = wallet.getLnBitsbalanceSats() == null ? 0L : wallet.getLnBitsbalanceSats();
-        log.info("local_balance: {}", localBalance);
 
         if (!Objects.equals(localBalance, remoteBalance) || wallet.getBalanceSats().equals(0L)) {
 
