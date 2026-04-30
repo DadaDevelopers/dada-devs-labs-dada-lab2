@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Mail, Phone, Globe } from 'lucide-react';
+import { ArrowLeft, Mail, Phone } from 'lucide-react';
 
 const SECTIONS = [
   {
