@@ -7,15 +7,15 @@ import { ArrowLeft, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 const FAQS = [
   {
     q: 'What is ChamaVault?',
-    a: `ChamaVault is a mobile app that helps savings groups — called Chamas — manage their money together using Bitcoin's Lightning Network. Think of it as your group's digital savings account where every member can contribute, track progress, and receive payouts quickly and transparently.\n\nYou don't need to be a Bitcoin expert to use it. ChamaVault handles everything behind the scenes so your group can focus on saving.`,
+    a: `ChamaVault is a decentralized platform that helps savings groups — called Chamas — manage their money together using Bitcoin's Lightning Network. Think of it as your group's digital savings account where every member can contribute, track progress, and receive payouts quickly and transparently.\n\nYou don't need to be a Bitcoin expert to use it. ChamaVault handles everything behind the scenes so your group can focus on saving.`,
   },
   {
     q: 'How do I create or join a Chama?',
-    a: `Creating a Chama: After signing up, tap "My Chama" on your dashboard, then "Create Chama." Give your group a name, set the contribution amount and schedule, and invite members by their phone number.\n\nJoining a Chama: A Chama Administrator sends you an invite. Once added, the group will appear on your dashboard and you can start contributing straight away.`,
+    a: `Creating a Chama: After signing up, tap "My Chama" on your dashboard, then "Create Chama." Give your group a name, set the contribution amount and schedule.\n\nJoining a Chama: In "Join Chama"you can find available chamas to join, select one of your choice, you can either join as an admin, treasurer, member, then wait for approval from the chama owner.`,
   },
   {
     q: 'How do I make a contribution?',
-    a: `Tap "Contribute" on your dashboard, select your Chama, and choose your wallet to pay from. The money moves instantly through the Lightning Network directly into your Chama's group wallet.\n\nYou can also contribute using our USSD service by dialling *483# — no internet connection needed.`,
+    a: `Tap "Contribute" on your dashboard, select your Chama, and choose your wallet to pay from. The money moves instantly through the Lightning Network directly into your Chama's contribution cycle rotation.`,
   },
   {
     q: 'Is my money safe on ChamaVault?',
@@ -27,11 +27,11 @@ const FAQS = [
   },
   {
     q: 'How do I receive my payout when it is my turn?',
-    a: `When the Chama Administrator approves your payout, the funds are sent directly to your Individual Lightning Wallet on ChamaVault. You will receive an in-app notification when the transfer is complete.\n\nFrom your wallet you can hold your funds in Bitcoin or transfer them out. Always make sure your wallet is active and accessible before your payout date.`,
+    a: `When you join a chama a contibuting wallet is automatically created for you.\n\nfunds are automatically transferred to your wallet during the rotation cycle.`,
   },
   {
     q: 'What happens if I miss a contribution?',
-    a: `Missing a contribution is recorded on the platform and visible to all Chama members, keeping the group accountable. Your Administrator may mark it as a late contribution.\n\nIf you know in advance that you will miss a payment, reach out to your Administrator as soon as possible. Late contributions can still be made — look for the "Make Late Contribution" button on your Chama's contribution page.`,
+    a: `Missing a contribution is recorded on the platform and visible to all Chama members, keeping the group accountable. The system may mark it as a late contribution.\n\nIf you know in advance that you will miss a payment, reach out to your Admin as soon as possible. Late contributions can still be made — look for the "Make Late Contribution" button on your Chama's contribution page.`,
   },
   {
     q: 'How do I reset or change my PIN?',
@@ -60,7 +60,7 @@ export default function FAQsPage() {
         >
           <ArrowLeft className="w-4 h-4" style={{ color: '#64748B' }} />
         </button>
-        <span className="font-bold text-base" style={{ color: '#0F172A' }}>
+        <span className="font-bold text-base" style={{ color: '#064E3B' }}>
           Frequently Asked Questions
         </span>
         <div className="w-8" />
@@ -85,7 +85,7 @@ export default function FAQsPage() {
               <p className="text-sm font-medium" style={{ color: '#059669' }}>We have answers.</p>
             </div>
           </div>
-          <p className="text-sm leading-5 mt-1" style={{ color: '#475569' }}>
+          <p className="text-md leading-5 mt-1" style={{ color: '#475569' }}>
             Everything you need to know about saving with ChamaVault. Can&apos;t find what you&apos;re looking for? Reach us at{' '}
             <span className="font-semibold" style={{ color: '#059669' }}>support@chamavault.xyz</span>
           </p>
@@ -164,7 +164,7 @@ export default function FAQsPage() {
         >
           <p className="text-sm font-bold" style={{ color: '#0F172A' }}>Still need help?</p>
           <p className="text-sm leading-5" style={{ color: '#64748B' }}>
-            Our support team is available Monday – Friday, 8 am – 6 pm EAT.
+            Our support team is available.
           </p>
           <div className="flex flex-col gap-2">
             {[

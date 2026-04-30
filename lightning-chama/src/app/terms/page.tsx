@@ -301,7 +301,7 @@ export default function TermsPage() {
         >
           <ArrowLeft className="w-4 h-4" style={{ color: '#64748B' }} />
         </button>
-        <span className="font-bold text-base leading-6 text-center" style={{ color: '#0F172A' }}>
+        <span className="font-bold text-base leading-6 text-center" style={{ color: '#064E3B' }}>
           Terms &amp; Privacy Policy
         </span>
         <div className="w-8" />
@@ -327,9 +327,9 @@ export default function TermsPage() {
             Terms of Service &amp; Privacy Policy
           </h1>
           <p className="text-sm leading-5 text-emerald-100">
-            Version 1.0 · Effective Date: April 2025
+            Version 1.0 · Effective Date: April 2026
           </p>
-          <p className="text-xs leading-5 text-slate-300 mt-1">
+          <p className="text-xs leading-5 text-slate-100 mt-1">
             Governing Law: Republic of Kenya
           </p>
 
@@ -338,7 +338,6 @@ export default function TermsPage() {
             {[
               { icon: Mail, label: 'support@chamavault.xyz' },
               { icon: Phone, label: '+254 713 072 153' },
-              { icon: Globe, label: 'www.chamavault.xyz' },
             ].map(({ icon: Icon, label }) => (
               <div
                 key={label}
@@ -385,7 +384,7 @@ export default function TermsPage() {
             {/* Part heading */}
             <div
               className="px-4 py-3 rounded-2xl"
-              style={{ background: '#0F172A' }}
+              style={{ background: '#064E3B' }}
             >
               <p className="text-sm font-bold text-white tracking-[0.5px]">
                 {section.part}
@@ -450,7 +449,7 @@ export default function TermsPage() {
           >
           </div>
           <p className="text-sm font-bold text-center" style={{ color: '#0F172A' }}>
-            © 2025 ChamaVault. All rights reserved.
+            © 2026 ChamaVault. All rights reserved.
           </p>
           <p className="text-xs text-center" style={{ color: '#94A3B8' }}>
             Empowering Chamas to Save, Grow &amp; Thrive

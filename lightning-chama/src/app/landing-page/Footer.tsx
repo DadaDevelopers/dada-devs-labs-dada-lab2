@@ -2,9 +2,9 @@
 
 const quickLinks = [
   { label: "Join ChamaVault", href: "/landing-page/create-account" },
-  { label: "Privacy Policy", href: "#" },
-  { label: "Terms of Service", href: "#" },
-  { label: "Help Center", href: "#" },
+  { label: "Privacy Policy", href: "/terms" },
+  { label: "Terms of Service", href: "/terms" },
+  { label: "Help Center", href: "/landing-page" },
 ];
 
 const PhoneIcon = () => (
@@ -77,7 +77,7 @@ export default function Footer() {
                     className="text-base leading-6"
                     style={{ color: "rgba(236,253,245,0.7)" }}
                   >
-                    +254 7 XX XXX XXX
+                    +254 713 072 153
                   </span>
                 </li>
                 <li className="flex items-center gap-2">
@@ -86,7 +86,7 @@ export default function Footer() {
                     className="text-base leading-6"
                     style={{ color: "rgba(236,253,245,0.7)" }}
                   >
-                    info@chama.com
+                    support@chamavault.xyz
                   </span>
                 </li>
                 <li className="flex items-center gap-2">
@@ -111,7 +111,7 @@ export default function Footer() {
               className="text-sm text-center leading-5"
               style={{ color: "rgba(236,253,245,0.4)" }}
             >
-              © 2025 ChamaVault. Making savings simple and transparent.
+              © 2026 ChamaVault. Making savings simple and transparent.
             </p>
           </div>
         </div>
