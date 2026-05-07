@@ -80,13 +80,13 @@ export default function Footer() {
                     +254 713 072 153
                   </span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <EmailIcon />
+                <li className="flex items-start gap-2">
+                  <span className="shrink-0 mt-0.5"><EmailIcon /></span>
                   <span
-                    className="text-base leading-6"
+                    className="text-sm leading-5 break-all"
                     style={{ color: "rgba(236,253,245,0.7)" }}
                   >
-                    support@chamavault.xyz
+                    chamavault.support@gmail.com
                   </span>
                 </li>
                 <li className="flex items-center gap-2">

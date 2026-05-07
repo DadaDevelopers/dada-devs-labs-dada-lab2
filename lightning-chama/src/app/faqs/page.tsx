@@ -87,7 +87,8 @@ export default function FAQsPage() {
           </div>
           <p className="text-md leading-5 mt-1" style={{ color: '#475569' }}>
             Everything you need to know about saving with ChamaVault. Can&apos;t find what you&apos;re looking for? Reach us at{' '}
-            <span className="font-semibold" style={{ color: '#059669' }}>support@chamavault.xyz</span>
+            <span className="font-semibold" style={{ color: '#059669' }}>chamavault.support@gmail.com
+            </span>
           </p>
         </div>
 
@@ -168,7 +169,7 @@ export default function FAQsPage() {
           </p>
           <div className="flex flex-col gap-2">
             {[
-              { label: 'Email', value: 'support@chamavault.xyz' },
+              { label: 'Email', value: 'chamavault.support@gmail.com' },
               { label: 'Phone', value: '+254 713 072 153' },
               { label: 'Website', value: 'www.chamavault.xyz' },
             ].map(({ label, value }) => (
