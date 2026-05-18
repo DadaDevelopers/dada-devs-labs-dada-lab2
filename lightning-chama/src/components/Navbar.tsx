@@ -11,19 +11,25 @@ type NavbarProps = {
   userName?: string;
 };
 
+type NavItem = {
+  label: string;
+  href: string;
+  isLogout?: boolean;
+};
+
 export function Navbar({ isAuthenticated = false, userName = '' }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const router = useRouter();
 
-  const publicNavItems = [
+  const publicNavItems: NavItem[] = [
     { label: 'Home', href: '#' },
     { label: 'How It Works', href: '#how-it-works' },
     { label: 'Why Bitcoin', href: '#why-bitcoin' },
     { label: 'Login', href: '/landing-page/login' },
-    { label: 'FAQs', href: '#faqs' },
+    { label: 'FAQs', href: '/faqs' },
   ];
 
-  const dashboardNavItems = [
+  const dashboardNavItems: NavItem[] = [
     { label: 'Dashboard', href: '/userdashboard' },
     { label: 'Chama', href: '/userdashboard/chama' },
     { label: 'Wallet', href: '/userdashboard/wallet' },
@@ -31,7 +37,7 @@ export function Navbar({ isAuthenticated = false, userName = '' }: NavbarProps) 
     { label: 'Logout', href: '/landing-page', isLogout: true },
   ];
 
-  const navItems = isAuthenticated ? dashboardNavItems : publicNavItems;
+  const navItems: NavItem[] = isAuthenticated ? dashboardNavItems : publicNavItems;
 
   const handleLogout = () => {
     // Clear all items from local storage
@@ -44,7 +50,7 @@ export function Navbar({ isAuthenticated = false, userName = '' }: NavbarProps) 
     router.push('/landing-page');
   };
 
-  const handleNavItemClick = (item: any) => {
+  const handleNavItemClick = (item: NavItem) => {
     // Close the menu
     setIsMenuOpen(false);
     

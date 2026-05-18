@@ -17,6 +17,7 @@ import {
   Pencil,
   Loader2,
   Hash,
+  ChevronRight,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -225,7 +226,7 @@ export default function ProfilePage() {
       </header>
 
       {/* ── Main Content ── */}
-      <main className="flex flex-col gap-6 px-4 pt-6 w-full max-w-[448px] mx-auto">
+      <main className="flex flex-col gap-6 px-4 pt-6 w-full max-w-md mx-auto">
 
         {/* ── Profile Header Card ── */}
         <div
@@ -237,7 +238,7 @@ export default function ProfilePage() {
           <div className="w-full flex flex-col items-center relative z-10">
             <div className="relative">
               {avatarSrc ? (
-                <img src={avatarSrc} alt="Profile" className="w-24 h-24 rounded-full object-cover"
+                <Image src={avatarSrc} alt="Profile" className="w-24 h-24 rounded-full object-cover"
                   style={{ border: '4px solid #ECFDF5', boxShadow: '0px 10px 15px -3px rgba(0,0,0,0.1), 0px 4px 6px -4px rgba(0,0,0,0.1)' }} />
               ) : (
                 <div className="w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold text-white select-none"
@@ -452,11 +453,14 @@ export default function ProfilePage() {
 
             <div style={{ width: 'calc(100% - 32px)', height: 1, background: '#F1F5F9', marginLeft: 16 }} />
 
-            {/* Privacy Policy */}
-            <button className="flex flex-row items-center gap-4 px-4 w-full h-14 text-left hover:bg-slate-50 transition-colors">
+            {/* Terms & Privacy Policy */}
+            <button
+              onClick={() => router.push('/terms')}
+              className="flex flex-row items-center gap-4 px-4 w-full h-14 text-left hover:bg-slate-50 transition-colors"
+            >
               <FileText className="w-4 h-[21px] shrink-0" style={{ color: '#94A3B8' }} />
-              <span className="flex-1 text-base font-medium leading-6" style={{ color: '#0F172A' }}>Privacy Policy</span>
-              <ChevronDown className="w-4 h-4 shrink-0" style={{ color: '#CBD5E1' }} />
+              <span className="flex-1 text-base font-medium leading-6" style={{ color: '#0F172A' }}>Terms &amp; Privacy Policy</span>
+              <ChevronRight className="w-[7.4px] h-3 shrink-0" style={{ color: '#CBD5E1' }} />
             </button>
           </div>
         </section>
@@ -483,7 +487,7 @@ export default function ProfilePage() {
           <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={closeEdit} />
           <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center">
             <div
-              className="w-full max-w-[448px] bg-white rounded-t-3xl px-6 pt-5 pb-10"
+              className="w-full max-w-md bg-white rounded-t-3xl px-6 pt-5 pb-10"
               style={{ boxShadow: '0px -4px 24px rgba(0,0,0,0.08)' }}
             >
               <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-5" />

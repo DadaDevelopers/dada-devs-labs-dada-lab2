@@ -196,8 +196,13 @@ export default function SetPinPage() {
               className="mt-1 h-4 w-4 accent-emerald-600"
             />
             <p className="text-sm font-medium text-gray-900">
-              I understood the{" "}
-              <span className="text-emerald-600">terms & policy</span>
+              I have read and understood the{" "}
+              <Link
+                href="/terms"
+                className="text-emerald-600 underline underline-offset-2 hover:text-emerald-700 transition-colors"
+              >
+                Terms &amp; Privacy Policy
+              </Link>
             </p>
           </div>
 
