@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
 import { ArrowUpRight, ArrowDownLeft, RefreshCw, Users, Check, Copy, X, Eye } from 'lucide-react';
 import BalanceHero from '@/components/BalanceHero';
 import { Navbar } from '@/components/Navbar';
@@ -9,6 +10,26 @@ import chama0 from '@/assets/chama0.svg';
 import chama1 from '@/assets/chama1.svg';
 import chama2 from '@/assets/chama2.svg';
 import chama3 from '@/assets/chama3.svg';
+
+type OnRampResponse = {
+  message?: string;
+  status?: string;
+  data?: {
+    transaction_code?: string;
+    status?: string;
+    message?: string;
+    invoice_amount_sats?: number;
+    kes_amount?: number;
+    sats_to_send?: number;
+  };
+};
+
+type ApiErrorResponse = {
+  error?: string;
+  message?: string;
+  status?: number;
+  timestamp?: string;
+};
 
 // Main Dashboard Component
 export default function Dashboard() {
@@ -22,6 +43,15 @@ export default function Dashboard() {
 
   const [selectedAction, setSelectedAction] = useState<any | null>(null);
   const [copied, setCopied] = useState(false);
+  const [onRampOpen, setOnRampOpen] = useState(false);
+  const [onRampLoading, setOnRampLoading] = useState(false);
+  const [onRampError, setOnRampError] = useState('');
+  const [onRampResult, setOnRampResult] = useState<OnRampResponse | null>(null);
+  const [onRampForm, setOnRampForm] = useState({
+    phoneNumber: '',
+    walletId: '',
+    amountSats: '',
+  });
 
   const [wallets, setWallets] = useState<any[]>([]);
   const [loadingWallets, setLoadingWallets] = useState(true);
@@ -41,6 +71,42 @@ export default function Dashboard() {
   
   // Cache the rate for 5 minutes (300,000 milliseconds)
   const CACHE_DURATION_MS = 5 * 60 * 1000;
+
+  const fetchWallets = async () => {
+    try {
+      setLoadingWallets(true);
+      setWalletError('');
+      const token = localStorage.getItem('token');
+      const ownerRef = localStorage.getItem('userReference'); // IMPORTANT
+
+      if (!token || !ownerRef) {
+        setWalletError('Not authenticated');
+        return [];
+      }
+
+      const res = await fetch(
+        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerRef}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!res.ok) throw new Error('Failed to fetch wallets');
+
+      const data = await res.json();
+      const fetchedWallets = data.content || [];
+      setWallets(fetchedWallets);
+      localStorage.setItem('wallets', JSON.stringify(fetchedWallets));
+      return fetchedWallets;
+    } catch (e) {
+      setWalletError('Unable to load wallets');
+      return [];
+    } finally {
+      setLoadingWallets(false);
+    }
+  };
 
   // Fetch exchange rate with caching
   useEffect(() => {
@@ -153,36 +219,6 @@ export default function Dashboard() {
       }
     };
 
-    const fetchWallets = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const ownerRef = localStorage.getItem('userReference'); // IMPORTANT
-
-        if (!token || !ownerRef) {
-          setWalletError('Not authenticated');
-          return;
-        }
-
-        const res = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerRef}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!res.ok) throw new Error('Failed to fetch wallets');
-
-        const data = await res.json();
-        setWallets(data.content || []);
-      } catch (e) {
-        setWalletError('Unable to load wallets');
-      } finally {
-        setLoadingWallets(false);
-      }
-    };
-
     const storedWallet = localStorage.getItem('selectedWalletRef');
     if (storedWallet) setSelectedWalletRef(storedWallet);
 
@@ -199,11 +235,12 @@ export default function Dashboard() {
       if (e.key === 'Escape') {
         setSelectedAction(null);
         setSelectedWalletDetails(null);
+        setOnRampOpen(false);
       }
     };
-    if (selectedAction || selectedWalletDetails) document.addEventListener('keydown', esc);
+    if (selectedAction || selectedWalletDetails || onRampOpen) document.addEventListener('keydown', esc);
     return () => document.removeEventListener('keydown', esc);
-  }, [selectedAction, selectedWalletDetails]);
+  }, [selectedAction, selectedWalletDetails, onRampOpen]);
 
   /* =========================
      HELPERS
@@ -300,6 +337,110 @@ export default function Dashboard() {
     await navigator.clipboard.writeText(text);
     setWalletDetailsCopied(field);
     setTimeout(() => setWalletDetailsCopied(''), 1500);
+  };
+
+  const getPreferredOnRampWallet = (availableWallets = wallets) => {
+    if (selectedWalletRef !== 'ALL') {
+      return availableWallets.find((wallet) => wallet.walletReference === selectedWalletRef);
+    }
+    return availableWallets[0];
+  };
+
+  const openOnRamp = async () => {
+    const availableWallets = wallets.length > 0 ? wallets : await fetchWallets();
+    const preferredWallet = getPreferredOnRampWallet(availableWallets);
+    setOnRampError('');
+    setOnRampResult(null);
+    setOnRampForm({
+      phoneNumber: localStorage.getItem('msisdn') || '',
+      walletId: preferredWallet?.walletReference || '',
+      amountSats: '',
+    });
+    setOnRampOpen(true);
+  };
+
+  const extractOnRampError = (data: ApiErrorResponse | null, fallback: string) => {
+    if (!data) return fallback;
+
+    if (typeof data.message === 'string') {
+      const jsonStart = data.message.indexOf('{');
+      const jsonEnd = data.message.lastIndexOf('}');
+
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        try {
+          const nested = JSON.parse(data.message.slice(jsonStart, jsonEnd + 1)) as ApiErrorResponse;
+          return nested.message || data.message;
+        } catch {
+          return data.message;
+        }
+      }
+
+      return data.message;
+    }
+
+    return data.error || fallback;
+  };
+
+  const handleOnRampSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setOnRampError('');
+    setOnRampResult(null);
+
+    const amount = Number(onRampForm.amountSats);
+
+    if (!onRampForm.phoneNumber.trim()) {
+      setOnRampError('Phone number is required.');
+      return;
+    }
+
+    if (!onRampForm.walletId) {
+      setOnRampError('Select a wallet to fund.');
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount < 10) {
+      setOnRampError('Amount must be at least 10 sats.');
+      return;
+    }
+
+    try {
+      setOnRampLoading(true);
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        setOnRampError('Not authenticated');
+        return;
+      }
+
+      const response = await fetch(
+        'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/api/v1/payments/collections/fund-wallet/mpesa',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            phoneNumber: onRampForm.phoneNumber.replace(/\s+/g, ''),
+            walletId: onRampForm.walletId,
+            amountSats: onRampForm.amountSats,
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => null) as OnRampResponse | ApiErrorResponse | null;
+
+      if (!response.ok) {
+        setOnRampError(extractOnRampError(data as ApiErrorResponse | null, 'Unable to start on-ramp request.'));
+        return;
+      }
+
+      setOnRampResult(data as OnRampResponse);
+    } catch {
+      setOnRampError('Failed to connect to server. Try again.');
+    } finally {
+      setOnRampLoading(false);
+    }
   };
 
   const getCTA = (a: any) => {
@@ -422,7 +563,7 @@ export default function Dashboard() {
         )}
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-8">
+        <div className="grid grid-cols-5 gap-2 sm:gap-3 md:gap-4 mb-8">
           <Link href="/userdashboard/wallet">
             <button className="bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-3 hover:bg-emerald-50 transition flex flex-col items-center gap-2">
               <svg width="66" height="30" viewBox="0 0 31 30" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -463,6 +604,17 @@ export default function Dashboard() {
               <span className="text-xs sm:text-sm font-medium text-gray-900">My Chama</span>
             </button>
           </Link>
+          <button
+            type="button"
+            onClick={openOnRamp}
+            disabled={loadingWallets}
+            className="bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-3 hover:bg-emerald-50 transition flex flex-col items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <ArrowDownLeft className="w-[66px] h-[30px] text-emerald-600" />
+            <span className="text-xs sm:text-sm font-medium text-gray-900">
+              {loadingWallets ? 'Loading' : 'On Ramp'}
+            </span>
+          </button>
         </div>
         
         {/* Featured Chamas */}
@@ -619,6 +771,117 @@ export default function Dashboard() {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= ON RAMP MODAL ================= */}
+      {onRampOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center text-[#191919]">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn"
+            onClick={() => !onRampLoading && setOnRampOpen(false)}
+          />
+          <div className="relative bg-white rounded-xl p-6 w-[92%] max-w-md animate-scaleIn">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-semibold">On Ramp</h3>
+                <p className="text-sm text-gray-500">Fund your wallet through M-Pesa.</p>
+              </div>
+              <button
+                onClick={() => setOnRampOpen(false)}
+                disabled={onRampLoading}
+                className="disabled:opacity-50"
+              >
+                <X />
+              </button>
+            </div>
+
+            <form onSubmit={handleOnRampSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="onRampPhoneNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Number
+                </label>
+                <input
+                  id="onRampPhoneNumber"
+                  type="tel"
+                  value={onRampForm.phoneNumber}
+                  onChange={(e) => setOnRampForm((prev) => ({ ...prev, phoneNumber: e.target.value }))}
+                  placeholder="0115000725"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="onRampWallet" className="block text-sm font-medium text-gray-700 mb-1">
+                  Wallet
+                </label>
+                <select
+                  id="onRampWallet"
+                  value={onRampForm.walletId}
+                  onChange={(e) => setOnRampForm((prev) => ({ ...prev, walletId: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                >
+                  <option value="">
+                    {loadingWallets ? 'Loading wallets...' : walletError || 'Select wallet'}
+                  </option>
+                  {!loadingWallets && !walletError && wallets.length === 0 && (
+                    <option value="" disabled>No wallets found</option>
+                  )}
+                  {wallets.map((wallet) => (
+                    <option key={wallet.walletReference} value={wallet.walletReference}>
+                      {wallet.lightning?.name || wallet.walletType} - {wallet.balanceSats} sats
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="onRampAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount (sats)
+                </label>
+                <input
+                  id="onRampAmount"
+                  type="number"
+                  min="10"
+                  value={onRampForm.amountSats}
+                  onChange={(e) => setOnRampForm((prev) => ({ ...prev, amountSats: e.target.value }))}
+                  placeholder="100"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                />
+              </div>
+
+              {onRampError && (
+                <p className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm text-red-700">
+                  {onRampError}
+                </p>
+              )}
+
+              {onRampResult && (
+                <div className={`rounded-lg border px-3 py-3 text-sm space-y-1 ${
+                  onRampResult.data?.status === 'FAILED'
+                    ? 'bg-yellow-50 border-yellow-100 text-yellow-800'
+                    : 'bg-emerald-50 border-emerald-100 text-emerald-800'
+                }`}>
+                  <p className="font-semibold">{onRampResult.message || 'Request successfully dispatched'}</p>
+                  {onRampResult.data && (
+                    <>
+                      <p>Status: {onRampResult.data.status}</p>
+                      <p>{onRampResult.data.message}</p>
+                      <p>Amount: {onRampResult.data.invoice_amount_sats} sats / {onRampResult.data.kes_amount} KES</p>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={onRampLoading}
+                className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 py-2.5 text-white font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {onRampLoading ? 'Sending request...' : 'Start On Ramp'}
+              </button>
+            </form>
           </div>
         </div>
       )}
