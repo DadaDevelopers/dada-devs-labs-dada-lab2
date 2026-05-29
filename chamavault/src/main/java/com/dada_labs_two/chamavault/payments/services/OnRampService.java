@@ -21,7 +21,7 @@ public class OnRampService {
     public OnrampResponseDTO triggerOnrampViaMpesa(FundWalletByMpesa request) throws InvalidObjectException {
         //validate phone
         String phoneNumber = request.phoneNumber();
-        if (phoneNumber == null || phoneNumber.length() != 10)
+        if (phoneNumber == null || (phoneNumber.length() != 10 && phoneNumber.length() != 12))
             throw new InvalidObjectException("invalid phone number");
         
         //create invoice
