@@ -431,7 +431,7 @@ export default function Dashboard() {
       const data = await response.json().catch(() => null) as OnRampResponse | ApiErrorResponse | null;
 
       if (!response.ok) {
-        setOnRampError(extractOnRampError(data as ApiErrorResponse | null, 'Unable to start on-ramp request.'));
+        setOnRampError(extractOnRampError(data as ApiErrorResponse | null, 'Unable to start deposit request.'));
         return;
       }
 
@@ -612,7 +612,7 @@ export default function Dashboard() {
           >
             <ArrowDownLeft className="w-[66px] h-[30px] text-emerald-600" />
             <span className="text-xs sm:text-sm font-medium text-gray-900">
-              {loadingWallets ? 'Loading' : 'On Ramp'}
+              {loadingWallets ? 'Loading' : 'Deposit'}
             </span>
           </button>
         </div>
@@ -785,7 +785,7 @@ export default function Dashboard() {
           <div className="relative bg-white rounded-xl p-6 w-[92%] max-w-md animate-scaleIn">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="text-lg font-semibold">On Ramp</h3>
+                <h3 className="text-lg font-semibold">Deposit</h3>
                 <p className="text-sm text-gray-500">Fund your wallet through M-Pesa.</p>
               </div>
               <button
@@ -879,7 +879,7 @@ export default function Dashboard() {
                 disabled={onRampLoading}
                 className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 py-2.5 text-white font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {onRampLoading ? 'Sending request...' : 'Start On Ramp'}
+                {onRampLoading ? 'Sending request...' : 'Start Deposit'}
               </button>
             </form>
           </div>
