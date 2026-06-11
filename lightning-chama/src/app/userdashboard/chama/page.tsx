@@ -4,6 +4,8 @@ import { ArrowLeft, Users, Check, X } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
 import Image from "next/image";
+import SatsAmount from "@/components/SatsAmount";
+import { useBitcoinKesRate } from "@/hooks/useBitcoinKesRate";
 
 type Chama = {
   chamaReference: string;
@@ -49,6 +51,7 @@ type MemberRequest = {
 };
 
 export default function ChamasPage() {
+  const { exchangeRate, loadingRate } = useBitcoinKesRate();
   const [chamas, setChamas] = useState<Chama[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -283,10 +286,17 @@ export default function ChamasPage() {
                       {chama.description}
                     </p>
 
-                    <div className="mt-2 text-xs text-gray-500 flex gap-4">
-                      <span>
-                        💰 {chama.contributionAmount} sats
-                      </span>
+                    <div className="mt-2 text-xs text-gray-500 flex gap-4 items-start">
+                      <div className="flex gap-1">
+                        <span>💰</span>
+                        <SatsAmount
+                          sats={chama.contributionAmount}
+                          exchangeRate={exchangeRate}
+                          loadingRate={loadingRate}
+                          primaryClassName="text-xs text-gray-500"
+                          detailClassName="text-[10px] text-gray-400"
+                        />
+                      </div>
                       <span>
                         👥 Max {chama.maxMembers}
                       </span>
