@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { ArrowLeft, User, CheckCircle, XCircle, Wallet, AlertCircle, X, Loader2, ChevronDown, ChevronUp, Zap, Bell, MoreVertical } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
+import SatsAmount from '@/components/SatsAmount';
 
 // Helper to format time ago
 const timeAgo = (date: string) => {
@@ -104,8 +105,6 @@ export default function ChamasContribution() {
     if (!exchangeRate) return 0;
     return (sats / 100000000) * exchangeRate;
   };
-
-  const formatKes = (kes: number) => kes.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
   // --- FETCHING ALL DATA ---
   useEffect(() => {
@@ -215,7 +214,6 @@ export default function ChamasContribution() {
   const currentSats = displayCycle?.currentTotalContributionAmount || 0;
   const expectedSats = displayCycle?.expectedTotalContributionAmount || 0;
   
-  const currentAmount = convertSatsToKes(currentSats);
   const contributionSats = displayCycle?.contributionAmount || 0;
   
   const progress = expectedSats > 0 ? (currentSats / expectedSats) * 100 : 0;
@@ -482,9 +480,13 @@ export default function ChamasContribution() {
           />
           <div className="relative z-10 flex flex-col gap-1">
             <p className="text-[14px] font-medium text-[#ECFDF5]">Current Balance</p>
-            <h2 className="text-[30px] font-bold text-white leading-9">
-              KES {loadingRate ? '—' : formatKes(currentAmount)}
-            </h2>
+            <SatsAmount
+              sats={currentSats}
+              exchangeRate={exchangeRate}
+              loadingRate={loadingRate}
+              primaryClassName="text-[30px] font-bold text-white leading-9"
+              detailClassName="text-[12px] text-[#ECFDF5]"
+            />
             <div className="mt-3 flex flex-col gap-3">
               <div className="flex items-end justify-between">
                 <p className="text-[12px] text-[#ECFDF5]">
@@ -829,8 +831,14 @@ export default function ChamasContribution() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-gray-900">{wallet.balanceSats.toLocaleString()}</p>
-                            <p className="text-[10px] text-gray-400 uppercase">Sats</p>
+                            <SatsAmount
+                              sats={wallet.balanceSats}
+                              exchangeRate={exchangeRate}
+                              loadingRate={loadingRate}
+                              align="right"
+                              primaryClassName="font-bold text-gray-900"
+                              detailClassName="text-[10px] text-gray-400"
+                            />
                           </div>
                         </div>
                       </div>
@@ -870,10 +878,14 @@ export default function ChamasContribution() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-lg">
-                        {exchangeRate ? formatKes(convertSatsToKes(contributionSats)) : "..."}
-                      </p>
-                      <p className="text-xs text-gray-400">KES</p>
+                      <SatsAmount
+                        sats={contributionSats}
+                        exchangeRate={exchangeRate}
+                        loadingRate={loadingRate}
+                        align="right"
+                        primaryClassName="font-bold text-lg text-white"
+                        detailClassName="text-xs text-gray-400"
+                      />
                     </div>
                   </div>
 
@@ -957,7 +969,14 @@ export default function ChamasContribution() {
                                 >
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm font-medium text-gray-900">{wallet.lightning?.name || wallet.walletType}</span>
-                                        <span className="text-xs text-gray-500">{wallet.balanceSats} sats</span>
+                                        <SatsAmount
+                                          sats={wallet.balanceSats}
+                                          exchangeRate={exchangeRate}
+                                          loadingRate={loadingRate}
+                                          align="right"
+                                          primaryClassName="text-xs font-semibold text-gray-700"
+                                          detailClassName="text-[10px] text-gray-500"
+                                        />
                                     </div>
                                     {topUpState.senderWalletId === wallet.walletReference && (
                                         <div className="text-xs text-emerald-600 font-medium mt-1 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Selected</div>
@@ -983,9 +1002,16 @@ export default function ChamasContribution() {
                         placeholder="0"
                         className="w-full text-lg font-semibold text-gray-900 placeholder-gray-400 outline-none border border-gray-200 rounded-lg p-3 focus:border-emerald-500"
                       />
-                      <div className="text-right text-xs text-gray-400 mt-1">
-                         Approx. KES {convertSatsToKes(parseInt(topUpState.amount || '0')).toLocaleString()}
-                      </div>
+                      {parseInt(topUpState.amount || '0') > 0 && (
+                        <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
+                          <SatsAmount
+                            sats={parseInt(topUpState.amount || '0')}
+                            exchangeRate={exchangeRate}
+                            loadingRate={loadingRate}
+                            primaryClassName="font-semibold text-sm text-gray-700"
+                          />
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Memo (Optional)</label>
@@ -1015,11 +1041,13 @@ export default function ChamasContribution() {
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-200">
                     <span className="text-gray-500 text-sm">Amount</span>
-                    <span className="font-bold text-gray-900">{topUpState.amount} sats</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-200">
-                    <span className="text-gray-500 text-sm">Est. Value</span>
-                    <span className="text-gray-900">KES {convertSatsToKes(parseInt(topUpState.amount || '0')).toLocaleString()}</span>
+                    <SatsAmount
+                      sats={parseInt(topUpState.amount || '0')}
+                      exchangeRate={exchangeRate}
+                      loadingRate={loadingRate}
+                      align="right"
+                      primaryClassName="font-bold text-gray-900"
+                    />
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-dashed border-gray-200">
                     <span className="text-gray-500 text-sm">Memo</span>
@@ -1127,14 +1155,32 @@ export default function ChamasContribution() {
                 ></div>
               </div>
               <div className="flex justify-between text-xs text-gray-500 mt-1">
-                 <span>KES {convertSatsToKes(selectedCycle.currentTotalContributionAmount).toLocaleString()} Collected</span>
-                 <span>Target: KES {convertSatsToKes(selectedCycle.expectedTotalContributionAmount).toLocaleString()}</span>
+                 <SatsAmount
+                   sats={selectedCycle.currentTotalContributionAmount}
+                   exchangeRate={exchangeRate}
+                   loadingRate={loadingRate}
+                   primaryClassName="text-xs text-gray-500"
+                   detailClassName="text-[10px] text-gray-400"
+                 />
+                 <SatsAmount
+                   sats={selectedCycle.expectedTotalContributionAmount}
+                   exchangeRate={exchangeRate}
+                   loadingRate={loadingRate}
+                   align="right"
+                   primaryClassName="text-xs text-gray-500"
+                   detailClassName="text-[10px] text-gray-400"
+                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div className="bg-gray-50 p-3 rounded-lg">
                 <p className="text-xs text-gray-500">Contribution Amount</p>
-                <p className="font-semibold text-gray-900">KES {convertSatsToKes(selectedCycle.contributionAmount || 0).toLocaleString()}</p>
+                <SatsAmount
+                  sats={selectedCycle.contributionAmount || 0}
+                  exchangeRate={exchangeRate}
+                  loadingRate={loadingRate}
+                  primaryClassName="font-semibold text-gray-900"
+                />
               </div>
               <div className="bg-gray-50 p-3 rounded-lg">
                 <p className="text-xs text-gray-500">Cycle Created</p>

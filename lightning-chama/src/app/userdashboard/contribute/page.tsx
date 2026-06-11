@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
+import SatsAmount from '@/components/SatsAmount';
 
 // --- Types ---
 interface Wallet {
@@ -290,7 +291,6 @@ export default function ChamasContribution() {
 
   // --- Derived Data ---
   const totalOwedSats = cycles.reduce((sum, cycle) => sum + cycle.contributionAmount, 0);
-  const totalOwedKes = convertSatsToKes(totalOwedSats);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -318,18 +318,13 @@ export default function ChamasContribution() {
                 </div>
                 <span className="text-sm text-gray-600 font-medium">Total Owed</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">
-                {loadingRate ? (
-                  "..."
-                ) : (
-                  `KES ${formatKes(totalOwedKes)}`
-                )}
-                {exchangeRate && (
-                  <span className="text-sm font-normal text-gray-500 ml-1">
-                    ({totalOwedSats.toLocaleString()} sats)
-                  </span>
-                )}
-              </p>
+              <SatsAmount
+                sats={totalOwedSats}
+                exchangeRate={exchangeRate}
+                loadingRate={loadingRate}
+                primaryClassName="text-2xl font-bold text-gray-900"
+                detailClassName="text-sm font-normal text-gray-500"
+              />
             </div>
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
               <div className="flex items-center gap-3 mb-2">
@@ -393,7 +388,13 @@ export default function ChamasContribution() {
                           </div>
                           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 rounded-lg text-emerald-700 border border-emerald-100">
                             <Wallet className="w-3.5 h-3.5" />
-                            <span>Default: {exchangeRate ? `KES ${formatKes(convertSatsToKes(chama.contributionAmount))}` : 'Loading...'}</span>
+                            <SatsAmount
+                              sats={chama.contributionAmount}
+                              exchangeRate={exchangeRate}
+                              loadingRate={loadingRate}
+                              primaryClassName="text-xs font-medium text-emerald-700"
+                              detailClassName="text-[10px] text-emerald-600"
+                            />
                           </div>
                         </div>
                       </div>
@@ -404,7 +405,6 @@ export default function ChamasContribution() {
                   <div className="space-y-4 pl-2 border-l-2 border-gray-200">
                     {chamaCycles.map((cycle) => {
                       const progressPercent = calculateProgress(cycle.currentTotalContributionAmount, cycle.expectedTotalContributionAmount);
-                      const contributionKes = convertSatsToKes(cycle.contributionAmount);
                       const currentTotalKes = convertSatsToKes(cycle.currentTotalContributionAmount);
                       const expectedTotalKes = convertSatsToKes(cycle.expectedTotalContributionAmount);
 
@@ -448,10 +448,13 @@ export default function ChamasContribution() {
                             <div className="grid grid-cols-2 gap-3">
                               <div className="bg-gray-50 p-3 rounded-xl">
                                 <p className="text-[10px] text-gray-500 mb-1">Contribution</p>
-                                <p className="font-bold text-gray-900 text-sm">
-                                  {exchangeRate ? `KES ${formatKes(contributionKes)}` : "..."}
-                                </p>
-                                <p className="text-[10px] text-gray-400">{cycle.contributionAmount.toLocaleString()} sats</p>
+                                <SatsAmount
+                                  sats={cycle.contributionAmount}
+                                  exchangeRate={exchangeRate}
+                                  loadingRate={loadingRate}
+                                  primaryClassName="font-bold text-gray-900 text-sm"
+                                  detailClassName="text-[10px] text-gray-400"
+                                />
                               </div>
                               <div className="bg-gray-50 p-3 rounded-xl flex items-center gap-2">
                                 <Calendar className="w-4 h-4 text-gray-400" />
@@ -542,8 +545,14 @@ export default function ChamasContribution() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-gray-900">{wallet.balanceSats.toLocaleString()}</p>
-                            <p className="text-[10px] text-gray-400 uppercase">Sats</p>
+                            <SatsAmount
+                              sats={wallet.balanceSats}
+                              exchangeRate={exchangeRate}
+                              loadingRate={loadingRate}
+                              align="right"
+                              primaryClassName="font-bold text-gray-900"
+                              detailClassName="text-[10px] text-gray-400"
+                            />
                           </div>
                         </div>
                       </div>
@@ -583,10 +592,14 @@ export default function ChamasContribution() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-lg">
-                        {exchangeRate ? formatKes(convertSatsToKes(paymentModal.cycle!.contributionAmount)) : "..."}
-                      </p>
-                      <p className="text-xs text-gray-400">KES</p>
+                      <SatsAmount
+                        sats={paymentModal.cycle!.contributionAmount}
+                        exchangeRate={exchangeRate}
+                        loadingRate={loadingRate}
+                        align="right"
+                        primaryClassName="font-bold text-lg text-white"
+                        detailClassName="text-xs text-gray-400"
+                      />
                     </div>
                   </div>
                   

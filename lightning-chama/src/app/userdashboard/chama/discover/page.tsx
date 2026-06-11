@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Users, DollarSign, Calendar, X, Check } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
+import SatsAmount from '@/components/SatsAmount';
+import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
 
 type Chama = {
   chamaReference: string;
@@ -32,6 +34,7 @@ const CHAMA_ROLES = [
 ];
 
 export default function DiscoverChamasPage() {
+  const { exchangeRate, loadingRate } = useBitcoinKesRate();
   const [activeTab, setActiveTab] = useState('discover');
   const [chamas, setChamas] = useState<Chama[]>([]);
   const [loading, setLoading] = useState(true);
@@ -287,9 +290,15 @@ export default function DiscoverChamasPage() {
                         
                         {/* Chama Details */}
                         <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-start gap-1">
                             <DollarSign size={14} />
-                            <span>{chama.contributionAmount} sats</span>
+                            <SatsAmount
+                              sats={chama.contributionAmount}
+                              exchangeRate={exchangeRate}
+                              loadingRate={loadingRate}
+                              primaryClassName="text-xs text-gray-500"
+                              detailClassName="text-[10px] text-gray-400"
+                            />
                           </div>
                           <div className="flex items-center gap-1">
                             <Users size={14} />
