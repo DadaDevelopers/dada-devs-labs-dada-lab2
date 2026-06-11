@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { ArrowUpRight, ArrowDownLeft, RefreshCw, Users, Check, Copy, X, Eye } from 'lucide-react';
 import BalanceHero from '@/components/BalanceHero';
 import { Navbar } from '@/components/Navbar';
+import SatsAmount from '@/components/SatsAmount';
 import Image from 'next/image';
 import Link from "next/link";
 import chama0 from '@/assets/chama0.svg';
@@ -71,6 +72,7 @@ export default function Dashboard() {
   
   // Cache the rate for 5 minutes (300,000 milliseconds)
   const CACHE_DURATION_MS = 5 * 60 * 1000;
+  const SATS_PER_BTC = 100_000_000;
 
   const fetchWallets = async () => {
     try {
@@ -267,7 +269,7 @@ export default function Dashboard() {
   // Convert Satoshis to KES using the exchange rate
   const convertSatsToKes = (sats: number): number => {
     if (!exchangeRate) return 0;
-    const btcAmount = sats / 100000000; // Convert satoshis to BTC
+    const btcAmount = sats / SATS_PER_BTC; // Convert satoshis to BTC
     return btcAmount * exchangeRate; // Convert BTC to KES
   };
 
@@ -491,9 +493,13 @@ export default function Dashboard() {
                 ${selectedWalletRef === 'ALL' ? 'bg-emerald-50' : 'hover:bg-gray-50'}`}
             >
               <span className="font-medium">All Wallets</span>
-              <span className="text-sm text-gray-600">
-                {wallets.reduce((s, w) => s + w.balanceSats, 0)} sats
-              </span>
+              <SatsAmount
+                sats={wallets.reduce((s, w) => s + w.balanceSats, 0)}
+                exchangeRate={exchangeRate}
+                loadingRate={loadingRate}
+                align="right"
+                primaryClassName="font-semibold text-sm text-gray-700"
+              />
             </div>
 
             {/* INDIVIDUAL WALLETS */}
@@ -521,9 +527,13 @@ export default function Dashboard() {
                     )}
                   </div>
 
-                  <span className="font-semibold text-sm">
-                    {wallet.balanceSats} sats
-                  </span>
+                  <SatsAmount
+                    sats={wallet.balanceSats}
+                    exchangeRate={exchangeRate}
+                    loadingRate={loadingRate}
+                    align="right"
+                    primaryClassName="font-semibold text-sm text-gray-900"
+                  />
                 </div>
                 
                 {/* View Details Button */}
@@ -830,7 +840,7 @@ export default function Dashboard() {
                   )}
                   {wallets.map((wallet) => (
                     <option key={wallet.walletReference} value={wallet.walletReference}>
-                      {wallet.lightning?.name || wallet.walletType} - {wallet.balanceSats} sats
+                      {wallet.lightning?.name || wallet.walletType} - {wallet.balanceSats.toLocaleString()} sats / {exchangeRate ? `${convertSatsToKes(wallet.balanceSats).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES` : 'KES --'} / {(wallet.balanceSats / SATS_PER_BTC).toFixed(8)} BTC
                     </option>
                   ))}
                 </select>
@@ -849,6 +859,16 @@ export default function Dashboard() {
                   placeholder="100"
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
                 />
+                {Number(onRampForm.amountSats) > 0 && (
+                  <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
+                    <SatsAmount
+                      sats={Number(onRampForm.amountSats)}
+                      exchangeRate={exchangeRate}
+                      loadingRate={loadingRate}
+                      primaryClassName="font-semibold text-sm text-gray-700"
+                    />
+                  </div>
+                )}
               </div>
 
               {onRampError && (
@@ -868,7 +888,18 @@ export default function Dashboard() {
                     <>
                       <p>Status: {onRampResult.data.status}</p>
                       <p>{onRampResult.data.message}</p>
-                      <p>Amount: {onRampResult.data.invoice_amount_sats} sats / {onRampResult.data.kes_amount} KES</p>
+                      {typeof onRampResult.data.invoice_amount_sats === 'number' && (
+                        <div>
+                          <p className="font-semibold">Amount</p>
+                          <SatsAmount
+                            sats={onRampResult.data.invoice_amount_sats}
+                            exchangeRate={exchangeRate}
+                            loadingRate={loadingRate}
+                            primaryClassName="font-semibold text-sm text-emerald-900"
+                            detailClassName="text-xs text-emerald-700"
+                          />
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -917,7 +948,15 @@ export default function Dashboard() {
               </div>
               
               <p><strong>Wallet Type:</strong> {selectedWalletDetails.walletType}</p>
-              <p><strong>Balance:</strong> {selectedWalletDetails.balanceSats} sats</p>
+              <div>
+                <p className="font-semibold">Balance:</p>
+                <SatsAmount
+                  sats={selectedWalletDetails.balanceSats}
+                  exchangeRate={exchangeRate}
+                  loadingRate={loadingRate}
+                  primaryClassName="font-semibold text-sm text-gray-900"
+                />
+              </div>
               
               {selectedWalletDetails.lightning && (
                 <>

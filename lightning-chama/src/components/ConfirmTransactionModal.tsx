@@ -96,7 +96,7 @@ export default function ConfirmTransactionModal({
                 <span className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Amount</span>
                 <div className="text-right">
                     <p className="font-bold text-xl text-gray-900">{data.amount}</p>
-                    <p className="text-sm text-gray-500 font-medium">{data.amountKsh}</p>
+                    <p className="text-sm text-gray-500 font-medium whitespace-pre-line">{data.amountKsh}</p>
                 </div>
             </div>
             </div>
@@ -117,7 +117,7 @@ export default function ConfirmTransactionModal({
         {/* Fee */}
         <div className="flex justify-between items-center px-2 mb-6">
             <span className="text-gray-600 font-medium">Network Fee</span>
-            <span className="text-gray-900 font-semibold">{data.fee}</span>
+            <span className="text-gray-900 font-semibold text-right whitespace-pre-line">{data.fee}</span>
         </div>
 
         {/* Actions */}

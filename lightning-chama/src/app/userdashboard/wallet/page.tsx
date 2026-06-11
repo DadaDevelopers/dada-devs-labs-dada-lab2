@@ -5,6 +5,7 @@ import { ArrowUpRight, ChevronDown, Wallet, X, Copy, Clock, CheckCircle, AlertCi
 import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import BalanceHero from '@/components/BalanceHero';
+import SatsAmount from '@/components/SatsAmount';
 
 // --- TYPES ---
 
@@ -372,9 +373,13 @@ const WalletPage = () => {
                 </div>
                 <span className="font-medium text-[#191919]">All Wallets</span>
               </div>
-              <span className="text-sm font-semibold text-gray-700">
-                {wallets.reduce((s, w) => s + w.balanceSats, 0).toLocaleString()} sats
-              </span>
+              <SatsAmount
+                sats={wallets.reduce((s, w) => s + w.balanceSats, 0)}
+                exchangeRate={exchangeRate}
+                loadingRate={loadingRate}
+                align="right"
+                primaryClassName="text-sm font-semibold text-gray-700"
+              />
             </div>
 
             {/* SCROLLABLE LIST */}
@@ -401,9 +406,13 @@ const WalletPage = () => {
                       )}
                     </div>
 
-                    <span className="font-semibold text-sm text-gray-900">
-                      {wallet.balanceSats.toLocaleString()} sats
-                    </span>
+                    <SatsAmount
+                      sats={wallet.balanceSats}
+                      exchangeRate={exchangeRate}
+                      loadingRate={loadingRate}
+                      align="right"
+                      primaryClassName="font-semibold text-sm text-gray-900"
+                    />
                   </div>
                   
                   <button
@@ -582,12 +591,12 @@ const WalletPage = () => {
                             </span>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {invoice.amountSats.toLocaleString()} sats
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {convertSatsToKes(invoice.amountSats).toFixed(2)} KES
-                            </div>
+                            <SatsAmount
+                              sats={invoice.amountSats}
+                              exchangeRate={exchangeRate}
+                              loadingRate={loadingRate}
+                              primaryClassName="text-sm font-medium text-gray-900"
+                            />
                           </td>
                           <td className="px-4 py-3">
                             <div className="text-sm text-gray-900 truncate max-w-xs">
@@ -647,7 +656,13 @@ const WalletPage = () => {
                <div className="border-t border-gray-100 my-2"></div>
                <div className="flex gap-2 items-start justify-between">
                  <p className="font-medium text-gray-500">Balance</p>
-                 <span className="font-bold text-emerald-600">{selectedWalletDetails.balanceSats.toLocaleString()} sats</span>
+                 <SatsAmount
+                   sats={selectedWalletDetails.balanceSats}
+                   exchangeRate={exchangeRate}
+                   loadingRate={loadingRate}
+                   align="right"
+                   primaryClassName="font-bold text-emerald-600"
+                 />
                </div>
                <div className="flex gap-2 items-start justify-between">
                  <p className="font-medium text-gray-500">Reference</p>
@@ -721,20 +736,24 @@ const WalletPage = () => {
             </div>
 
             <div className="space-y-4">
-              <div className="text-center">
-                <p className="text-3xl font-extrabold text-gray-900 mb-1">
-                  {selectedInvoice.amountSats.toLocaleString()} <span className="text-lg font-medium text-gray-500">sats</span>
-                </p>
-                <p className="text-sm text-gray-500">
-                  {convertSatsToKes(selectedInvoice.amountSats).toFixed(2)} KES
-                </p>
-              </div>
+              <SatsAmount
+                sats={selectedInvoice.amountSats}
+                exchangeRate={exchangeRate}
+                loadingRate={loadingRate}
+                align="center"
+                primaryClassName="text-3xl font-extrabold text-gray-900 mb-1"
+                detailClassName="text-sm text-gray-500"
+              />
 
               <div className="flex justify-center items-center gap-2">
                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Transaction Fee</span>
-                 <span className="text-sm font-medium text-gray-700">
-                    {selectedInvoice.amountFees} sats
-                 </span>
+                 <SatsAmount
+                   sats={selectedInvoice.amountFees}
+                   exchangeRate={exchangeRate}
+                   loadingRate={loadingRate}
+                   align="right"
+                   primaryClassName="text-sm font-medium text-gray-700"
+                 />
               </div>
 
               {(() => {
