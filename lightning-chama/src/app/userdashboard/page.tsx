@@ -868,12 +868,12 @@ export default function Dashboard() {
 
       {/* ================= ACTIVITY MODAL ================= */}
       {selectedAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center text-[#191919]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 text-[#191919]">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn"
             onClick={() => setSelectedAction(null)}
           />
-          <div className="relative bg-white rounded-xl p-6 w-[92%] max-w-md animate-scaleIn">
+          <div className="relative bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto animate-scaleIn">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold">Activity Details</h3>
@@ -922,12 +922,12 @@ export default function Dashboard() {
 
       {/* ================= ON RAMP MODAL ================= */}
       {onRampOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center text-[#191919]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 text-[#191919]">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn"
             onClick={() => !onRampLoading && setOnRampOpen(false)}
           />
-          <div className="relative bg-white rounded-xl p-6 w-[92%] max-w-md animate-scaleIn">
+          <div className="relative bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto animate-scaleIn">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold">Deposit</h3>
@@ -1066,12 +1066,12 @@ export default function Dashboard() {
 
       {/* ================= WITHDRAW MODAL ================= */}
       {withdrawOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center text-[#191919]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 text-[#191919]">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn"
             onClick={() => !withdrawLoading && setWithdrawOpen(false)}
           />
-          <div className="relative bg-white rounded-xl p-6 w-[92%] max-w-md animate-scaleIn">
+          <div className="relative bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto animate-scaleIn">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold">Withdraw</h3>
@@ -1172,7 +1172,7 @@ export default function Dashboard() {
 
               {withdrawResult && (
                 <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-3 text-sm text-emerald-800 space-y-2">
-                  <p className="font-semibold">Withdrawal request sent</p>
+                  <p className="font-semibold">Money successfully sent</p>
                   {withdrawResult.memo && <p>{withdrawResult.memo}</p>}
                   {typeof withdrawResult.amountSats === 'number' && (
                     <div>
@@ -1211,7 +1211,7 @@ export default function Dashboard() {
                 disabled={withdrawLoading || withdrawSucceeded}
                 className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 py-2.5 text-white font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {withdrawLoading ? 'Sending withdrawal...' : withdrawSucceeded ? 'Withdrawal request sent' : 'Start Withdrawal'}
+                {withdrawLoading ? 'Sending withdrawal...' : withdrawSucceeded ? 'Withdrawal successfully sent' : 'Start Withdrawal'}
               </button>
               {withdrawSucceeded && (
                 <button
@@ -1229,12 +1229,12 @@ export default function Dashboard() {
 
       {/* ================= WALLET DETAILS MODAL ================= */}
       {selectedWalletDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center text-[#191919]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 text-[#191919]">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn"
             onClick={() => setSelectedWalletDetails(null)}
           />
-          <div className="relative bg-white rounded-xl p-6 w-[92%] max-w-md animate-scaleIn max-h-[80vh] overflow-y-auto">
+          <div className="relative bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto animate-scaleIn">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold">Wallet Details</h3>
