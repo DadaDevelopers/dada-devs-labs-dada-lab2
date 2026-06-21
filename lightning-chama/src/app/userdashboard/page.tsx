@@ -25,6 +25,21 @@ type OnRampResponse = {
   };
 };
 
+type WithdrawResponse = {
+  transactionReference?: string;
+  type?: string;
+  amountSats?: number;
+  feeSats?: number;
+  externalRef?: string;
+  memo?: string;
+  occurredAt?: string;
+  createdAt?: string;
+  metadata?: {
+    feeSats?: string;
+    paymentHash?: string;
+  };
+};
+
 type ApiErrorResponse = {
   error?: string;
   message?: string;
@@ -50,6 +65,15 @@ export default function Dashboard() {
   const [onRampResult, setOnRampResult] = useState<OnRampResponse | null>(null);
   const [onRampForm, setOnRampForm] = useState({
     phoneNumber: '',
+    walletId: '',
+    amountSats: '',
+  });
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [withdrawError, setWithdrawError] = useState('');
+  const [withdrawResult, setWithdrawResult] = useState<WithdrawResponse | null>(null);
+  const [withdrawForm, setWithdrawForm] = useState({
+    recipientMsisdn: '',
     walletId: '',
     amountSats: '',
   });
@@ -238,11 +262,12 @@ export default function Dashboard() {
         setSelectedAction(null);
         setSelectedWalletDetails(null);
         setOnRampOpen(false);
+        setWithdrawOpen(false);
       }
     };
-    if (selectedAction || selectedWalletDetails || onRampOpen) document.addEventListener('keydown', esc);
+    if (selectedAction || selectedWalletDetails || onRampOpen || withdrawOpen) document.addEventListener('keydown', esc);
     return () => document.removeEventListener('keydown', esc);
-  }, [selectedAction, selectedWalletDetails, onRampOpen]);
+  }, [selectedAction, selectedWalletDetails, onRampOpen, withdrawOpen]);
 
   /* =========================
      HELPERS
@@ -265,6 +290,8 @@ export default function Dashboard() {
   const selectedWalletBalance = selectedWalletRef === 'ALL'
     ? wallets.reduce((sum, w) => sum + (w.balanceSats || 0), 0)
     : wallets.find(w => w.walletReference === selectedWalletRef)?.balanceSats || 0;
+  const onRampSucceeded = Boolean(onRampResult && onRampResult.data?.status !== 'FAILED');
+  const withdrawSucceeded = Boolean(withdrawResult?.transactionReference);
 
   // Convert Satoshis to KES using the exchange rate
   const convertSatsToKes = (sats: number): number => {
@@ -361,6 +388,27 @@ export default function Dashboard() {
     setOnRampOpen(true);
   };
 
+  const openWithdraw = async () => {
+    const availableWallets = wallets.length > 0 ? wallets : await fetchWallets();
+    const preferredWallet = getPreferredOnRampWallet(availableWallets);
+    setWithdrawError('');
+    setWithdrawResult(null);
+    setWithdrawForm({
+      recipientMsisdn: localStorage.getItem('msisdn') || '',
+      walletId: preferredWallet?.walletReference || '',
+      amountSats: '',
+    });
+    setWithdrawOpen(true);
+  };
+
+  const normalizeMsisdn = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (digits.startsWith('0') && digits.length === 10) return `254${digits.slice(1)}`;
+    if (digits.startsWith('7') && digits.length === 9) return `254${digits}`;
+    if (digits.startsWith('1') && digits.length === 9) return `254${digits}`;
+    return digits;
+  };
+
   const extractOnRampError = (data: ApiErrorResponse | null, fallback: string) => {
     if (!data) return fallback;
 
@@ -385,6 +433,9 @@ export default function Dashboard() {
 
   const handleOnRampSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (onRampSucceeded) return;
+
     setOnRampError('');
     setOnRampResult(null);
 
@@ -442,6 +493,79 @@ export default function Dashboard() {
       setOnRampError('Failed to connect to server. Try again.');
     } finally {
       setOnRampLoading(false);
+    }
+  };
+
+  const handleWithdrawSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (withdrawSucceeded) return;
+
+    setWithdrawError('');
+    setWithdrawResult(null);
+
+    const amount = Number(withdrawForm.amountSats);
+    const selectedWallet = wallets.find((wallet) => wallet.walletReference === withdrawForm.walletId);
+    const recipientMsisdn = normalizeMsisdn(withdrawForm.recipientMsisdn);
+
+    if (!recipientMsisdn) {
+      setWithdrawError('Recipient phone number is required.');
+      return;
+    }
+
+    if (!withdrawForm.walletId) {
+      setWithdrawError('Select a wallet to withdraw from.');
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount < 1) {
+      setWithdrawError('Amount must be at least 1 sat.');
+      return;
+    }
+
+    if (selectedWallet && amount > selectedWallet.balanceSats) {
+      setWithdrawError('Amount cannot be more than the selected wallet balance.');
+      return;
+    }
+
+    try {
+      setWithdrawLoading(true);
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        setWithdrawError('Not authenticated');
+        return;
+      }
+
+      const response = await fetch(
+        'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/transfer-to-mpesa',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            recipientMsisdn,
+            amountInMilliSats: Math.round(amount * 1000),
+            payerWalletId: withdrawForm.walletId,
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => null) as WithdrawResponse | ApiErrorResponse | null;
+
+      if (!response.ok) {
+        setWithdrawError(extractOnRampError(data as ApiErrorResponse | null, 'Unable to start withdrawal request.'));
+        return;
+      }
+
+      setWithdrawResult(data as WithdrawResponse);
+      await fetchWallets();
+    } catch {
+      setWithdrawError('Failed to connect to server. Try again.');
+    } finally {
+      setWithdrawLoading(false);
     }
   };
 
@@ -573,7 +697,7 @@ export default function Dashboard() {
         )}
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-5 gap-2 sm:gap-3 md:gap-4 mb-8">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 md:gap-4 mb-8">
           <Link href="/userdashboard/wallet">
             <button className="bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-3 hover:bg-emerald-50 transition flex flex-col items-center gap-2">
               <svg width="66" height="30" viewBox="0 0 31 30" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -623,6 +747,17 @@ export default function Dashboard() {
             <ArrowDownLeft className="w-[66px] h-[30px] text-emerald-600" />
             <span className="text-xs sm:text-sm font-medium text-gray-900">
               {loadingWallets ? 'Loading' : 'Deposit'}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={openWithdraw}
+            disabled={loadingWallets}
+            className="bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-3 hover:bg-emerald-50 transition flex flex-col items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <ArrowUpRight className="w-[66px] h-[30px] text-emerald-600" />
+            <span className="text-xs sm:text-sm font-medium text-gray-900">
+              {loadingWallets ? 'Loading' : 'Withdraw'}
             </span>
           </button>
         </div>
@@ -817,8 +952,9 @@ export default function Dashboard() {
                   type="tel"
                   value={onRampForm.phoneNumber}
                   onChange={(e) => setOnRampForm((prev) => ({ ...prev, phoneNumber: e.target.value }))}
+                  disabled={onRampSucceeded}
                   placeholder="0115000725"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:bg-gray-50 disabled:text-gray-500"
                 />
               </div>
 
@@ -830,7 +966,8 @@ export default function Dashboard() {
                   id="onRampWallet"
                   value={onRampForm.walletId}
                   onChange={(e) => setOnRampForm((prev) => ({ ...prev, walletId: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  disabled={onRampSucceeded}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:bg-gray-50 disabled:text-gray-500"
                 >
                   <option value="">
                     {loadingWallets ? 'Loading wallets...' : walletError || 'Select wallet'}
@@ -856,8 +993,9 @@ export default function Dashboard() {
                   min="10"
                   value={onRampForm.amountSats}
                   onChange={(e) => setOnRampForm((prev) => ({ ...prev, amountSats: e.target.value }))}
+                  disabled={onRampSucceeded}
                   placeholder="100"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:bg-gray-50 disabled:text-gray-500"
                 />
                 {Number(onRampForm.amountSats) > 0 && (
                   <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
@@ -907,11 +1045,183 @@ export default function Dashboard() {
 
               <button
                 type="submit"
-                disabled={onRampLoading}
+                disabled={onRampLoading || onRampSucceeded}
                 className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 py-2.5 text-white font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {onRampLoading ? 'Sending request...' : 'Start Deposit'}
+                {onRampLoading ? 'Sending request...' : onRampSucceeded ? 'Deposit request sent' : 'Start Deposit'}
               </button>
+              {onRampSucceeded && (
+                <button
+                  type="button"
+                  onClick={() => setOnRampOpen(false)}
+                  className="w-full rounded-lg border border-emerald-200 bg-white py-2.5 text-emerald-700 font-semibold hover:bg-emerald-50 transition"
+                >
+                  Done
+                </button>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= WITHDRAW MODAL ================= */}
+      {withdrawOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center text-[#191919]">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn"
+            onClick={() => !withdrawLoading && setWithdrawOpen(false)}
+          />
+          <div className="relative bg-white rounded-xl p-6 w-[92%] max-w-md animate-scaleIn">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-semibold">Withdraw</h3>
+                <p className="text-sm text-gray-500">Send funds from your wallet to M-Pesa.</p>
+              </div>
+              <button
+                onClick={() => setWithdrawOpen(false)}
+                disabled={withdrawLoading}
+                className="disabled:opacity-50"
+              >
+                <X />
+              </button>
+            </div>
+
+            <form onSubmit={handleWithdrawSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="withdrawRecipientMsisdn" className="block text-sm font-medium text-gray-700 mb-1">
+                  Recipient Phone Number
+                </label>
+                <input
+                  id="withdrawRecipientMsisdn"
+                  type="tel"
+                  value={withdrawForm.recipientMsisdn}
+                  onChange={(e) => setWithdrawForm((prev) => ({ ...prev, recipientMsisdn: e.target.value }))}
+                  disabled={withdrawSucceeded}
+                  placeholder="254115000725"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:bg-gray-50 disabled:text-gray-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="withdrawWallet" className="block text-sm font-medium text-gray-700 mb-1">
+                  Withdraw From
+                </label>
+                <select
+                  id="withdrawWallet"
+                  value={withdrawForm.walletId}
+                  onChange={(e) => setWithdrawForm((prev) => ({ ...prev, walletId: e.target.value }))}
+                  disabled={withdrawSucceeded}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:bg-gray-50 disabled:text-gray-500"
+                >
+                  <option value="">
+                    {loadingWallets ? 'Loading wallets...' : walletError || 'Select wallet'}
+                  </option>
+                  {!loadingWallets && !walletError && wallets.length === 0 && (
+                    <option value="" disabled>No wallets found</option>
+                  )}
+                  {wallets.map((wallet) => (
+                    <option key={wallet.walletReference} value={wallet.walletReference}>
+                      {wallet.lightning?.name || wallet.walletType} - {wallet.balanceSats.toLocaleString()} sats / {exchangeRate ? `${convertSatsToKes(wallet.balanceSats).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES` : 'KES --'} / {(wallet.balanceSats / SATS_PER_BTC).toFixed(8)} BTC
+                    </option>
+                  ))}
+                </select>
+                {withdrawForm.walletId && (
+                  <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
+                    <p className="text-xs font-medium text-gray-500 mb-1">Available balance</p>
+                    <SatsAmount
+                      sats={wallets.find((wallet) => wallet.walletReference === withdrawForm.walletId)?.balanceSats || 0}
+                      exchangeRate={exchangeRate}
+                      loadingRate={loadingRate}
+                      primaryClassName="font-semibold text-sm text-gray-700"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="withdrawAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount (sats)
+                </label>
+                <input
+                  id="withdrawAmount"
+                  type="number"
+                  min="1"
+                  value={withdrawForm.amountSats}
+                  onChange={(e) => setWithdrawForm((prev) => ({ ...prev, amountSats: e.target.value }))}
+                  disabled={withdrawSucceeded}
+                  placeholder="182"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:bg-gray-50 disabled:text-gray-500"
+                />
+                {Number(withdrawForm.amountSats) > 0 && (
+                  <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
+                    <SatsAmount
+                      sats={Number(withdrawForm.amountSats)}
+                      exchangeRate={exchangeRate}
+                      loadingRate={loadingRate}
+                      primaryClassName="font-semibold text-sm text-gray-700"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {withdrawError && (
+                <p className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm text-red-700">
+                  {withdrawError}
+                </p>
+              )}
+
+              {withdrawResult && (
+                <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-3 text-sm text-emerald-800 space-y-2">
+                  <p className="font-semibold">Withdrawal request sent</p>
+                  {withdrawResult.memo && <p>{withdrawResult.memo}</p>}
+                  {typeof withdrawResult.amountSats === 'number' && (
+                    <div>
+                      <p className="font-semibold">Amount</p>
+                      <SatsAmount
+                        sats={withdrawResult.amountSats}
+                        exchangeRate={exchangeRate}
+                        loadingRate={loadingRate}
+                        primaryClassName="font-semibold text-sm text-emerald-900"
+                        detailClassName="text-xs text-emerald-700"
+                      />
+                    </div>
+                  )}
+                  {typeof withdrawResult.feeSats === 'number' && (
+                    <div>
+                      <p className="font-semibold">Fee</p>
+                      <SatsAmount
+                        sats={withdrawResult.feeSats}
+                        exchangeRate={exchangeRate}
+                        loadingRate={loadingRate}
+                        primaryClassName="font-semibold text-sm text-emerald-900"
+                        detailClassName="text-xs text-emerald-700"
+                      />
+                    </div>
+                  )}
+                  {withdrawResult.transactionReference && (
+                    <p className="break-all text-xs text-emerald-700">
+                      Ref: {withdrawResult.transactionReference}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={withdrawLoading || withdrawSucceeded}
+                className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 py-2.5 text-white font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {withdrawLoading ? 'Sending withdrawal...' : withdrawSucceeded ? 'Withdrawal request sent' : 'Start Withdrawal'}
+              </button>
+              {withdrawSucceeded && (
+                <button
+                  type="button"
+                  onClick={() => setWithdrawOpen(false)}
+                  className="w-full rounded-lg border border-emerald-200 bg-white py-2.5 text-emerald-700 font-semibold hover:bg-emerald-50 transition"
+                >
+                  Done
+                </button>
+              )}
             </form>
           </div>
         </div>
