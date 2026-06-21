@@ -7,12 +7,15 @@ import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.PaymentFee
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletDetails;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
+import com.dada_labs_two.chamavault.payments.exchange.offramp.tando.dtos.LightningPaymentResponse;
+import com.dada_labs_two.chamavault.payments.exchange.offramp.tando.services.TandoClient;
 import com.dada_labs_two.chamavault.users.models.User;
 import com.dada_labs_two.chamavault.users.repository.UserRepository;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionSource;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionType;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import com.dada_labs_two.chamavault.wallets.dtos.InvoicePreviewDTO;
+import com.dada_labs_two.chamavault.wallets.dtos.MakeInvoicePaymentDTO;
 import com.dada_labs_two.chamavault.wallets.models.Transaction;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.TransactionRepository;
@@ -24,6 +27,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.InvalidObjectException;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,6 +37,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class TransactionService {
+    private final TandoClient tandoClient;
+
     private final TransactionRepository transactionRepository;
     private final LightningWalletService lightningWalletService;
 
@@ -269,6 +275,28 @@ public class TransactionService {
                         .occurredAt(ZonedDateTime.now())
                         .build()
         );
+    }
+
+    public Transaction initiateOffRampingLightningPayment(
+            String recipientMsisdn,
+            Long amountInMilliSats,
+            UUID payerWalletId ) throws InvalidObjectException {
+        log.info("initiateOffRampingLightningPayment process");
+
+        if (recipientMsisdn == null || (recipientMsisdn.length() != 10 && recipientMsisdn.length() != 12))
+            throw new InvalidObjectException("invalid phone number");
+        log.info("recipientMsisdn {}", recipientMsisdn);
+
+        LightningPaymentResponse response = tandoClient.createOffRampingLightningPayment
+                (recipientMsisdn, amountInMilliSats);
+        log.info("LightningPaymentResponse response {}", response);
+        if (response.pr().isBlank())
+            throw new RuntimeException("created invoice is blank");
+
+        MakeInvoicePaymentDTO makeInvoicePaymentDTO = new MakeInvoicePaymentDTO(payerWalletId, response.pr());
+        Transaction transaction = makeInvoicePayment(makeInvoicePaymentDTO.payerWalletId(),
+                makeInvoicePaymentDTO.beneficiaryInvoice());
+        return transaction;
     }
 
     public Transaction updateTransaction(Transaction transaction) {

@@ -4,6 +4,7 @@ import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
 import com.dada_labs_two.chamavault.wallets.dtos.CreateTopUpDTO;
 import com.dada_labs_two.chamavault.wallets.dtos.InvoicePreviewDTO;
 import com.dada_labs_two.chamavault.wallets.dtos.MakeInvoicePaymentDTO;
+import com.dada_labs_two.chamavault.wallets.dtos.TransferToMpesaRequestDTO;
 import com.dada_labs_two.chamavault.wallets.models.Transaction;
 import com.dada_labs_two.chamavault.wallets.services.TransactionService;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.InvalidObjectException;
 import java.util.UUID;
 
 
@@ -29,6 +31,15 @@ public class TransactionsController {
         ;
         return ResponseEntity.ok(transactionService.makeRotationalPayments(
                 contributionCycleReference,msisdn, moveFundsFromPreviousAccounts, walletToMoveFundsFrom));
+    }
+
+    @PostMapping("/transfer-to-mpesa")
+    ResponseEntity<Transaction> transferToMpesa(@RequestBody TransferToMpesaRequestDTO transferToMpesaRequestDTO) throws InvalidObjectException {
+        return ResponseEntity.ok(transactionService.initiateOffRampingLightningPayment(
+                transferToMpesaRequestDTO.recipientMsisdn(),
+                transferToMpesaRequestDTO.amountInMilliSats(),
+                transferToMpesaRequestDTO.payerWalletId()
+        ));
     }
 
     @PostMapping("/pay-invoice")
