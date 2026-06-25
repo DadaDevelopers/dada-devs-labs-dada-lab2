@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowUpRight, ChevronDown, Wallet, X, Copy, Clock, CheckCircle, AlertCircle, Layers, Eye, Plus, Check, Filter, Search } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, Wallet, X, Copy, Clock, CheckCircle, AlertCircle, Layers, Eye, Plus, Check, Filter, Search, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import BalanceHero from '@/components/BalanceHero';
@@ -57,6 +57,7 @@ const WalletPage = () => {
   
   const [copiedHash, setCopiedHash] = useState(false);
   const [walletDetailsCopied, setWalletDetailsCopied] = useState<string | null>(null);
+  const [techDetailsExpanded, setTechDetailsExpanded] = useState(false);
 
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [loadingRate, setLoadingRate] = useState(true);
@@ -265,7 +266,7 @@ const WalletPage = () => {
         
         if (walletRes.ok && walletData.content) {
           setWallets(walletData.content);
-          
+
           const storedRef = localStorage.getItem('selectedWalletRef');
           if (storedRef) {
              setSelectedWalletRef(storedRef);
@@ -625,79 +626,122 @@ const WalletPage = () => {
       {/* WALLET DETAILS MODAL */}
       {selectedWalletDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div 
+          <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fadeIn"
-            onClick={() => setSelectedWalletDetails(null)}
+            onClick={() => { setSelectedWalletDetails(null); setTechDetailsExpanded(false); }}
           />
-          <div className="relative bg-white rounded-xl p-6 w-[92%] max-w-md animate-scaleIn max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-[#191919]">Wallet Details</h3>
-                <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-xs ${
-                  selectedWalletDetails.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'
-                }`}>
-                  {selectedWalletDetails.active ? 'Active' : 'Inactive'}
-                </span>
+          <div className="relative bg-white rounded-2xl w-[92%] max-w-md animate-scaleIn max-h-[88vh] overflow-y-auto shadow-xl">
+
+            {/* Header */}
+            <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-gray-100">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                  <Wallet size={18} className="text-emerald-700" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 leading-tight">{selectedWalletDetails.lightning.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{selectedWalletDetails.walletType}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${selectedWalletDetails.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {selectedWalletDetails.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <button onClick={() => setSelectedWalletDetails(null)}>
-                <X />
+              <button
+                onClick={() => { setSelectedWalletDetails(null); setTechDetailsExpanded(false); }}
+                className="text-gray-400 hover:text-gray-600 transition p-1 -mt-1 -mr-1"
+              >
+                <X size={20} />
               </button>
             </div>
 
-            <div className="space-y-3 text-sm">
-               <div className="flex gap-2 items-start justify-between">
-                 <p className="font-medium text-gray-500">Wallet Name</p>
-                 <span className="text-right font-semibold text-[#191919]">{selectedWalletDetails.lightning.name}</span>
-               </div>
-               <div className="flex gap-2 items-start justify-between">
-                 <p className="font-medium text-gray-500">Type</p>
-                 <span className="bg-gray-100 px-2 py-1 rounded text-xs text-[#191919]">{selectedWalletDetails.walletType}</span>
-               </div>
-               <div className="border-t border-gray-100 my-2"></div>
-               <div className="flex gap-2 items-start justify-between">
-                 <p className="font-medium text-gray-500">Balance</p>
-                 <SatsAmount
-                   sats={selectedWalletDetails.balanceSats}
-                   exchangeRate={exchangeRate}
-                   loadingRate={loadingRate}
-                   align="right"
-                   primaryClassName="font-bold text-emerald-600"
-                 />
-               </div>
-               <div className="flex gap-2 items-start justify-between">
-                 <p className="font-medium text-gray-500">Reference</p>
-                 <button onClick={() => copyWalletDetail(selectedWalletDetails.walletReference, 'ref')} className="flex items-center gap-1 text-blue-600 text-xs">
-                    {selectedWalletDetails.walletReference.substring(0,8)}... {walletDetailsCopied === 'ref' ? <Check size={12}/> : <Copy size={12}/>}
-                 </button>
-               </div>
-               
-               <div className="bg-amber-50 p-3 rounded-lg border border-amber-100 mt-4">
-                 <p className="text-xs font-bold text-amber-800 uppercase mb-2">Technical Details</p>
-                 
-                 <div className="mb-2">
-                    <p className="text-[10px] text-amber-600 uppercase font-bold">Admin Key</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-mono truncate w-4/5 text-gray-700 bg-white/50 px-1 rounded">{selectedWalletDetails.lightning.adminkey}</p>
-                      <Copy size={14} className="cursor-pointer text-amber-700 shrink-0" onClick={() => copyWalletDetail(selectedWalletDetails.lightning.adminkey, 'admin')} />
-                    </div>
-                 </div>
+            {/* Balance banner */}
+            <div className="px-5 py-4 bg-emerald-50 border-b border-emerald-100">
+              <p className="text-xs font-medium text-emerald-600 mb-1">Current Balance</p>
+              <SatsAmount
+                sats={selectedWalletDetails.balanceSats}
+                exchangeRate={exchangeRate}
+                loadingRate={loadingRate}
+                primaryClassName="font-bold text-xl text-emerald-700"
+                detailClassName="text-sm text-emerald-500 mt-0.5"
+              />
+            </div>
 
-                 <div className="mb-2">
-                    <p className="text-[10px] text-amber-600 uppercase font-bold">In Key</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-mono truncate w-4/5 text-gray-700 bg-white/50 px-1 rounded">{selectedWalletDetails.lightning.inkey}</p>
-                      <Copy size={14} className="cursor-pointer text-amber-700 shrink-0" onClick={() => copyWalletDetail(selectedWalletDetails.lightning.inkey, 'inkey')} />
-                    </div>
-                 </div>
-                 
-                 <div>
-                    <p className="text-[10px] text-amber-600 uppercase font-bold">Lightning ID</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-mono truncate w-4/5 text-gray-700 bg-white/50 px-1 rounded">{selectedWalletDetails.lightning.id}</p>
-                      <Copy size={14} className="cursor-pointer text-amber-700 shrink-0" onClick={() => copyWalletDetail(selectedWalletDetails.lightning.id, 'id')} />
-                    </div>
-                 </div>
-               </div>
+            {/* Info rows */}
+            <div className="px-5 py-4 space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs text-gray-400 mb-0.5">Wallet Reference</p>
+                  <p className="text-sm font-mono text-gray-600">
+                    {selectedWalletDetails.walletReference.substring(0, 10)}…{selectedWalletDetails.walletReference.slice(-4)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => copyWalletDetail(selectedWalletDetails.walletReference, 'ref')}
+                  className={`shrink-0 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                    walletDetailsCopied === 'ref'
+                      ? 'bg-emerald-50 text-emerald-600'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {walletDetailsCopied === 'ref' ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+                </button>
+              </div>
+
+              {/* API Keys collapsible */}
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setTechDetailsExpanded((v) => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <Lock size={14} className="text-gray-400" />
+                    <span className="text-sm font-medium text-gray-700">Wallet Keys</span>
+                    <span className="text-[10px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-medium">Sensitive</span>
+                  </div>
+                  <ChevronDown
+                    size={16}
+                    className={`text-gray-400 transition-transform duration-200 ${techDetailsExpanded ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {techDetailsExpanded && (
+                  <div className="px-4 pb-4 pt-3 space-y-3 bg-white">
+                    <p className="text-xs text-gray-400">Keep these private — they grant direct access to this wallet.</p>
+                    {(
+                      [
+                        { label: 'Admin Key', desc: 'Full wallet control', value: selectedWalletDetails.lightning.adminkey, field: 'admin' },
+                        { label: 'Invoice Key', desc: 'Create & read invoices only', value: selectedWalletDetails.lightning.inkey, field: 'inkey' },
+                        { label: 'Lightning ID', desc: 'Unique wallet identifier', value: selectedWalletDetails.lightning.id, field: 'id' },
+                      ] as const
+                    ).map(({ label, desc, value, field }) => (
+                      <div key={field} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-gray-700">{label}</p>
+                            <p className="text-[10px] text-gray-400 mb-1.5">{desc}</p>
+                            <p className="text-xs font-mono text-gray-500 break-all leading-relaxed">
+                              {value.substring(0, 16)}…{value.slice(-6)}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => copyWalletDetail(value, field)}
+                            className={`shrink-0 flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-medium transition mt-0.5 ${
+                              walletDetailsCopied === field
+                                ? 'bg-emerald-50 text-emerald-600'
+                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            {walletDetailsCopied === field ? <><Check size={11} />Copied</> : <><Copy size={11} />Copy</>}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
