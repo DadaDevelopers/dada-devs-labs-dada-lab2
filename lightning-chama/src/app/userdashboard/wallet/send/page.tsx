@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { ClipboardPaste, AlertCircle, Loader2, Zap, User, CheckCircle } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import ConfirmTransactionModal from '@/components/ConfirmTransactionModal';
+import SatsAmount from '@/components/SatsAmount';
+import { formatBtcFromSats, formatKesFromSats } from '@/lib/currency';
+import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
 
 type StoredWallet = {
   walletReference: string;
@@ -15,6 +18,7 @@ type SendMode = 'user' | 'invoice';
 
 export default function SendPage() {
   const router = useRouter();
+  const { exchangeRate, loadingRate } = useBitcoinKesRate();
   
   // UI Mode
   const [mode, setMode] = useState<SendMode>('user');
@@ -260,21 +264,28 @@ export default function SendPage() {
   // Determine amount/fee/memo to show in Modal
   const getModalData = () => {
     if (mode === 'invoice') {
+      const invoiceAmountSats = invoicePreview?.amountSats || 0;
+      const invoiceFeeSats = invoicePreview?.interimFeeSats || 0;
       return {
         to: 'Lightning Network',
-        amount: invoicePreview ? `${invoicePreview.amountSats} sats` : 'Loading...',
-        amountKsh: invoicePreview ? `Approx. KES ${(invoicePreview.amountSats / 100000000 * 11500000).toLocaleString()}` : '...', 
-        fee: invoicePreview ? `${invoicePreview.interimFeeSats} sats` : 'Calculating...',
+        amount: invoicePreview ? `${invoiceAmountSats.toLocaleString()} sats` : 'Loading...',
+        amountKsh: invoicePreview
+          ? `${loadingRate && !exchangeRate ? 'Loading rate...' : formatKesFromSats(invoiceAmountSats, exchangeRate)}\n${formatBtcFromSats(invoiceAmountSats)}`
+          : '...',
+        fee: invoicePreview
+          ? `${invoiceFeeSats.toLocaleString()} sats\n${loadingRate && !exchangeRate ? 'Loading rate...' : formatKesFromSats(invoiceFeeSats, exchangeRate)}\n${formatBtcFromSats(invoiceFeeSats)}`
+          : 'Calculating...',
         memo: invoicePreview?.memo || 'No Memo',
         recipientName: "Lightning Invoice",
         recipientWalletType: "LN_INVOICE",
         recipientActive: true,
       };
     } else {
+      const amountSats = parseInt(amount || '0');
       return {
         to: recipientInput,
-        amount: `${amount} sats`,
-        amountKsh: `Approx. KES ${(parseInt(amount || '0') / 100000000 * 11500000).toLocaleString()}`, 
+        amount: `${amountSats.toLocaleString()} sats`,
+        amountKsh: `${loadingRate && !exchangeRate ? 'Loading rate...' : formatKesFromSats(amountSats, exchangeRate)}\n${formatBtcFromSats(amountSats)}`, 
         fee: "Variable",
         memo: memo || "None",
         recipientName: recipientWalletName,
@@ -380,6 +391,15 @@ export default function SendPage() {
                 placeholder="0"
                 className="w-full text-gray-900 placeholder-gray-400 outline-none text-lg font-semibold"
               />
+              {parseInt(amount || '0') > 0 && (
+                <SatsAmount
+                  sats={parseInt(amount || '0')}
+                  exchangeRate={exchangeRate}
+                  loadingRate={loadingRate}
+                  primaryClassName="mt-2 text-sm font-semibold text-gray-700"
+                  detailClassName="text-xs text-gray-500"
+                />
+              )}
             </div>
           )}
 
@@ -414,9 +434,18 @@ export default function SendPage() {
         {/* Fee Section */}
         <div className="mt-4 px-4 py-3 bg-white rounded-2xl shadow-sm flex items-center justify-between">
           <span className="text-gray-600">Network Fee</span>
-          <span className="text-gray-400 text-sm">
-             {mode === 'invoice' && invoicePreview ? `${invoicePreview.interimFeeSats} sats` : "Calculated at confirmation"}
-          </span>
+          {mode === 'invoice' && invoicePreview ? (
+            <SatsAmount
+              sats={invoicePreview.interimFeeSats}
+              exchangeRate={exchangeRate}
+              loadingRate={loadingRate}
+              align="right"
+              primaryClassName="text-sm font-semibold text-gray-700"
+              detailClassName="text-xs text-gray-400"
+            />
+          ) : (
+            <span className="text-gray-400 text-sm">Calculated at confirmation</span>
+          )}
         </div>
 
         {/* Continue Button */}

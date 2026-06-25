@@ -6,6 +6,8 @@ import {
   Wallet, Zap, ChevronRight, CheckCircle, Clock, ChevronDown 
 } from 'lucide-react';
 import Link from 'next/link';
+import SatsAmount from '@/components/SatsAmount';
+import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
 
 // --- Typing ---
 type PaymentStatus = 'PENDING' | 'PAID' | 'EXPIRED';
@@ -29,6 +31,7 @@ type Wallet = {
 };
 
 export default function LightningQRPage() {
+  const { exchangeRate, loadingRate } = useBitcoinKesRate();
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
   
@@ -197,10 +200,14 @@ export default function LightningQRPage() {
                     <span className="text-xs font-semibold bg-emerald-50 text-emerald-700 px-2 py-1 rounded-md border border-emerald-100">{wallet.walletType.replace('_', ' ')}</span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-gray-900">{wallet.balanceSats.toLocaleString()}</p>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide">Sats</p>
-                </div>
+                <SatsAmount
+                  sats={wallet.balanceSats}
+                  exchangeRate={exchangeRate}
+                  loadingRate={loadingRate}
+                  align="right"
+                  primaryClassName="text-lg font-bold text-gray-900"
+                  detailClassName="text-xs text-gray-400"
+                />
               </div>
             </div>
           ))}
@@ -247,10 +254,16 @@ export default function LightningQRPage() {
             </div>
             
             <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm font-bold text-gray-900">{selectedWallet?.balanceSats.toLocaleString()}</p>
-                <p className="text-[10px] text-gray-400 uppercase font-medium">Sats</p>
-              </div>
+              {selectedWallet && (
+                <SatsAmount
+                  sats={selectedWallet.balanceSats}
+                  exchangeRate={exchangeRate}
+                  loadingRate={loadingRate}
+                  align="right"
+                  primaryClassName="text-sm font-bold text-gray-900"
+                  detailClassName="text-[10px] text-gray-400"
+                />
+              )}
               <ChevronDown className="text-gray-400" size={20} />
             </div>
           </div>
@@ -266,6 +279,15 @@ export default function LightningQRPage() {
                   <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="w-full bg-white border border-gray-200 text-gray-900 text-lg font-bold rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition shadow-sm" min="1" />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">sats</span>
                 </div>
+                {amount > 0 && (
+                  <SatsAmount
+                    sats={amount}
+                    exchangeRate={exchangeRate}
+                    loadingRate={loadingRate}
+                    primaryClassName="mt-2 text-sm font-semibold text-gray-700"
+                    detailClassName="text-xs text-gray-500"
+                  />
+                )}
               </div>
               <div className="col-span-1">
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Memo</label>
@@ -353,7 +375,14 @@ export default function LightningQRPage() {
             {invoiceData && (
               <>
                 <div className="mt-8 text-center w-full">
-                  <h2 className="text-3xl font-extrabold text-gray-900 mb-1">{invoiceData.amountSats.toLocaleString()} <span className="text-lg font-medium text-gray-500">sats</span></h2>
+                  <SatsAmount
+                    sats={invoiceData.amountSats}
+                    exchangeRate={exchangeRate}
+                    loadingRate={loadingRate}
+                    align="center"
+                    primaryClassName="text-3xl font-extrabold text-gray-900 mb-1"
+                    detailClassName="text-sm text-gray-500"
+                  />
                   <p className="text-gray-500 font-medium">for <span className="text-gray-900 bg-gray-100 px-2 py-0.5 rounded-md mx-1">{memo}</span></p>
                 </div>
                 <div className="flex gap-3 w-full mt-8">
