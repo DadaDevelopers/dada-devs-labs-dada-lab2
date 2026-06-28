@@ -1,5 +1,6 @@
 package com.dada_labs_two.chamavault.wallets.models;
 
+import com.dada_labs_two.chamavault.wallets.constants.TransactionCategory;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionSource;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionType;
 import jakarta.persistence.*;
@@ -45,6 +46,9 @@ public class Transaction {
 
     @Enumerated(EnumType.STRING)
     private TransactionSource source;
+
+    @Enumerated(EnumType.STRING)
+    private TransactionCategory category;
 
     private Long amountSats;
     private Long feeSats = 0L;

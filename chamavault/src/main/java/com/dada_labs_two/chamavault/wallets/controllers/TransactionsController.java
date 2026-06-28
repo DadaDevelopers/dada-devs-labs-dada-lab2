@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.InvalidObjectException;
+import java.util.Map;
 import java.util.UUID;
 
 
@@ -62,5 +63,11 @@ public class TransactionsController {
     ResponseEntity<Transaction> makeInternalWalletTopUp(@RequestBody CreateTopUpDTO request) {
         return ResponseEntity.ok(transactionService.topUpAWallet(request.senderWalletId(),
                 request.recipientWalletId(), request.amountSats(), request.memo()));
+    }
+
+    @GetMapping("/search")
+    ResponseEntity<Page<Transaction>> searchTransactions(Pageable page,
+            @RequestParam Map<String, String> filters) {
+        return ResponseEntity.ok(transactionService.searchTransactions(filters, page));
     }
 }

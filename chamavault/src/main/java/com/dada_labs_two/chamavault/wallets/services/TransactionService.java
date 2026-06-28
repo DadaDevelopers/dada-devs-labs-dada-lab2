@@ -18,12 +18,14 @@ import com.dada_labs_two.chamavault.wallets.dtos.InvoicePreviewDTO;
 import com.dada_labs_two.chamavault.wallets.dtos.MakeInvoicePaymentDTO;
 import com.dada_labs_two.chamavault.wallets.models.Transaction;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
+import com.dada_labs_two.chamavault.wallets.models.specs.TransactionSpecificationBuilder;
 import com.dada_labs_two.chamavault.wallets.repositories.TransactionRepository;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -464,5 +466,10 @@ public class TransactionService {
 
     public Page<Transaction> findByRotationIndex(Integer rotationIndex, Pageable pageable) {
         return transactionRepository.findByRotationIndex(rotationIndex, pageable);
+    }
+
+    public Page<Transaction> searchTransactions(Map<String, String> filters, Pageable page) {
+        Specification<Transaction> spec = TransactionSpecificationBuilder.build(filters);
+        return transactionRepository.findAll(spec, page);
     }
 }
