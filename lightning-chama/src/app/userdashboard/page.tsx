@@ -40,6 +40,28 @@ type WithdrawResponse = {
   };
 };
 
+type Transaction = {
+  transactionReference: string;
+  wallet?: {
+    walletType?: string;
+    walletPurpose?: string;
+    lightning?: {
+      name?: string;
+    };
+  };
+  type: 'CREDIT' | 'DEBIT' | string;
+  source?: string | null;
+  amountSats: number;
+  feeSats?: number | null;
+  memo?: string | null;
+  occurredAt?: string;
+  createdAt?: string;
+};
+
+type TransactionsResponse = {
+  content?: Transaction[];
+};
+
 type ApiErrorResponse = {
   error?: string;
   message?: string;
@@ -52,6 +74,9 @@ export default function Dashboard() {
   const [activities, setActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [activityError, setActivityError] = useState('');
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [loadingRecentTransactions, setLoadingRecentTransactions] = useState(true);
+  const [recentTransactionsError, setRecentTransactionsError] = useState('');
 
   const [chamas, setChamas] = useState<any[]>([]);
   const [loadingChamas, setLoadingChamas] = useState(true);
@@ -245,11 +270,52 @@ export default function Dashboard() {
       }
     };
 
+    const fetchRecentTransactions = async () => {
+      try {
+        setLoadingRecentTransactions(true);
+        setRecentTransactionsError('');
+        const token = localStorage.getItem('token');
+        const userReference = localStorage.getItem('userReference');
+
+        if (!token || !userReference) {
+          setRecentTransactionsError('Not authenticated');
+          return;
+        }
+
+        const params = new URLSearchParams({
+          page: '0',
+          size: '5',
+          'wallet.ownerReference': userReference,
+        });
+
+        const res = await fetch(
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/search?${params.toString()}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error('Failed to fetch transactions');
+        }
+
+        const data = await res.json() as TransactionsResponse;
+        setRecentTransactions(data.content || []);
+      } catch {
+        setRecentTransactionsError('Unable to load transactions');
+      } finally {
+        setLoadingRecentTransactions(false);
+      }
+    };
+
     const storedWallet = localStorage.getItem('selectedWalletRef');
     if (storedWallet) setSelectedWalletRef(storedWallet);
 
     fetchChamas();
     fetchActivities();
+    fetchRecentTransactions();
     fetchWallets();
   }, []);
 
@@ -806,15 +872,88 @@ export default function Dashboard() {
           )}
         </div>
 
+        {/* Recent Transactions */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xm font-semibold text-[#191919]">
+              Recent Transactions
+            </h2>
+            <Link
+              href="/userdashboard/transactions"
+              className="text-[#3B82F6] text-sm font-medium hover:text-emerald-700"
+            >
+              View more
+            </Link>
+          </div>
+
+          {loadingRecentTransactions && (
+            <p className="text-sm text-gray-500">Loading transactions...</p>
+          )}
+
+          {recentTransactionsError && (
+            <p className="text-sm text-red-600">{recentTransactionsError}</p>
+          )}
+
+          {!loadingRecentTransactions && !recentTransactionsError && recentTransactions.length === 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-4 text-sm text-gray-500">
+              No transactions yet.
+            </div>
+          )}
+
+          {!loadingRecentTransactions && !recentTransactionsError && recentTransactions.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
+              {recentTransactions.slice(0, 5).map((transaction) => {
+                const isCredit = transaction.type === 'CREDIT';
+                const Icon = isCredit ? ArrowDownLeft : ArrowUpRight;
+
+                return (
+                  <Link
+                    key={transaction.transactionReference}
+                    href="/userdashboard/transactions"
+                    className="flex items-center gap-4 p-4 hover:bg-gray-50 transition"
+                  >
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                        isCredit ? 'bg-emerald-500' : 'bg-red-500'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm md:text-base font-medium text-gray-900 truncate">
+                        {transaction.memo || transaction.source || transaction.type}
+                      </p>
+                      <p className="text-xs md:text-sm text-gray-500 truncate">
+                        {transaction.wallet?.lightning?.name || transaction.wallet?.walletPurpose || transaction.wallet?.walletType || 'Wallet'}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {transaction.occurredAt || transaction.createdAt
+                          ? new Date(transaction.occurredAt || transaction.createdAt || '').toLocaleString()
+                          : '—'}
+                      </p>
+                    </div>
+
+                    <SatsAmount
+                      sats={transaction.amountSats}
+                      exchangeRate={exchangeRate}
+                      loadingRate={loadingRate}
+                      align="right"
+                      primaryClassName={`font-bold text-sm ${isCredit ? 'text-emerald-700' : 'text-gray-900'}`}
+                    />
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Recent Activities */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xm font-semibold text-[#191919]">
               Recent Activities
             </h2>
-            <button className="text-[#3B82F6] text-sm font-medium hover:text-emerald-700">
-              See all 
-            </button>
           </div>
 
           {loadingActivities && (
