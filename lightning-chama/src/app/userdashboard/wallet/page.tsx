@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowUpRight, ChevronDown, Wallet, X, Copy, Clock, CheckCircle, AlertCircle, Layers, Eye, Plus, Check, Filter, Search } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, Wallet, X, Copy, Clock, CheckCircle, AlertCircle, Layers, Eye, Plus, Check, Filter, Search, ListOrdered } from 'lucide-react';
 import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import BalanceHero from '@/components/BalanceHero';
@@ -462,7 +462,7 @@ const WalletPage = () => {
         )}
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-8">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-8">
           <Link href="/userdashboard/wallet/send" className="flex flex-col items-center gap-2">
             <div className="w-14 h-14 sm:w-16 sm:h-16 bg-emerald-600 rounded-full flex items-center justify-center hover:bg-emerald-700 transition shadow-md">
               <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -482,6 +482,15 @@ const WalletPage = () => {
               <span className="text-xs sm:text-sm font-medium text-gray-900">Receive</span>
             </Link>
           </button>
+          <Link
+            href={`/userdashboard/transactions${selectedWalletRef !== 'ALL' ? `?walletRef=${encodeURIComponent(selectedWalletRef)}` : ''}`}
+            className="flex flex-col items-center gap-2"
+          >
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-900 rounded-full flex items-center justify-center hover:bg-black transition shadow-md">
+              <ListOrdered className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-xs sm:text-sm font-medium text-gray-900">Transactions</span>
+          </Link>
         </div>
 
         {/* Transaction History */}
