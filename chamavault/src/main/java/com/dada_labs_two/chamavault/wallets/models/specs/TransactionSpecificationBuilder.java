@@ -11,11 +11,21 @@ import java.time.ZonedDateTime;
 import java.util.*;
 
 public class TransactionSpecificationBuilder {
+    private static final Set<String> RESERVED_PARAMS = Set.of(
+            "page",
+            "size",
+            "sort"
+    );
+
     public static Specification<Transaction> build(Map<String, String> filters) {
         return ((root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             for (Map.Entry<String, String> entry: filters.entrySet()) {
+                if (RESERVED_PARAMS.contains(entry.getKey())) {
+                    continue;
+                }
+
                 Filter  filter = parseFilter(entry.getKey(), entry.getValue());
                 predicates.add(buildPredicate(root, criteriaBuilder, filter));
             }
