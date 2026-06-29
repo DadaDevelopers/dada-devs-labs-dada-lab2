@@ -350,6 +350,23 @@ public class TransactionService {
         syncReceiverLnBitsWalletBalance(senderWallet);
         syncSenderLnBitsWalletBalance(recipientWallet);
 
+        // Ledger DT: Lightning payment to beneficiary
+         transactionRepository.save(
+                Transaction.builder()
+                        .wallet(recipientWallet)
+                        .type(TransactionType.CREDIT)
+                        .source(TransactionSource.LN_INVOICE)
+                        .amountSats(amountSats)
+                        .externalRef(paymentHash2)
+                        .initiatedBy(senderWallet.getOwnerReference())
+                        .counterpartyUser(recipientWallet.getOwnerReference())
+                        .rotationIndex(null)
+                        .memo(memo)
+                        .metadata(new HashMap<>())
+                        .occurredAt(ZonedDateTime.now())
+                        .build()
+        );
+
         // Ledger: Lightning payment to beneficiary
          return transactionRepository.save(
                 Transaction.builder()
