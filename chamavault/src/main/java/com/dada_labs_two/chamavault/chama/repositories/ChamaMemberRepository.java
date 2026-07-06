@@ -28,6 +28,18 @@ public interface ChamaMemberRepository extends JpaRepository<ChamaMember, UUID> 
     );
 
     @Query("""
+        SELECT cm.chama
+        FROM ChamaMember cm
+        JOIN cm.user u
+        WHERE u.msisdn = :msisdn
+          AND cm.status = :status
+    """)
+    List<Chama> findChamasByUserReference(
+            @Param("userReference") UUID userReference,
+            @Param("status") MembershipStatus status
+    );
+
+    @Query("""
         SELECT cm
         FROM ChamaMember cm
         WHERE cm.chama.chamaReference = :chamaRef
