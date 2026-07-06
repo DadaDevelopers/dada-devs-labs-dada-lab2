@@ -577,10 +577,8 @@ public class ChamaService {
             String prompt = buildPrompt(request, chamaPayload);
 
             //use gemini, else fallback to openAI
-//            String geminiJsonResponse = geminiService.getChatResponse(prompt);
-//            return parseRecommendations(geminiJsonResponse);
-
-            throw  new RuntimeException("Opps");
+            String geminiJsonResponse = geminiService.getChatResponse(prompt);
+            return parseRecommendations(geminiJsonResponse);
 
 //            // 5. Call OpenAI via your refined service
 //            // pass the prompt to getChatResponse
