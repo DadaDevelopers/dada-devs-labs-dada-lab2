@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { ArrowUpRight, ArrowDownLeft, RefreshCw, Users, Check, Copy, X, Eye, Send, Download, HandCoins } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, RefreshCw, Users, Check, Copy, X, Eye, Send, Download, HandCoins, Bot, Sparkles } from 'lucide-react';
 import BalanceHero from '@/components/BalanceHero';
 import { Navbar } from '@/components/Navbar';
 import SatsAmount from '@/components/SatsAmount';
@@ -823,6 +823,28 @@ export default function Dashboard() {
             </span>
           </button>
         </div>
+
+        {/* Chama AI Guide */}
+        <Link
+          href="/userdashboard/chama-ai"
+          className="mb-8 block rounded-xl bg-emerald-600 p-4 shadow-sm hover:bg-emerald-700 transition"
+        >
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-full bg-white/15 text-white flex items-center justify-center shrink-0">
+              <Bot className="h-6 w-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h2 className="font-semibold text-white">Chama AI Guide</h2>
+                <Sparkles className="h-4 w-4 text-emerald-100" />
+              </div>
+              <p className="text-sm text-emerald-50">
+                Ask for chama recommendations, savings goals, and contribution guidance.
+              </p>
+            </div>
+            <ArrowUpRight className="h-5 w-5 text-white shrink-0" />
+          </div>
+        </Link>
         
         {/* Featured Chamas */}
         <div className="mb-8">
