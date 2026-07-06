@@ -1,4 +1,4 @@
-package com.dada_labs_two.chamavault.messaging.openai.configs;
+package com.dada_labs_two.chamavault.messaging.integrations.openai.configs;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;

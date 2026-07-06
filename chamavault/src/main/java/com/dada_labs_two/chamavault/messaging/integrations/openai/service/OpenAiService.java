@@ -1,4 +1,4 @@
-package com.dada_labs_two.chamavault.messaging.openai.service;
+package com.dada_labs_two.chamavault.messaging.integrations.openai.service;
 
 import com.openai.client.OpenAIClient;
 import com.openai.models.ChatModel;

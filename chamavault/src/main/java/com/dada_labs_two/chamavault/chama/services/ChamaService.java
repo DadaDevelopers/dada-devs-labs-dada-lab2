@@ -4,6 +4,7 @@ import com.dada_labs_two.chamavault.chama.constants.ChamaRole;
 import com.dada_labs_two.chamavault.chama.constants.ChamaVisibility;
 import com.dada_labs_two.chamavault.chama.constants.MembershipStatus;
 import com.dada_labs_two.chamavault.chama.dtos.*;
+import com.dada_labs_two.chamavault.chama.dtos.stripped.ChamasDetailsDTO;
 import com.dada_labs_two.chamavault.chama.models.Chama;
 import com.dada_labs_two.chamavault.chama.models.ChamaInvite;
 import com.dada_labs_two.chamavault.chama.models.ChamaMember;
@@ -14,10 +15,10 @@ import com.dada_labs_two.chamavault.chama.repositories.ChamaRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRulesRepository;
 import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
 import com.dada_labs_two.chamavault.contributions.repositories.ContributionCycleRepository;
-import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.LnurlPayLinkResponse;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
-import com.dada_labs_two.chamavault.messaging.openai.service.OpenAiService;
+import com.dada_labs_two.chamavault.messaging.integrations.gemini.service.GeminiService;
+import com.dada_labs_two.chamavault.messaging.integrations.openai.service.OpenAiService;
 import com.dada_labs_two.chamavault.project_commons.codes.dtos.CodeDTO;
 import com.dada_labs_two.chamavault.project_commons.codes.models.Code;
 import com.dada_labs_two.chamavault.project_commons.codes.services.CodeService;
@@ -50,6 +51,7 @@ import java.util.stream.Collectors;
 public class ChamaService {
     private final ObjectMapper objectMapper;
     private final OpenAiService openAiService;
+    private final GeminiService geminiService;
     private final ProfileActionService profileActionService;
     private final UserService userService;
     private final CodeService codeService;
@@ -162,6 +164,71 @@ public class ChamaService {
             return chamaRepository.findAll(pageable);
         }
         return chamaRepository.findAllByVisibility(pageable, visibility);
+    }
+
+    public Page<ChamasDetailsDTO> search_chamas(Pageable pageable) {
+        var chamas = getChamas(pageable, ChamaVisibility.PUBLIC);
+
+        return chamas.map(chama -> {
+            ChamaDetailsDTO chamaDetailsDTO = getChamaById(chama.getChamaReference());
+
+            return ChamasDetailsDTO.builder()
+                    .chama(ChamasDetailsDTO.ChamaDTO.builder()
+                            .chamaReference(chama.getChamaReference())
+                            .name(chama.getName())
+                            .description(chama.getDescription())
+                            .contributionAmount(chama.getContributionAmount())
+                            .visibility(chama.getVisibility())
+                            .maxMembers(chama.getMaxMembers())
+                            .currentRotationIndex(chama.getCurrentRotationIndex())
+                            .createdAt(chama.getCreatedAt())
+                            .deletedAt(chama.getDeletedAt())
+                            .build())
+                    .rules(chamaDetailsDTO.getRules())
+                    .wallets(chamaDetailsDTO.getWallets().stream().map(wallet -> {
+                        return ChamasDetailsDTO.ChamaGroupWalletDTO.builder()
+                                .walletPurpose(wallet.getWalletPurpose())
+                                .balanceSats(wallet.getBalanceSats())
+                                .active(wallet.getActive())
+                                .createdAt(wallet.getCreatedAt())
+                                .build();
+                    }).toList())
+                    .build();
+        });
+
+    }
+
+    public ChamasDetailsDTO.ChamaDTO get_chama(UUID chamaId) {
+        Chama chama = chamaRepository.findById(chamaId).orElseThrow(()->
+                new RuntimeException("Chama not found by reference: " + chamaId));
+
+        return ChamasDetailsDTO.ChamaDTO.builder()
+                .chamaReference(chama.getChamaReference())
+                .name(chama.getName())
+                .description(chama.getDescription())
+                .contributionAmount(chama.getContributionAmount())
+                .visibility(chama.getVisibility())
+                .maxMembers(chama.getMaxMembers())
+                .currentRotationIndex(chama.getCurrentRotationIndex())
+                .createdAt(chama.getCreatedAt())
+                .deletedAt(chama.getDeletedAt())
+                .build();
+    }
+
+    public List<ChamasDetailsDTO.ChamaDTO> get_user_memberships(UUID userId) {
+        var chamas = chamaMemberRepository.findChamasByUserReference(userId, MembershipStatus.ACTIVE);
+
+        return chamas.stream().map(chama -> ChamasDetailsDTO.ChamaDTO.builder()
+                .chamaReference(chama.getChamaReference())
+                .name(chama.getName())
+                .description(chama.getDescription())
+                .contributionAmount(chama.getContributionAmount())
+                .visibility(chama.getVisibility())
+                .maxMembers(chama.getMaxMembers())
+                .currentRotationIndex(chama.getCurrentRotationIndex())
+                .createdAt(chama.getCreatedAt())
+                .deletedAt(chama.getDeletedAt())
+                .build()).toList();
     }
 
     public ChamaDetailsDTO getChamaById(UUID chamaReference) {
@@ -471,6 +538,7 @@ public class ChamaService {
         return chamaMember;
     }
 
+
     public List<ChamaRecommendationDTO> recommendChamas(ChamaRecommendationRequest request) {
         //1. Fetch and prefilter
         List<Chama> chamas = chamaRepository.findByVisibility(ChamaVisibility.PUBLIC);
@@ -507,12 +575,16 @@ public class ChamaService {
         String prompt = buildPrompt(request, chamaPayload);
 
         try {
-            // 5. Call OpenAI via your refined service
-            // pass the prompt to getChatResponse
-            String jsonResponse = openAiService.getChatResponse(prompt);
+            //use gemini, else fallback to openAI
+            String geminiJsonResponse = geminiService.getChatResponse(prompt);
+            return parseRecommendations(geminiJsonResponse);
 
-            // 6. Parse JSON response
-            return parseRecommendations(jsonResponse);
+//            // 5. Call OpenAI via your refined service
+//            // pass the prompt to getChatResponse
+//            String jsonResponse = openAiService.getChatResponse(prompt);
+//
+//            // 6. Parse JSON response
+//            return parseRecommendations(jsonResponse);
 
         } catch (Exception e) {
             log.error("AI Recommendation failed, falling back", e);
