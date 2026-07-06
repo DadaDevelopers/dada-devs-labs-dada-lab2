@@ -17,12 +17,12 @@ public class GeminiService {
     }
 
     public String getChatResponse(String prompt) {
-        GenerateContentResponse response =
-                client.models.generateContent(
-                        model,
-                        prompt,
-                        null
-                );
-        return  response.text();
+        try {
+            GenerateContentResponse response = client.models.generateContent(model, prompt, null);
+            return response.text();
+        } catch (com.google.genai.errors.ClientException e) {
+            System.err.println("Gemini SDK Error: " + e.getMessage());
+            throw e;
+        }
     }
 }
