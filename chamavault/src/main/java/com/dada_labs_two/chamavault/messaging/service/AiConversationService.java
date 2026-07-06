@@ -20,6 +20,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class AiConversationService {
+    private static final int HISTORY_LIMIT = 5;
+    private static final int MAX_TOOL_CALLS = 1;
+    private static final int MAX_USER_MESSAGE_CHARS = 2_000;
+
     private final ConversationService conversationService;
     private final PromptBuilder promptBuilder;
     private final ToolRegistry toolRegistry;
@@ -31,6 +35,13 @@ public class AiConversationService {
             UUID conversationId,
             String message
     ) throws Exception {
+        if (message == null || message.isBlank()) {
+            throw new IllegalArgumentException("Message is required.");
+        }
+        if (message.length() > MAX_USER_MESSAGE_CHARS) {
+            throw new IllegalArgumentException("Message is too long.");
+        }
+
         Conversation conversation;
 
         if (conversationId == null) {
@@ -39,12 +50,12 @@ public class AiConversationService {
             conversation = conversationService.load(conversationId);
         }
 
-        // 2. Save user message
-        conversationService.saveUserMessage(conversation, message);
-
-        // 3. Load history (last N messages to avoid token explosion)
+        // 2. Load history before saving the current message, so it is not repeated in the prompt.
         List<ConversationMessage> history =
-                conversationService.loadRecentMessages(conversation.getConversationId(), 20);
+                conversationService.loadRecentMessages(conversation.getConversationId(), HISTORY_LIMIT);
+
+        // 3. Save user message
+        conversationService.saveUserMessage(conversation, message);
 
         // 4. Build tool list
         List<AiTool> tools = toolRegistry.getTools();
@@ -57,7 +68,7 @@ public class AiConversationService {
         log.info("Gemini raw response:\n{}", response);
 
         // 7. TOOL LOOP (support multi-step reasoning)
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < MAX_TOOL_CALLS; i++) {
 
             ToolCall toolCall = tryParseToolCall(response);
 
@@ -84,6 +95,10 @@ public class AiConversationService {
             prompt = buildToolAugmentedPrompt(history, message, toolCall, toolResult, tools);
 
             response = gemini.getChatResponse(prompt);
+        }
+
+        if (tryParseToolCall(response) != null) {
+            response = "I need a bit more data to answer that safely. Please narrow the request or ask for one chama at a time.";
         }
 
         // 8. Save assistant response
@@ -156,7 +171,7 @@ public class AiConversationService {
                 .append(result.getJson())
                 .append("\n\n");
 
-        sb.append("Now respond naturally to the user based on the tool result.");
+        sb.append("Now respond naturally to the user based on the tool result. Do not call another tool.");
 
         return sb.toString();
     }

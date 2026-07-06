@@ -2,6 +2,7 @@ package com.dada_labs_two.chamavault.chama.services;
 
 import com.dada_labs_two.chamavault.chama.constants.ChamaRole;
 import com.dada_labs_two.chamavault.chama.constants.ChamaVisibility;
+import com.dada_labs_two.chamavault.chama.constants.ContributionFrequency;
 import com.dada_labs_two.chamavault.chama.constants.MembershipStatus;
 import com.dada_labs_two.chamavault.chama.dtos.*;
 import com.dada_labs_two.chamavault.chama.dtos.stripped.ChamasDetailsDTO;
@@ -550,34 +551,36 @@ public class ChamaService {
 
         if (filtered.isEmpty()) return Collections.emptyList();
 
-        //2.Map rules
-        Map<UUID, ChamaRules> rulesMap = chamaRulesRepository.findAll().stream()
-                .collect(Collectors.toMap(r -> r.getChama().getChamaReference(), r -> r));
-
-        // 3. Prepare AI payload
-        List<Map<String, Object>> chamaPayload = filtered.stream().map(chama -> {
-            ChamaRules rules = rulesMap.get(chama.getChamaReference());
-
-            // Explicitly define the map to avoid the "Serializable & Comparable" inference
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", chama.getChamaReference().toString());
-            map.put("name", chama.getName());
-            map.put("description", chama.getDescription());
-            map.put("contribution", chama.getContributionAmount());
-            map.put("maxMembers", chama.getMaxMembers());
-            map.put("frequency", rules != null ? rules.getFrequency() : "monthly");
-            map.put("requiresApproval", rules != null && rules.getRequiresApproval());
-
-            return map;
-        }).toList();
-
-        // 4. Build prompt
-        String prompt = buildPrompt(request, chamaPayload);
-
         try {
+            //2.Map rules
+            Map<UUID, ChamaRules> rulesMap = chamaRulesRepository.findAll().stream()
+                    .collect(Collectors.toMap(r -> r.getChama().getChamaReference(), r -> r));
+
+            // 3. Prepare AI payload
+            List<Map<String, Object>> chamaPayload = filtered.stream().map(chama -> {
+                ChamaRules rules = rulesMap.get(chama.getChamaReference());
+
+                // Explicitly define the map to avoid the "Serializable & Comparable" inference
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", chama.getChamaReference().toString());
+                map.put("name", chama.getName());
+                map.put("description", chama.getDescription());
+                map.put("contribution", chama.getContributionAmount());
+                map.put("maxMembers", chama.getMaxMembers());
+                map.put("frequency", rules != null ? rules.getFrequency() : "monthly");
+                map.put("requiresApproval", rules != null && rules.getRequiresApproval());
+
+                return map;
+            }).toList();
+
+            // 4. Build prompt
+            String prompt = buildPrompt(request, chamaPayload);
+
             //use gemini, else fallback to openAI
-            String geminiJsonResponse = geminiService.getChatResponse(prompt);
-            return parseRecommendations(geminiJsonResponse);
+//            String geminiJsonResponse = geminiService.getChatResponse(prompt);
+//            return parseRecommendations(geminiJsonResponse);
+
+            throw  new RuntimeException("Opps");
 
 //            // 5. Call OpenAI via your refined service
 //            // pass the prompt to getChatResponse
@@ -588,9 +591,10 @@ public class ChamaService {
 
         } catch (Exception e) {
             log.error("AI Recommendation failed, falling back", e);
-            return fallbackRecommendation(filtered);
+            return fallbackRecommendation(filtered, request);
         }
     }
+
 
 
 
@@ -630,6 +634,7 @@ Format your response exactly like this:
             List<ChamaRecommendationDTO> dtos = new ArrayList<>();
             recs.forEach(node -> dtos.add(ChamaRecommendationDTO.builder()
                     .chamaReference(UUID.fromString(node.get("id").asText()))
+                    .name(chamaRepository.findById(UUID.fromString(node.get("id").asText())).orElseThrow().getName())
                     .score(node.get("score").asDouble())
                     .reason(node.get("reason").asText())
                     .build()));
@@ -641,17 +646,49 @@ Format your response exactly like this:
         }
     }
 
-    private List<ChamaRecommendationDTO> fallbackRecommendation(List<Chama> chamas) {
+    private List<ChamaRecommendationDTO> fallbackRecommendation(List<Chama> chamas, ChamaRecommendationRequest request) {
         return chamas.stream()
                 .sorted(Comparator.comparing(Chama::getContributionAmount))
                 .limit(3)
                 .map(chama -> ChamaRecommendationDTO.builder()
                         .chamaReference(chama.getChamaReference())
                         .name(chama.getName())
-                        .score(0.5)
-                        .reason("Matched based on contribution amount")
+                        .score(recommendationScoreAnalyzer(chama, request))
+                        .reason("Matched based on contribution amount: "+ chama.getName()+ " contributes "+chama.getContributionAmount())
                         .build())
                 .toList();
+    }
+
+    Double recommendationScoreAnalyzer(Chama chama, ChamaRecommendationRequest request){
+        ContributionFrequency frequency = chamaRulesRepository.findByChama(chama)
+                .stream()
+                .findAny()
+                .orElseThrow(() -> new IllegalStateException("No rules found for chama"))
+                .getFrequency();
+
+        long monthly = switch (frequency) {
+            case MONTHLY -> chama.getContributionAmount();
+            case WEEKLY -> chama.getContributionAmount() * 4;
+            case YEARLY -> chama.getContributionAmount() / 12;
+            default -> throw new IllegalArgumentException("unaccounted frequency: " + frequency);
+        };
+
+        long difference = Math.abs(monthly - request.getMonthlyContribution());
+
+        if (difference <= 100) return 0.98;
+        if (difference <= 200) return 0.85;
+        if (difference <= 300) return 0.73;
+        if (difference <= 400) return 0.60;
+        if (difference <= 500) return 0.50;
+        if (difference <= 600) return 0.41;
+        if (difference <= 700) return 0.33;
+        if (difference <= 800) return 0.28;
+        if (difference <= 900) return 0.23;
+        if (difference <= 1500) return 0.20;
+        if (difference <= 2000) return 0.15;
+        if (difference <= 5000) return 0.10;
+
+        return 0.05;
     }
 
     private String extractJson(String response) {

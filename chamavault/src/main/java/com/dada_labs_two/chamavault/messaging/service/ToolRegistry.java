@@ -35,7 +35,7 @@ public class ToolRegistry {
 
                 AiTool.builder()
                         .name("get_chama")
-                        .description("Retrieve one chama")
+                        .description("Retrieve one chama by id when the user asks about a specific chama.")
                         .parameters("""
                                 {
                                 "type":"object",
@@ -47,10 +47,21 @@ public class ToolRegistry {
                         .build(),
 
                 AiTool.builder()
+                        .name("get_user_memberships")
+                        .description("Retrieve the current user's active chama memberships.")
+                        .parameters("""
+                                {
+                                "type":"object",
+                                "properties": {}
+                                }
+                                """)
+                        .build(),
+
+                AiTool.builder()
                         .name("recommend_chamas")
                         .description("Recommend savings groups")
                         .parameters("""
-                                
+                                {
                                 "type":"object",
                                 "properties":{
                                 

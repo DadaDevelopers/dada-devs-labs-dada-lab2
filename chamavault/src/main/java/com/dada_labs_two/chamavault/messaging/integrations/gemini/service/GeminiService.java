@@ -1,11 +1,13 @@
 package com.dada_labs_two.chamavault.messaging.integrations.gemini.service;
 
 import com.google.genai.types.GenerateContentResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import com.google.genai.Client;
 
 @Service
+@Slf4j
 public class GeminiService {
     @Value("${spring.ai.google.genai.model}")
     private String model;
@@ -18,10 +20,16 @@ public class GeminiService {
 
     public String getChatResponse(String prompt) {
         try {
+            log.info(
+                    "Calling Gemini model={} promptChars={} estimatedTokens={}",
+                    model,
+                    prompt.length(),
+                    Math.max(1, prompt.length() / 4)
+            );
             GenerateContentResponse response = client.models.generateContent(model, prompt, null);
             return response.text();
         } catch (com.google.genai.errors.ClientException e) {
-            System.err.println("Gemini SDK Error: " + e.getMessage());
+            log.error("Gemini SDK Error: {}", e.getMessage());
             throw e;
         }
     }
