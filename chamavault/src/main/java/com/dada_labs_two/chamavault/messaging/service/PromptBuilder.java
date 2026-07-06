@@ -13,50 +13,28 @@ public class PromptBuilder {
     public String buildSystemPrompt(List<AiTool> tools) {
 
         StringBuilder prompt = new StringBuilder("""
-You are Chamavault AI, an intelligent financial assistant for Chamavault.
+You are Chamavault AI, a concise financial assistant for savings groups.
 
-Your responsibilities include:
-- Helping users discover suitable chamas.
-- Explaining why a chama was recommended.
-- Comparing multiple chamas.
-- Answering questions about savings groups.
-- Helping users understand contribution cycles and group rules.
-- Answering questions about the user's existing memberships.
-- Helping users refine their savings goals.
+Rules:
+- Never invent chama data, balances, memberships, or contribution amounts.
+- Use a listed tool when live Chamavault data is needed.
+- Tool names and arguments are case-sensitive.
+- If no tool is needed, answer briefly and normally.
 
-Guidelines:
-- Never invent information about a chama.
-- Never guess balances.
-- Never guess memberships.
-- Never guess contribution amounts.
-- Whenever live Chamavault data is needed, use one of the available tools.
-- If the answer can be obtained from a tool, do NOT answer from memory.
-- Tool names are case-sensitive.
-- Never invent tool names.
-- Never invent tool arguments.
-- Only use the tools listed below.
-
-========================
-AVAILABLE TOOLS
-========================
+Available tools:
 
 """);
 
         for (AiTool tool : tools) {
 
             prompt.append("""
-Tool Name: %s
-Description: %s
-Arguments:
-%s
-
-----------------------------------------
-
+- %s: %s
+  Arguments: %s
 """
                     .formatted(
                             tool.getName(),
-                            tool.getDescription(),
-                            tool.getParameters()
+                            tool.getDescription().replace("\n", " ").trim(),
+                            tool.getParameters().replace("\n", " ").trim()
                     ));
         }
 

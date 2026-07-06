@@ -8,8 +8,11 @@ import com.dada_labs_two.chamavault.messaging.repositories.ConversationRepositor
 import com.dada_labs_two.chamavault.messaging.repositories.MessagesRepository;
 import com.dada_labs_two.chamavault.users.models.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,7 +30,15 @@ public class ConversationService {
     }
 
     public List<ConversationMessage> loadRecentMessages(UUID conversationId, int limit) {
-        return conversationMessageRepository.findTop20ByConversation_ConversationIdOrderByCreatedAtDesc(conversationId);
+        List<ConversationMessage> messages = new ArrayList<>(
+                conversationMessageRepository.findByConversation_ConversationIdAndRoleNotOrderByCreatedAtDesc(
+                        conversationId,
+                        EngagingRole.TOOL,
+                        PageRequest.of(0, limit)
+                )
+        );
+        Collections.reverse(messages);
+        return messages;
     }
 
     public Conversation load(UUID conversationId) {
@@ -47,7 +58,7 @@ public class ConversationService {
                         .toolName(toolName)
                         .toolArguments(arguments)
                         .toolResult(result)
-                        .content(result)
+                        .content("Tool " + toolName + " executed.")
                         .build()
         );
     }
