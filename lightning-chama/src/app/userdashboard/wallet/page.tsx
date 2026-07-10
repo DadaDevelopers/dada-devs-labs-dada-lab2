@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowUpRight, ChevronDown, Wallet, X, Copy, Clock, CheckCircle, AlertCircle, Layers, Eye, Plus, Check, Filter, Search, Lock } from 'lucide-react';
+import { ChevronDown, Wallet, X, Copy, Clock, CheckCircle, AlertCircle, Layers, Eye, Plus, Check, Filter, Search, Lock, ListOrdered } from 'lucide-react';
 import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import BalanceHero from '@/components/BalanceHero';
 import SatsAmount from '@/components/SatsAmount';
+import Image from 'next/image';
 
 // --- TYPES ---
 
@@ -40,6 +41,8 @@ type Invoice = {
   paidAt?: string;
 };
 
+const CACHE_DURATION_MS = 5 * 60 * 1000;
+
 const WalletPage = () => {
   // --- STATE ---
 
@@ -67,8 +70,6 @@ const WalletPage = () => {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterExpanded, setFilterExpanded] = useState(false);
-  
-  const CACHE_DURATION_MS = 5 * 60 * 1000;
 
   // --- HELPERS ---
 
@@ -249,6 +250,7 @@ const WalletPage = () => {
       }
     };
     fetchExchangeRate();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -774,7 +776,7 @@ const WalletPage = () => {
             <div className="flex flex-col items-center justify-center mb-6">
               <div className="relative group">
                 <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100">
-                  <img src={selectedInvoice.qrCode} alt="Invoice QR" className="w-48 h-48 object-contain mix-blend-multiply" />
+                  <Image src={selectedInvoice.qrCode} alt="Invoice QR" className="w-48 h-48 object-contain mix-blend-multiply" />
                 </div>
                 {(() => {
                   const meta = getInvoiceMeta(selectedInvoice);
