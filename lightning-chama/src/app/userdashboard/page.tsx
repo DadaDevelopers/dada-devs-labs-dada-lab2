@@ -5,6 +5,7 @@ import { ArrowUpRight, ArrowDownLeft, RefreshCw, Users, Check, Copy, X, Eye, Sen
 import BalanceHero from '@/components/BalanceHero';
 import { Navbar } from '@/components/Navbar';
 import SatsAmount from '@/components/SatsAmount';
+import OnboardingTour, { type TourStep } from '@/components/OnboardingTour';
 import Image from 'next/image';
 import Link from "next/link";
 import chama0 from '@/assets/chama0.svg';
@@ -68,6 +69,44 @@ type ApiErrorResponse = {
   status?: number;
   timestamp?: string;
 };
+
+const TOUR_STEPS: TourStep[] = [
+  {
+    target: null,
+    title: 'Welcome to ChamaVault 👋',
+    content: "You're all set! Let us take a quick tour to show you around the key features of your dashboard.",
+  },
+  {
+    target: 'wallet-selector',
+    title: 'Your Wallets',
+    content: 'Tap here to switch between your Lightning wallets or view the combined balance across all of them.',
+    position: 'bottom',
+  },
+  {
+    target: 'balance-hero',
+    title: 'Your Balance',
+    content: 'This shows your current Bitcoin balance in BTC and Kenyan Shillings, updated in real time.',
+    position: 'bottom',
+  },
+  {
+    target: 'action-buttons',
+    title: 'Quick Actions',
+    content: 'Send or receive Bitcoin, contribute to a chama, or deposit and withdraw funds via M-Pesa — all from here.',
+    position: 'bottom',
+  },
+  {
+    target: 'chama-ai',
+    title: 'Chama AI Guide',
+    content: 'Ask our AI for personalised savings advice, chama recommendations, and contribution guidance.',
+    position: 'bottom',
+  },
+  {
+    target: 'featured-chamas',
+    title: 'Your Chamas',
+    content: 'See your chama groups at a glance. Tap any one to view details and make a contribution.',
+    position: 'top',
+  },
+];
 
 // Main Dashboard Component
 export default function Dashboard() {
@@ -654,7 +693,7 @@ export default function Dashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         {/* Wallets */}
-        <div className="mt-13 -mb-18 relative text-[#191919]">
+        <div data-tour="wallet-selector" className="mt-13 -mb-18 relative text-[#191919]">
           <button
             onClick={() => setWalletsExpanded(!walletsExpanded)}
             className="flex items-center justify-between w-full mb-3 bg-white px-4 py-2 rounded-xl shadow hover:bg-gray-50 transition"
@@ -746,12 +785,14 @@ export default function Dashboard() {
         </div>
 
         {/* Balance Hero Section */}
-        <BalanceHero 
+        <div data-tour="balance-hero">
+        <BalanceHero
           btcAmount={(selectedWalletBalance / 100_000_000).toFixed(6)} 
           kshAmount={convertSatsToKes(selectedWalletBalance).toFixed(2)}  
           className="mb-6"
         />
-        
+        </div>
+
         {/* Exchange rate info */}
         {exchangeRate && (
           <div className="text-xs text-gray-500 mb-4 text-center">
@@ -765,7 +806,7 @@ export default function Dashboard() {
         )}
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 md:gap-4 mb-8">
+        <div data-tour="action-buttons" className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 md:gap-4 mb-8">
           <Link href="/userdashboard/wallet" className="block">
             <button className="h-24 sm:h-28 w-full bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-3 hover:bg-emerald-50 transition flex flex-col items-center justify-center gap-2">
               <span className="flex h-9 w-16 items-center justify-center">
@@ -828,6 +869,7 @@ export default function Dashboard() {
 
         {/* Chama AI Guide */}
         <Link
+          data-tour="chama-ai"
           href="/userdashboard/chama-ai"
           className="mb-8 block rounded-xl bg-emerald-600 p-4 shadow-sm hover:bg-emerald-700 transition"
         >
@@ -849,7 +891,7 @@ export default function Dashboard() {
         </Link>
         
         {/* Featured Chamas */}
-        <div className="mb-8">
+        <div data-tour="featured-chamas" className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xm font-semibold text-[#191919]">
               Featured Chamas
@@ -1024,6 +1066,8 @@ export default function Dashboard() {
           )}
         </div>
       </main>
+
+      <OnboardingTour steps={TOUR_STEPS} storageKey="dashboard_tour_seen" />
 
       {/* ================= ACTIVITY MODAL ================= */}
       {selectedAction && (
