@@ -1,10 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { ArrowUpRight, ArrowDownLeft, RefreshCw, Users, Check, Copy, X, Eye, Send, Download, HandCoins, Bot, Sparkles } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, RefreshCw, Users, Check, Copy, X, Eye, Send, Download, HandCoins, ChevronDown, Wallet, Bot, Sparkles } from 'lucide-react';
 import BalanceHero from '@/components/BalanceHero';
 import { Navbar } from '@/components/Navbar';
 import SatsAmount from '@/components/SatsAmount';
+import OnboardingTour, { type TourStep } from '@/components/OnboardingTour';
 import Image from 'next/image';
 import Link from "next/link";
 import chama0 from '@/assets/chama0.svg';
@@ -69,6 +70,44 @@ type ApiErrorResponse = {
   timestamp?: string;
 };
 
+const TOUR_STEPS: TourStep[] = [
+  {
+    target: null,
+    title: 'Welcome to ChamaVault 👋',
+    content: "You're all set! Let us take a quick tour to show you around the key features of your dashboard.",
+  },
+  {
+    target: 'wallet-selector',
+    title: 'Your Wallets',
+    content: 'Tap here to switch between your Lightning wallets or view the combined balance across all of them.',
+    position: 'bottom',
+  },
+  {
+    target: 'balance-hero',
+    title: 'Your Balance',
+    content: 'This shows your current Bitcoin balance in BTC and Kenyan Shillings, updated in real time.',
+    position: 'bottom',
+  },
+  {
+    target: 'action-buttons',
+    title: 'Quick Actions',
+    content: 'Send or receive Bitcoin, contribute to a chama, or deposit and withdraw funds via M-Pesa — all from here.',
+    position: 'bottom',
+  },
+  {
+    target: 'chama-ai',
+    title: 'Chama AI Guide',
+    content: 'Ask our AI for personalised savings advice, chama recommendations, and contribution guidance.',
+    position: 'bottom',
+  },
+  {
+    target: 'featured-chamas',
+    title: 'Your Chamas',
+    content: 'See your chama groups at a glance. Tap any one to view details and make a contribution.',
+    position: 'top',
+  },
+];
+
 // Main Dashboard Component
 export default function Dashboard() {
   const [activities, setActivities] = useState<any[]>([]);
@@ -109,6 +148,8 @@ export default function Dashboard() {
 
   const [walletsExpanded, setWalletsExpanded] = useState(false);
   const [selectedWalletRef, setSelectedWalletRef] = useState<string | 'ALL'>('ALL');
+  const [onRampWalletOpen, setOnRampWalletOpen] = useState(false);
+  const [withdrawWalletOpen, setWithdrawWalletOpen] = useState(false);
   
   // New state for wallet details modal
   const [selectedWalletDetails, setSelectedWalletDetails] = useState<any | null>(null);
@@ -652,7 +693,7 @@ export default function Dashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         {/* Wallets */}
-        <div className="mt-13 -mb-18 relative text-[#191919]">
+        <div data-tour="wallet-selector" className="mt-13 -mb-18 relative text-[#191919]">
           <button
             onClick={() => setWalletsExpanded(!walletsExpanded)}
             className="flex items-center justify-between w-full mb-3 bg-white px-4 py-2 rounded-xl shadow hover:bg-gray-50 transition"
@@ -744,12 +785,14 @@ export default function Dashboard() {
         </div>
 
         {/* Balance Hero Section */}
-        <BalanceHero 
+        <div data-tour="balance-hero">
+        <BalanceHero
           btcAmount={(selectedWalletBalance / 100_000_000).toFixed(6)} 
           kshAmount={convertSatsToKes(selectedWalletBalance).toFixed(2)}  
           className="mb-6"
         />
-        
+        </div>
+
         {/* Exchange rate info */}
         {exchangeRate && (
           <div className="text-xs text-gray-500 mb-4 text-center">
@@ -763,7 +806,7 @@ export default function Dashboard() {
         )}
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 md:gap-4 mb-8">
+        <div data-tour="action-buttons" className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 md:gap-4 mb-8">
           <Link href="/userdashboard/wallet" className="block">
             <button className="h-24 sm:h-28 w-full bg-white border-2 border-emerald-500 rounded-xl p-2 sm:p-3 hover:bg-emerald-50 transition flex flex-col items-center justify-center gap-2">
               <span className="flex h-9 w-16 items-center justify-center">
@@ -826,6 +869,7 @@ export default function Dashboard() {
 
         {/* Chama AI Guide */}
         <Link
+          data-tour="chama-ai"
           href="/userdashboard/chama-ai"
           className="mb-8 block rounded-xl bg-emerald-600 p-4 shadow-sm hover:bg-emerald-700 transition"
         >
@@ -847,7 +891,7 @@ export default function Dashboard() {
         </Link>
         
         {/* Featured Chamas */}
-        <div className="mb-8">
+        <div data-tour="featured-chamas" className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xm font-semibold text-[#191919]">
               Featured Chamas
@@ -1023,6 +1067,8 @@ export default function Dashboard() {
         </div>
       </main>
 
+      <OnboardingTour steps={TOUR_STEPS} storageKey="dashboard_tour_seen" />
+
       {/* ================= ACTIVITY MODAL ================= */}
       {selectedAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 text-[#191919]">
@@ -1116,28 +1162,74 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <label htmlFor="onRampWallet" className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Wallet
                 </label>
-                <select
-                  id="onRampWallet"
-                  value={onRampForm.walletId}
-                  onChange={(e) => setOnRampForm((prev) => ({ ...prev, walletId: e.target.value }))}
-                  disabled={onRampSucceeded}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:bg-gray-50 disabled:text-gray-500"
-                >
-                  <option value="">
-                    {loadingWallets ? 'Loading wallets...' : walletError || 'Select wallet'}
-                  </option>
-                  {!loadingWallets && !walletError && wallets.length === 0 && (
-                    <option value="" disabled>No wallets found</option>
+                <div className="relative">
+                  <button
+                    type="button"
+                    disabled={onRampSucceeded}
+                    onClick={() => setOnRampWalletOpen((o) => !o)}
+                    className="w-full flex items-center justify-between gap-2 rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 bg-white hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed transition"
+                  >
+                    {loadingWallets ? (
+                      <span className="text-gray-400">Loading wallets…</span>
+                    ) : onRampForm.walletId ? (
+                      (() => {
+                        const w = wallets.find((x) => x.walletReference === onRampForm.walletId);
+                        return w ? (
+                          <span className="flex items-center gap-2 min-w-0">
+                            <Wallet size={14} className="text-emerald-600 shrink-0" />
+                            <span className="font-medium truncate">{w.lightning?.name || w.walletType}</span>
+                            <span className="text-gray-400 shrink-0">{w.balanceSats.toLocaleString()} sats</span>
+                          </span>
+                        ) : <span className="text-gray-400">Select wallet</span>;
+                      })()
+                    ) : (
+                      <span className="text-gray-400">{walletError || 'Select wallet'}</span>
+                    )}
+                    <ChevronDown size={16} className={`text-gray-400 shrink-0 transition-transform ${onRampWalletOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {onRampWalletOpen && !onRampSucceeded && (
+                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                      {loadingWallets ? (
+                        <p className="px-4 py-3 text-sm text-gray-400">Loading wallets…</p>
+                      ) : walletError ? (
+                        <p className="px-4 py-3 text-sm text-red-500">{walletError}</p>
+                      ) : wallets.length === 0 ? (
+                        <p className="px-4 py-3 text-sm text-gray-400">No wallets found</p>
+                      ) : (
+                        <ul className="max-h-56 overflow-y-auto divide-y divide-gray-100">
+                          {wallets.map((wallet) => {
+                            const isSelected = onRampForm.walletId === wallet.walletReference;
+                            return (
+                              <li key={wallet.walletReference}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOnRampForm((prev) => ({ ...prev, walletId: wallet.walletReference }));
+                                    setOnRampWalletOpen(false);
+                                  }}
+                                  className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-emerald-50 transition ${isSelected ? 'bg-emerald-50' : ''}`}
+                                >
+                                  <div className={`flex items-center justify-center w-8 h-8 rounded-full shrink-0 ${isSelected ? 'bg-emerald-600' : 'bg-gray-100'}`}>
+                                    <Wallet size={14} className={isSelected ? 'text-white' : 'text-gray-500'} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-gray-900 truncate">{wallet.lightning?.name || wallet.walletType}</p>
+                                    <p className="text-xs text-gray-500">{wallet.balanceSats.toLocaleString()} sats{exchangeRate ? ` · KES ${convertSatsToKes(wallet.balanceSats).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}</p>
+                                  </div>
+                                  {isSelected && <Check size={14} className="text-emerald-600 shrink-0" />}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
                   )}
-                  {wallets.map((wallet) => (
-                    <option key={wallet.walletReference} value={wallet.walletReference}>
-                      {wallet.lightning?.name || wallet.walletType} - {wallet.balanceSats.toLocaleString()} sats / {exchangeRate ? `${convertSatsToKes(wallet.balanceSats).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES` : 'KES --'} / {(wallet.balanceSats / SATS_PER_BTC).toFixed(8)} BTC
-                    </option>
-                  ))}
-                </select>
+                </div>
               </div>
 
               <div>
@@ -1260,28 +1352,74 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <label htmlFor="withdrawWallet" className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Withdraw From
                 </label>
-                <select
-                  id="withdrawWallet"
-                  value={withdrawForm.walletId}
-                  onChange={(e) => setWithdrawForm((prev) => ({ ...prev, walletId: e.target.value }))}
-                  disabled={withdrawSucceeded}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:bg-gray-50 disabled:text-gray-500"
-                >
-                  <option value="">
-                    {loadingWallets ? 'Loading wallets...' : walletError || 'Select wallet'}
-                  </option>
-                  {!loadingWallets && !walletError && wallets.length === 0 && (
-                    <option value="" disabled>No wallets found</option>
+                <div className="relative">
+                  <button
+                    type="button"
+                    disabled={withdrawSucceeded}
+                    onClick={() => setWithdrawWalletOpen((o) => !o)}
+                    className="w-full flex items-center justify-between gap-2 rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 bg-white hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed transition"
+                  >
+                    {loadingWallets ? (
+                      <span className="text-gray-400">Loading wallets…</span>
+                    ) : withdrawForm.walletId ? (
+                      (() => {
+                        const w = wallets.find((x) => x.walletReference === withdrawForm.walletId);
+                        return w ? (
+                          <span className="flex items-center gap-2 min-w-0">
+                            <Wallet size={14} className="text-emerald-600 shrink-0" />
+                            <span className="font-medium truncate">{w.lightning?.name || w.walletType}</span>
+                            <span className="text-gray-400 shrink-0">{w.balanceSats.toLocaleString()} sats</span>
+                          </span>
+                        ) : <span className="text-gray-400">Select wallet</span>;
+                      })()
+                    ) : (
+                      <span className="text-gray-400">{walletError || 'Select wallet'}</span>
+                    )}
+                    <ChevronDown size={16} className={`text-gray-400 shrink-0 transition-transform ${withdrawWalletOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {withdrawWalletOpen && !withdrawSucceeded && (
+                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                      {loadingWallets ? (
+                        <p className="px-4 py-3 text-sm text-gray-400">Loading wallets…</p>
+                      ) : walletError ? (
+                        <p className="px-4 py-3 text-sm text-red-500">{walletError}</p>
+                      ) : wallets.length === 0 ? (
+                        <p className="px-4 py-3 text-sm text-gray-400">No wallets found</p>
+                      ) : (
+                        <ul className="max-h-56 overflow-y-auto divide-y divide-gray-100">
+                          {wallets.map((wallet) => {
+                            const isSelected = withdrawForm.walletId === wallet.walletReference;
+                            return (
+                              <li key={wallet.walletReference}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setWithdrawForm((prev) => ({ ...prev, walletId: wallet.walletReference }));
+                                    setWithdrawWalletOpen(false);
+                                  }}
+                                  className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-emerald-50 transition ${isSelected ? 'bg-emerald-50' : ''}`}
+                                >
+                                  <div className={`flex items-center justify-center w-8 h-8 rounded-full shrink-0 ${isSelected ? 'bg-emerald-600' : 'bg-gray-100'}`}>
+                                    <Wallet size={14} className={isSelected ? 'text-white' : 'text-gray-500'} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-gray-900 truncate">{wallet.lightning?.name || wallet.walletType}</p>
+                                    <p className="text-xs text-gray-500">{wallet.balanceSats.toLocaleString()} sats{exchangeRate ? ` · KES ${convertSatsToKes(wallet.balanceSats).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}</p>
+                                  </div>
+                                  {isSelected && <Check size={14} className="text-emerald-600 shrink-0" />}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
                   )}
-                  {wallets.map((wallet) => (
-                    <option key={wallet.walletReference} value={wallet.walletReference}>
-                      {wallet.lightning?.name || wallet.walletType} - {wallet.balanceSats.toLocaleString()} sats / {exchangeRate ? `${convertSatsToKes(wallet.balanceSats).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES` : 'KES --'} / {(wallet.balanceSats / SATS_PER_BTC).toFixed(8)} BTC
-                    </option>
-                  ))}
-                </select>
+                </div>
                 {withdrawForm.walletId && (
                   <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
                     <p className="text-xs font-medium text-gray-500 mb-1">Available balance</p>
