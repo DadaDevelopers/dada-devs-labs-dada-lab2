@@ -19,15 +19,24 @@ export const useBitcoinKesRate = () => {
 
       try {
         setLoadingRate(true);
-        const response = await fetch(
-          'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=kes'
-        );
+        // CoinGecko doesn't support KES as a vs_currency, so BTC/KES has to be
+        // derived from BTC/USD and a separate USD/KES FX rate.
+        const [btcResponse, fxResponse] = await Promise.all([
+          fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd'),
+          fetch('https://open.er-api.com/v6/latest/USD'),
+        ]);
 
-        if (!response.ok) throw new Error(`API responded with status: ${response.status}`);
+        if (!btcResponse.ok) throw new Error(`CoinGecko API responded with status: ${btcResponse.status}`);
+        if (!fxResponse.ok) throw new Error(`FX API responded with status: ${fxResponse.status}`);
 
-        const data = await response.json();
-        if (data.bitcoin?.kes) {
-          setExchangeRate(data.bitcoin.kes);
+        const btcData = await btcResponse.json();
+        const fxData = await fxResponse.json();
+
+        const btcUsd = btcData.bitcoin?.usd;
+        const usdKes = fxData.rates?.KES;
+
+        if (btcUsd && usdKes) {
+          setExchangeRate(btcUsd * usdKes);
           setLastFetched(Date.now());
         }
       } catch (error) {

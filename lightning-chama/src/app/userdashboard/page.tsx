@@ -11,6 +11,7 @@ import chama0 from '@/assets/chama0.svg';
 import chama1 from '@/assets/chama1.svg';
 import chama2 from '@/assets/chama2.svg';
 import chama3 from '@/assets/chama3.svg';
+import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
 
 type OnRampResponse = {
   message?: string;
@@ -117,12 +118,7 @@ export default function Dashboard() {
   const [walletDetailsCopied, setWalletDetailsCopied] = useState('');
   
   // Exchange rate state
-  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
-  const [loadingRate, setLoadingRate] = useState(true);
-  const [lastFetched, setLastFetched] = useState<number | null>(null);
-  
-  // Cache the rate for 5 minutes (300,000 milliseconds)
-  const CACHE_DURATION_MS = 5 * 60 * 1000;
+  const { exchangeRate, loadingRate, lastFetched } = useBitcoinKesRate();
   const SATS_PER_BTC = 100_000_000;
 
   const fetchWallets = async () => {
@@ -160,44 +156,6 @@ export default function Dashboard() {
       setLoadingWallets(false);
     }
   };
-
-  // Fetch exchange rate with caching
-  useEffect(() => {
-    const fetchExchangeRate = async () => {
-      // Check if we have a recently cached rate
-      if (lastFetched && Date.now() - lastFetched < CACHE_DURATION_MS) {
-        console.log("Using cached exchange rate.");
-        setLoadingRate(false);
-        return;
-      }
-
-      try {
-        setLoadingRate(true);
-        console.log("Fetching new exchange rate from CoinGecko...");
-        const response = await fetch(
-          "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=kes"
-        );
-        if (!response.ok) {
-          throw new Error(`API responded with status: ${response.status}`);
-        }
-        const data = await response.json();
-        if (data.bitcoin && data.bitcoin.kes) {
-          setExchangeRate(data.bitcoin.kes);
-          setLastFetched(Date.now());
-        }
-      } catch (error) {
-        console.error("Failed to fetch exchange rate:", error);
-        // Fallback to a default rate if API fails and no rate exists
-        if (!exchangeRate) {
-          setExchangeRate(11500000); // Fallback rate
-        }
-      } finally {
-        setLoadingRate(false);
-      }
-    };
-
-    fetchExchangeRate();
-  }, []);
 
   useEffect(() => {
     const fetchChamas = async () => {

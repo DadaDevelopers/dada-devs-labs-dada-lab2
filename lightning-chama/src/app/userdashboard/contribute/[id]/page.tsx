@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { ArrowLeft, User, CheckCircle, XCircle, Wallet, AlertCircle, X, Loader2, ChevronDown, ChevronUp, Zap, Bell, MoreVertical } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import SatsAmount from '@/components/SatsAmount';
+import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
 
 // Helper to format time ago
 const timeAgo = (date: string) => {
@@ -68,38 +69,9 @@ export default function ChamasContribution() {
     error: ''
   });
 
-  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
-  const [loadingRate, setLoadingRate] = useState(true);
-  const [lastFetched, setLastFetched] = useState<number | null>(null);
-  const CACHE_DURATION_MS = 5 * 60 * 1000;
+  const { exchangeRate, loadingRate } = useBitcoinKesRate();
 
   const currentUserRef = useMemo(() => localStorage.getItem('userReference'), []);
-  
-  // Exchange Rate Logic
-  useEffect(() => {
-    const fetchExchangeRate = async () => {
-      if (lastFetched && Date.now() - lastFetched < CACHE_DURATION_MS) {
-        setLoadingRate(false);
-        return;
-      }
-      try {
-        setLoadingRate(true);
-        const response = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=kes");
-        if (!response.ok) throw new Error(`API responded with status: ${response.status}`);
-        const data = await response.json();
-        if (data.bitcoin && data.bitcoin.kes) {
-          setExchangeRate(data.bitcoin.kes);
-          setLastFetched(Date.now());
-        }
-      } catch (error) {
-        console.error("Failed to fetch exchange rate:", error);
-        if (!exchangeRate) setExchangeRate(11500000);
-      } finally {
-        setLoadingRate(false);
-      }
-    };
-    fetchExchangeRate();
-  }, [exchangeRate, lastFetched, CACHE_DURATION_MS]);
 
   const convertSatsToKes = (sats: number): number => {
     if (!exchangeRate) return 0;

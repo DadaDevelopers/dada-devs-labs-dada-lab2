@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useBitcoinKesRate } from "@/hooks/useBitcoinKesRate";
 
 const CONTRIBUTION_FREQUENCIES = [
   { label: "Daily", value: "DAILY", days: 1 },
@@ -33,60 +34,15 @@ export default function CreateChamaForm() {
   } | null>(null);
 
   const [loading, setLoading] = useState(false);
-  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
-  const [loadingRate, setLoadingRate] = useState(true);
-  const [lastFetched, setLastFetched] = useState<number | null>(null);
+  const { exchangeRate, loadingRate, lastFetched } = useBitcoinKesRate();
 
   // 1 Bitcoin = 100,000,000 Satoshis
   const SATOSHIS_PER_BTC = 100000000;
-  // Cache the rate for 5 minutes (300,000 milliseconds)
-  const CACHE_DURATION_MS = 5 * 60 * 1000;
 
   useEffect(() => {
     const saved = localStorage.getItem("createChamaStep1");
     if (saved) setStep1Data(JSON.parse(saved));
   }, []);
-
-  // Fetch exchange rate with simple caching
-  useEffect(() => {
-    const fetchExchangeRate = async () => {
-      // Check if we have a recently cached rate
-      if (lastFetched && Date.now() - lastFetched < CACHE_DURATION_MS) {
-        console.log("Using cached exchange rate.");
-        setLoadingRate(false);
-        return;
-      }
-
-      try {
-        setLoadingRate(true);
-        console.log("Fetching new exchange rate from CoinGecko...");
-        // *** Using 'kes'  ***
-        const response = await fetch(
-          "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=kes"
-        );
-        if (!response.ok) {
-            throw new Error(`API responded with status: ${response.status}`);
-        }
-        const data = await response.json();
-        // *** Accessing 'kes' property ***
-        if (data.bitcoin && data.bitcoin.kes) {
-          setExchangeRate(data.bitcoin.kes);
-          setLastFetched(Date.now()); // Update the last fetched timestamp
-        }
-      } catch (error) {
-        console.error("Failed to fetch exchange rate:", error);
-        // Fallback to a default rate if API fails and no rate exists
-        if (!exchangeRate) {
-           // Using a more recent approximate rate
-           setExchangeRate(11500000); 
-        }
-      } finally {
-        setLoadingRate(false);
-      }
-    };
-
-    fetchExchangeRate();
-  }, []); // Empty dependency array means this runs once on mount
 
   // Convert KES to Satoshis
   const convertKesToSatoshis = (kesAmount: number): number => {
