@@ -7,6 +7,7 @@ import { Navbar } from '@/components/Navbar';
 import BalanceHero from '@/components/BalanceHero';
 import SatsAmount from '@/components/SatsAmount';
 import Image from 'next/image';
+import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
 
 // --- TYPES ---
 
@@ -41,8 +42,6 @@ type Invoice = {
   paidAt?: string;
 };
 
-const CACHE_DURATION_MS = 5 * 60 * 1000;
-
 const WalletPage = () => {
   // --- STATE ---
 
@@ -62,10 +61,8 @@ const WalletPage = () => {
   const [walletDetailsCopied, setWalletDetailsCopied] = useState<string | null>(null);
   const [techDetailsExpanded, setTechDetailsExpanded] = useState(false);
 
-  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
-  const [loadingRate, setLoadingRate] = useState(true);
-  const [lastFetched, setLastFetched] = useState<number | null>(null);
-  
+  const { exchangeRate, loadingRate } = useBitcoinKesRate();
+
   // New states for invoice filtering
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -224,34 +221,6 @@ const WalletPage = () => {
   };
 
   // --- EFFECTS ---
-
-  useEffect(() => {
-    const fetchExchangeRate = async () => {
-      if (lastFetched && Date.now() - lastFetched < CACHE_DURATION_MS) {
-        setLoadingRate(false);
-        return;
-      }
-      try {
-        setLoadingRate(true);
-        const response = await fetch(
-          "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=kes"
-        );
-        if (!response.ok) throw new Error(`API status: ${response.status}`);
-        const data = await response.json();
-        if (data.bitcoin && data.bitcoin.kes) {
-          setExchangeRate(data.bitcoin.kes);
-          setLastFetched(Date.now());
-        }
-      } catch (error) {
-        console.error("Rate fetch error:", error);
-        if (!exchangeRate) setExchangeRate(11500000);
-      } finally {
-        setLoadingRate(false);
-      }
-    };
-    fetchExchangeRate();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     const fetchWallets = async () => {
