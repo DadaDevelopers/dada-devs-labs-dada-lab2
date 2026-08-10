@@ -47,11 +47,12 @@ export default function LoginPage() {
       localStorage.setItem('token', data.token);
       localStorage.setItem('userReference', data.user.userReference);
       localStorage.setItem('msisdn', data.user.msisdn);
+      sessionStorage.removeItem('email_prompt_dismissed');
 
       // Login success → Dashboard
       router.push('/userdashboard');
 
-    } catch (err) {
+    } catch {
       setError('Failed to connect to server. Try again.');
     } finally {
       setLoading(false);
