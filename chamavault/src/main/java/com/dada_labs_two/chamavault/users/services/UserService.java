@@ -1,5 +1,6 @@
 package com.dada_labs_two.chamavault.users.services;
 
+import com.dada_labs_two.chamavault.messaging.service.MessagingService;
 import com.dada_labs_two.chamavault.project_commons.codes.dtos.CodeDTO;
 import com.dada_labs_two.chamavault.project_commons.codes.models.Code;
 import com.dada_labs_two.chamavault.project_commons.codes.services.CodeService;
@@ -8,10 +9,7 @@ import com.dada_labs_two.chamavault.project_commons.countries.services.CountrySe
 import com.dada_labs_two.chamavault.project_commons.roles.models.Roles;
 import com.dada_labs_two.chamavault.project_commons.roles.services.RoleService;
 import com.dada_labs_two.chamavault.users.constants.Activity;
-import com.dada_labs_two.chamavault.users.dtos.AccountSuspensionDTO;
-import com.dada_labs_two.chamavault.users.dtos.ProfileActionsDTO;
-import com.dada_labs_two.chamavault.users.dtos.ProfileDTO;
-import com.dada_labs_two.chamavault.users.dtos.UsersDTO;
+import com.dada_labs_two.chamavault.users.dtos.*;
 import com.dada_labs_two.chamavault.users.models.ProfileActions;
 import com.dada_labs_two.chamavault.users.models.User;
 import com.dada_labs_two.chamavault.users.repository.ProfileActionsRepository;
@@ -37,6 +35,7 @@ public class UserService {
     private final RoleService roleService;
     private final CodeService codeService;
     private final ProfileActionService profileActionService;
+    private final MessagingService messagingService;
 
     private final UserRepository userRepository;
     private final ProfileActionsRepository  profileActionsRepository;
@@ -105,11 +104,12 @@ public class UserService {
                 ZonedDateTime.now().plusYears(5));
 
         //send OTP code
-        codeService.createCode(CodeDTO.builder()
+        Code code = codeService.createCode(CodeDTO.builder()
                         .ownerMsisdn(usersDTO.getMsisdn())
                         .active(true)
                         .name("REGISTRATION_OTP")
                 .build());
+        sendNotification(users, "REGISTRATION OTP", code);
         return users;
     }
 
@@ -141,6 +141,8 @@ public class UserService {
         User user = getUserByMsisdn(accountSuspensionDTO.getMsisdn());
         user.setSuspended(true);
         user = userRepository.save(user);
+
+        //
 
         //action
         return profileActionService.createProfileActions(user, Activity.SUSPENDED, "account_suspension",
@@ -193,14 +195,74 @@ public class UserService {
         User user = getUserByMsisdn(msisdn);
 
         //send OTP
-        codeService.createCode(CodeDTO.builder()
+        Code code = codeService.createCode(CodeDTO.builder()
                 .ownerMsisdn(msisdn)
                 .active(true)
                 .name("FORGOT_PASSWORD_OTP")
                 .build());
 
+        //send message
+        sendNotification(user, "FORGOT PASSWORD OTP", code);
+
         user.setIsVerified(false);
         userRepository.save(user);
+    }
+
+    @Transactional
+    public User updateUser(UUID userReference, UpdateUserRequest request) {
+
+        User user = userRepository.findById(userReference)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (request.getUsername() != null && !request.getUsername().isBlank())
+            user.setUsername(request.getUsername());
+
+        if (request.getMsisdn() != null && !request.getMsisdn().isBlank())
+            user.setMsisdn(request.getMsisdn());
+
+        Map<String, String> kyc = user.getKyc();
+
+        if (request.getEmail() != null) {
+            kyc.put("email", request.getEmail());
+        }
+
+        if (request.getFirstName() != null) {
+            kyc.put("firstName", request.getFirstName());
+        }
+
+        if (request.getLastName() != null) {
+            kyc.put("lastName", request.getLastName());
+        }
+
+        if (request.getIdNumber() != null) {
+            kyc.put("idNumber", request.getIdNumber());
+        }
+
+        user.setKyc(kyc);
+
+        return userRepository.save(user);
+    }
+
+
+    void sendNotification(User user, String subject, Code code) {
+        String email = user.getKyc() != null ? user.getKyc().get("email") : null;
+        if (email != null && !email.isBlank()) {
+            // send email with OTP
+            sendNotification(user, subject, "Your onetime otp is "+ code.getCode());
+        }
+    }
+
+    public void sendNotification(User user, String subject, String body) {
+        String email = user.getKyc() != null ? user.getKyc().get("email") : null;
+        if (email != null && !email.isBlank()) {
+            // send email with OTP
+            messagingService.sendEmail(email, subject, body);
+        }
+
+        profileActionService.createProfileActions(user, Activity.CREATED,"notification",
+                "Notification sent", "Systems communication",
+                "[Admins]: Please check your emails in the spam folder for an email from us!",
+                ZonedDateTime.now().plusMinutes(5));
     }
 
     ProfileDTO mapToProfileDTO(User user,  List<ProfileActions> profileActionsList) {

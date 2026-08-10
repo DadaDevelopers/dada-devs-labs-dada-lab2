@@ -11,6 +11,7 @@ import com.dada_labs_two.chamavault.payments.exchange.offramp.tando.dtos.Lightni
 import com.dada_labs_two.chamavault.payments.exchange.offramp.tando.services.TandoClient;
 import com.dada_labs_two.chamavault.users.models.User;
 import com.dada_labs_two.chamavault.users.repository.UserRepository;
+import com.dada_labs_two.chamavault.users.services.ProfileActionService;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionSource;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionType;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
@@ -43,6 +44,7 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final LightningWalletService lightningWalletService;
+    private final ProfileActionService profileActionService;
 
     private final ContributionCycleRepository cycleRepository;
     private final UserRepository userRepository;
@@ -196,6 +198,25 @@ public class TransactionService {
         syncSenderLnBitsWalletBalance(fundingWallet);
         syncSenderLnBitsWalletBalance(contributorWallet);
 
+        //send notification
+        User beneficiary = cycle.getBeneficiaryUser().getUser();
+
+        profileActionService.notifyRotationContribution(
+                contributor,
+                beneficiary,
+                cycle,
+                amountSats,
+                paymentHash2
+        );
+
+        profileActionService.notifyRotationContributionReceived(
+                beneficiary,
+                contributor,
+                cycle,
+                amountSats,
+                paymentHash2
+        );
+
         // Ledger: Lightning payment to beneficiary
         return transactionRepository.save(
                 Transaction.builder()
@@ -289,6 +310,9 @@ public class TransactionService {
             throw new InvalidObjectException("invalid phone number");
         log.info("recipientMsisdn {}", recipientMsisdn);
 
+        Wallet payerWallet = walletRepository.findById(payerWalletId)
+                .orElseThrow(() -> new RuntimeException("Payer wallet not found"));
+
         LightningPaymentResponse response = tandoClient.createOffRampingLightningPayment
                 (recipientMsisdn, amountInMilliSats);
         log.info("LightningPaymentResponse response {}", response);
@@ -298,6 +322,14 @@ public class TransactionService {
         MakeInvoicePaymentDTO makeInvoicePaymentDTO = new MakeInvoicePaymentDTO(payerWalletId, response.pr());
         Transaction transaction = makeInvoicePayment(makeInvoicePaymentDTO.payerWalletId(),
                 makeInvoicePaymentDTO.beneficiaryInvoice());
+
+
+        profileActionService.notifyOffRampPayment(
+                userRepository.getReferenceById(payerWallet.getOwnerReference()),
+                recipientMsisdn,
+                amountInMilliSats / 1000,
+                transaction.getExternalRef()
+        );
         return transaction;
     }
 
