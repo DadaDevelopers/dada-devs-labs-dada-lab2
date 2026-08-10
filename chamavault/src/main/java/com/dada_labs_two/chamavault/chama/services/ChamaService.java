@@ -160,40 +160,7 @@ public class ChamaService {
                 ZonedDateTime.now().plusYears(100));
 
         //send email if any
-        String subject = "chama created successfully";
-        String body = """
-                Your chama has been created successfully!
-                
-                CHAMA DETAILS:
-                    Name: %s
-                    Description: %s
-                    Visibility: %s
-                    Current Rotation: %s
-                    Contribution Amount: %s
-                    Max Number Of Members Allowed: %s
-                
-                We Also created a lighning wallet for all your pooled chama wallet needs!
-                
-                DEFAULT POOLED CHAMA WALLET DETAILS
-                    Wallet Name: %s
-                    Wallet Type: %s
-                    Currency: SATS(BTC)
-                    Balance In msat: %s
-                
-                For any queries please reachout to us!
-                """.formatted(chama.getName(),
-                              chama.getDescription(),
-                              chama.getVisibility(),
-                              chama.getCurrentRotationIndex(),
-                              chama.getContributionAmount(),
-                              chama.getMaxMembers(),
-                              lightningMap.get("walletName"),
-                              wallet.getWalletType(),
-                              lightningMap.get("balance_msat")
-        );
-        userService.sendNotification(creator, subject, body);
-
-
+        profileActionService.notifyChamaCreated(creator, chama, wallet) ;
 
         return chama;
     }
@@ -394,20 +361,12 @@ public class ChamaService {
                 ZonedDateTime.now().plusMonths(30));
 
         //send notification
-        String subject = "chama invite code created successfully";
-        String body = """
-                Dear %s,
-                
-                Kindly note a chama invite code has been created with the following details
-                
-                Chama Invite Code: %s
-                Code Expires At : %s
-                
-                """.formatted(chama.getCreatedBy().getKyc().get("username"),
-                              chamaInvite.getInviteCode(),
-                              chamaInvite.getExpiresAt()
-                );
-        userService.sendNotification(chama.getCreatedBy(), subject, body);
+        profileActionService.notifyInviteCreated(
+                chama.getCreatedBy(),
+                chama,
+                chamaInvite.getInviteCode().getCode(),
+                chamaInvite.getExpiresAt()
+        );
 
         return chamaInvite;
     }
@@ -424,21 +383,12 @@ public class ChamaService {
         chamaInviteRepository.save(invite);
 
         //send notification
-        String subject = "chama invite code paused successfully";
-        String body = """
-                Dear %s,
-                
-                Kindly note a chama invite code with the following details, has been paused!
-                Therefore, any attempt to use the code will fail.
-                
-                Chama Invite Code: %s
-                Code Was To Expire At : %s
-                
-                """.formatted(code.getOwner().getKyc().get("username"),
+        profileActionService.notifyInvitePaused(
+                code.getOwner(),
+                invite.getChama(),
                 code.getCode(),
-                code.getExpirationDate()
+                invite.getExpiresAt()
         );
-        userService.sendNotification(code.getOwner(), subject, body);
 
         return invite;
     }
@@ -502,39 +452,16 @@ public class ChamaService {
         chamaInviteRepository.save(chamaInvite);
 
         //send notification to user
-        String subject = "Request To Join Chama Received Successfully";
-        String body = """
-                Dear %s,
-                
-                We are glad that you have enrolled to join %s chama whose goal is %s
-                
-                Your request is being reviewed by chama admins currently.
-                
-                Reachout if you have any queries, our team is always ready to help
-                
-                """.formatted(user.getKyc().get("username"),
-                currentChama.getName(),
-                currentChama.getDescription()
-        );
-        userService.sendNotification(user, subject, body);
-
+        profileActionService.notifyJoinRequestReceived(user, currentChama);
 
         //send notification to admin
-        String subjectAdmin = "New Member has requested to Join Your Chama";
-        String bodyAdmin = """
-                Dear %s,
-                
-                You have a new member who would like to join %s chama whose goal is %s
-                
-                Checkout you admin dashboard and either approve or reject member's request.
-                
-                Reach out if you have any queries, our team is always ready to help
-                
-                """.formatted(currentChama.getCreatedBy().getKyc().get("username"),
-                currentChama.getName(),
-                currentChama.getDescription()
+        profileActionService.notifyAdminOfJoinRequest(currentChama.getCreatedBy(),user, currentChama);
+        profileActionService.notifyInviteUsed(
+                currentChama.getCreatedBy(),
+                user,
+                currentChama,
+                inviteCode.getCode()
         );
-        userService.sendNotification(currentChama.getCreatedBy(), subjectAdmin, bodyAdmin);
 
         return newChamaMember;
     }
@@ -585,6 +512,7 @@ public class ChamaService {
 
         if (!action.equalsIgnoreCase("approve")) {
             log.info("Not Approve chama member");
+            profileActionService.notifyJoinRequestRejected(chamaMember.getUser(), chama);
             return chamaMember;
         }
 
@@ -603,11 +531,7 @@ public class ChamaService {
                 "[Admins]: Your request to join chama!"+ chama.getName() +" was "+ status,
                 ZonedDateTime.now());
         //send user notification
-        userService.sendNotification(
-                prospect.getUser(),
-                "Approved Request To Join Chama", "Dear "+ prospect.getUser().getUsername() +
-                        "Your request to join chama: "+ chama.getName() + " has been approved by the admins." +
-                        "Continue checking chama status and contributing to be come an active member");
+        profileActionService.notifyJoinRequestApproved(prospect.getUser(), chama);
 
         profileActionService.createProfileActions(chama.getCreatedBy(), Activity.USER_REQUEST_REJECTED,
                 "join chama approval status",
@@ -646,39 +570,11 @@ public class ChamaService {
                     ZonedDateTime.now().plusDays(100));
 
             //send notification to user
-            String subject = "Request To Join Chama Received Successfully";
-            String body = """
-                Dear %s,
-                
-                We are glad that you have enrolled to join %s chama whose goal is %s
-                
-                Your request is being reviewed by chama admins currently.
-                
-                Reachout if you have any queries, our team is always ready to help
-                
-                """.formatted(user.getKyc().get("username"),
-                    chama.getName(),
-                    chama.getDescription()
-            );
-            userService.sendNotification(user, subject, body);
+            profileActionService.notifyJoinRequestReceived(user, chama);
 
 
             //send notification to admin
-            String subjectAdmin = "New Member has requested to Join Your Chama";
-            String bodyAdmin = """
-                Dear %s,
-                
-                You have a new member who would like to join %s chama whose goal is %s
-                
-                Checkout you admin dashboard and either approve or reject member's request.
-                
-                Reach out if you have any queries, our team is always ready to help
-                
-                """.formatted(chama.getCreatedBy().getKyc().get("username"),
-                    chama.getName(),
-                    chama.getDescription()
-            );
-            userService.sendNotification(chama.getCreatedBy(), subjectAdmin, bodyAdmin);
+            profileActionService.notifyAdminOfJoinRequest(chama.getCreatedBy(), user, chama);
         } else {
             throw  new RuntimeException("user is null");
         }

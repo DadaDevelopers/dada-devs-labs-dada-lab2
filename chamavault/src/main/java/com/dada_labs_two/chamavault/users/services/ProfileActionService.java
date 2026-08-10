@@ -1,5 +1,6 @@
 package com.dada_labs_two.chamavault.users.services;
 
+import com.dada_labs_two.chamavault.chama.models.Chama;
 import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
 import com.dada_labs_two.chamavault.messaging.service.MessagingService;
 import com.dada_labs_two.chamavault.users.constants.Activity;
@@ -7,6 +8,7 @@ import com.dada_labs_two.chamavault.users.models.ProfileActions;
 import com.dada_labs_two.chamavault.users.models.User;
 import com.dada_labs_two.chamavault.users.repository.ProfileActionsRepository;
 import com.dada_labs_two.chamavault.users.repository.UserRepository;
+import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -79,31 +81,40 @@ public class ProfileActionService {
             Long amountSats,
             String paymentHash
     ) {
-        String subject = "Rotation contribution successful";
+        String beneficiaryName = getDisplayName(beneficiary);
+        String contributorName = getDisplayName(contributor);
+
+        String subject = "Your Chama contribution is on its way!";
 
         String body = """
-            Dear %s,
+            Hi %s!
             
-            Your contribution for Rotation %d has been successfully processed.
+            Great news — your contribution for Rotation %d has been
+            successfully processed.
             
-            Contribution details:
-            Amount: %,d sats
-            Beneficiary: %s
+             Contribution: %,d sats
+             Going to: %s
+            
+            Your contribution has been sent towards %s's rotation.
+            
+            Thank you for keeping the Chama moving! 
+            
             Payment reference: %s
             
-            Your contribution has been sent to the beneficiary's contribution wallet.
+            If you didn't expect this payment, please get in touch with
+            the ChamaVault team.
             
-            Thank you for your contribution.
-            
-            Regards,
-            ChamaVault
+            Warmly,
+            The ChamaVault Team 💜
             """.formatted(
-                contributor.getUsername(),
+                contributorName,
                 cycle.getRotationIndex(),
                 amountSats,
-                beneficiary.getUsername(),
+                beneficiaryName,
+                beneficiaryName,
                 paymentHash
         );
+
 
         sendNotification(contributor, subject, body);
     }
@@ -115,28 +126,34 @@ public class ProfileActionService {
             Long amountSats,
             String paymentHash
     ) {
-        String subject = "Rotation contribution received";
+        String contributorName = getDisplayName(contributor);
+
+        String subject = "You've received a Chama contribution!";
 
         String body = """
-            Dear %s,
+            Hi %s! 
             
-            You have received a contribution for Rotation %d.
+            Good news — you've received a contribution towards
+            Rotation %d of your Chama.
             
-            Contribution details:
-            Amount: %,d sats
-            Contributor: %s
+             Amount: %,d sats
+             From: %s
+            
+            Your contribution has been successfully processed and
+            added towards your rotation.
+            
+            Every contribution brings the Chama one step closer.
+            Thanks for being part of it! 💜
+            
             Payment reference: %s
             
-            The contribution has been successfully processed and credited
-            towards your rotation.
-            
-            Regards,
-            ChamaVault
+            Warmly,
+            The ChamaVault Team
             """.formatted(
-                beneficiary.getUsername(),
+                getDisplayName(beneficiary),
                 cycle.getRotationIndex(),
                 amountSats,
-                contributor.getUsername(),
+                contributorName,
                 paymentHash
         );
 
@@ -149,41 +166,395 @@ public class ProfileActionService {
             Long amountSats,
             String paymentHash
     ) {
-        String subject = "Off-ramp payment successful";
+        String subject = " Your off-ramp payment is on its way!";
 
         String body = """
-            Dear %s,
+            Hi %s! 
             
-            Your off-ramp payment has been successfully initiated.
+            We've successfully processed your off-ramp payment.
             
-            Payment details:
-            Amount: %,d sats
-            Recipient: %s
-            Lightning payment reference: %s
+             Amount: %,d sats
+             Recipient: %s
             
-            The Lightning payment has been sent to the off-ramp provider
-            for conversion to mobile money.
+            Your Lightning payment has been sent is currently being processed
+             for conversion to mobile money.
             
-            Please note that final mobile-money settlement is subject to
-            the off-ramp provider's processing.
+            The mobile-money portion may take a little longer to
+            complete depending on the provider's processing time.
             
-            Regards,
-            ChamaVault
+            We'll keep you informed if anything else is needed.
+            
+            Payment reference: %s
+            
+            Thanks for using ChamaVault! 💜
+            
+            Warmly,
+            The ChamaVault Team
             """.formatted(
-                payer.getUsername(),
+                getDisplayName(payer),
                 amountSats,
-                recipientMsisdn,
+                maskPhoneNumber(recipientMsisdn),
                 paymentHash
         );
 
         sendNotification(payer, subject, body);
     }
 
+    public void notifyChamaCreated(User creator, Chama chama, Wallet wallet) {
+
+        String subject = " Your Chama is ready!";
+
+        String body = """
+            Hi %s! 
+            
+            Great news — your Chama, "%s", has been created successfully!
+            
+            Here's a quick look at your new Chama:
+            
+              Chama: %s
+              Contribution: %,d sats
+              Maximum members: %d
+              Visibility: %s
+              Current rotation: %d
+            
+            We've also set up a Lightning wallet for your Chama. This
+            wallet can be used for pooled Chama funds and other group
+            transactions.
+            
+            Your Chama is now ready for you to start inviting members
+            and building together. 
+            
+            Welcome to ChamaVault — we're happy to have you here! 💜
+            
+            Warmly,
+            The ChamaVault Team
+            """.formatted(
+                creator.getUsername(),
+                chama.getName(),
+                chama.getName(),
+                chama.getContributionAmount(),
+                chama.getMaxMembers(),
+                chama.getVisibility(),
+                chama.getCurrentRotationIndex()
+        );
+
+        sendNotification(creator, subject, body);
+    }
+
+    public void notifyJoinRequestReceived(
+            User applicant,
+            Chama chama
+    ) {
+        String subject = " Your request to join %s is in!".formatted(chama.getName());
+
+        String body = """
+            Hi %s!
+            
+            Thanks for wanting to be part of "%s"!
+            
+            We've received your request to join the Chama and the
+            admins are now taking a look.
+            
+              Contribution: %,d sats
+              Chama: %s
+            
+            For now, there's nothing else you need to do. We'll let
+            you know as soon as the admins make a decision.
+            
+            Fingers crossed!
+            
+            Warmly,
+            The ChamaVault Team 💜
+            """.formatted(
+                applicant.getUsername(),
+                chama.getName(),
+                chama.getContributionAmount(),
+                chama.getName()
+        );
+
+        sendNotification(applicant, subject, body);
+    }
+
+    public void notifyAdminOfJoinRequest(
+            User admin,
+            User applicant,
+            Chama chama
+    ) {
+        String subject = "Someone wants to join %s".formatted(chama.getName());
+
+        String body = """
+            Hi %s!
+            
+            You have a new request to join "%s".
+            
+              Applicant: %s
+              Contact: %s
+              Contribution: %,d sats
+            
+            Head over to your Chama dashboard to review the request
+            and decide whether you'd like to approve it.
+            
+            Your Chama is growing!
+            
+            Warmly,
+            The ChamaVault Team 💜
+            """.formatted(
+                admin.getUsername(),
+                chama.getName(),
+                getDisplayName(applicant),
+                maskPhoneNumber(applicant.getMsisdn()),
+                chama.getContributionAmount()
+        );
+
+        sendNotification(admin, subject, body);
+    }
+
+    public void notifyJoinRequestApproved(
+            User member,
+            Chama chama
+    ) {
+        String subject = "You're officially part of %s!".formatted(chama.getName());
+
+        String body = """
+            Hi %s!
+            
+            Great news — your request to join "%s" has been approved!
+            
+            You're officially part of the Chama.
+            
+             Contribution: %,d sats
+            
+            You can now head over to your Chama dashboard, keep an eye
+            on the current rotation, and make your contributions when
+            they're due.
+            
+            Welcome to the team!
+            
+            We're excited to have you with us.
+            
+            Warmly,
+            The ChamaVault Team 💜
+            """.formatted(
+                member.getUsername(),
+                chama.getName(),
+                chama.getContributionAmount()
+        );
+
+        sendNotification(member, subject, body);
+    }
+
+    public void notifyJoinRequestRejected(
+            User member,
+            Chama chama
+    ) {
+        String subject = "Update on your %s request".formatted(chama.getName());
+
+        String body = """
+            Hi %s,
+            
+            Thanks for your interest in joining "%s".
+            
+            Unfortunately, the Chama admins weren't able to approve
+            your request at this time.
+            
+            We know that's not the news you were hoping for, but there
+            are plenty of other Chamas on ChamaVault that you may find
+            a good fit.
+            
+            Thanks for giving it a try, and we hope to see you around!
+            
+            Warmly,
+            The ChamaVault Team
+            """.formatted(
+                member.getUsername(),
+                chama.getName()
+        );
+
+        sendNotification(member, subject, body);
+    }
+
+    public void notifyInviteCreated(
+            User admin,
+            Chama chama,
+            String inviteCode,
+            ZonedDateTime expiresAt
+    ) {
+        String subject = "Your Chama invite code is ready!";
+
+        String body = """
+        Hi %s!
+        
+        Your invite code for "%s" has been created successfully.
+        
+         Chama: %s
+         Invite code: %s
+         Expires: %s
+        
+        You can share this invite code with the people you'd
+        like to invite to your Chama.
+        
+        Please keep the invite code private and only share it
+        with people you trust.
+        
+        Warmly,
+        The ChamaVault Team 💜
+        """.formatted(
+                getDisplayName(admin),
+                chama.getName(),
+                chama.getName(),
+                inviteCode,
+                expiresAt
+        );
+
+        sendNotification(admin, subject, body);
+    }
+
+
+    public void notifyInvitePaused(
+            User admin,
+            Chama chama,
+            String inviteCode,
+            ZonedDateTime expiresAt
+    ) {
+        String subject = "Your Chama invite code has been paused";
+
+        String body = """
+        Hi %s!
+        
+        The invite code for "%s" has been paused.
+        
+         Chama: %s
+         Invite code: %s
+         Original expiry: %s
+        
+        While the invite is paused, nobody will be able to use
+        this code to join the Chama.
+        
+        If you need to allow new members to join using this code,
+        you can reactivate it from your Chama dashboard.
+        
+        Warmly,
+        The ChamaVault Team 💜
+        """.formatted(
+                getDisplayName(admin),
+                chama.getName(),
+                chama.getName(),
+                inviteCode,
+                expiresAt
+        );
+
+        sendNotification(admin, subject, body);
+    }
+
+
+    public void notifyInviteUsed(
+            User admin,
+            User newMember,
+            Chama chama,
+            String inviteCode
+    ) {
+        String subject = "Your Chama invite code was used";
+
+        String body = """
+        Hi %s!
+        
+        Someone has used your invite code to request to join
+        "%s".
+        
+         Chama: %s
+         New member: %s
+         Invite code: %s
+        
+        The member's request is now awaiting approval from a
+        Chama administrator.
+        
+        Please head over to your Chama dashboard to review
+        the request.
+        
+        Your Chama is growing! 💜
+        
+        Warmly,
+        The ChamaVault Team
+        """.formatted(
+                getDisplayName(admin),
+                chama.getName(),
+                chama.getName(),
+                getDisplayName(newMember),
+                inviteCode
+        );
+
+        sendNotification(admin, subject, body);
+    }
+
+
+    /*
+public void notifyInviteCreated(...)
+public void notifyInvitePaused(...)
+public void notifyJoinRequest(...)
+public void notifyJoinRequestApproved(...)
+public void notifyJoinRequestRejected(...)
+     */
+
     public void sendNotification(User user, String subject, String body) {
-        String email = user.getKyc() != null ? user.getKyc().get("email") : null;
-        if (email != null && !email.isBlank()) {
-            // send email
-            messagingService.sendEmail(email, subject, body);
+        if (user == null) {
+            log.warn("Unable to send notification: user is null");
+            return;
         }
+
+        String email = user.getKyc() != null
+                ? user.getKyc().get("email")
+                : null;
+
+        if (StringUtils.isBlank(email)) {
+            log.info(
+                    "No email address available for user {}. Skipping notification '{}'",
+                    user.getUsername(),
+                    subject
+            );
+            return;
+        }
+
+        try {
+            messagingService.sendEmail(email, subject, body);
+
+            log.info(
+                    "Notification '{}' sent to user {}",
+                    subject,
+                    user.getUsername()
+            );
+        } catch (Exception e) {
+            log.error(
+                    "Failed to send notification '{}' to user {}",
+                    subject,
+                    user.getUsername(),
+                    e
+            );
+        }
+    }
+
+    private String getDisplayName(User user) {
+        if (user.getKyc() != null) {
+            String name = user.getKyc().get("firstName");
+
+            if (StringUtils.isNotBlank(name)) {
+                return name;
+            }
+
+            name = user.getKyc().get("username");
+
+            if (StringUtils.isNotBlank(name)) {
+                return name;
+            }
+        }
+
+        return user.getUsername();
+    }
+
+    private String maskPhoneNumber(String phoneNumber) {
+        if (StringUtils.isBlank(phoneNumber) || phoneNumber.length() < 4) {
+            return phoneNumber;
+        }
+
+        return "****" + phoneNumber.substring(phoneNumber.length() - 4);
     }
 }
