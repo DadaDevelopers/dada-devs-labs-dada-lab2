@@ -618,6 +618,97 @@ public class ProfileActionService {
         sendNotification(beneficiary, subject, body);
     }
 
+    public void notifyOnRampInitiated(
+            User sender,
+            User recipient,
+            Long amountSats,
+            String mpesaPhone,
+            String invoice
+    ) {
+        String subject = "Your M-Pesa wallet funding request is being processed";
+
+        String body = """
+        Hi %s!
+        
+        We've received your request to fund %s ChamaVault wallet using
+        M-Pesa.
+        
+         Amount: %,d sats
+         Wallet recipient: %s
+         M-Pesa number: %s
+        
+        Your request has been successfully submitted and is now being
+        processed.
+        
+        The sats will be credited to the recipient's wallet once the
+        M-Pesa processing is completed.
+        
+        Payment reference:
+        %s
+        
+        If you didn't initiate this request, please contact the
+        ChamaVault team.
+        
+        Thanks for using ChamaVault! 💜
+        
+        Warmly,
+        The ChamaVault Team
+        """.formatted(
+                getDisplayName(sender),
+                getDisplayName(recipient),
+                amountSats,
+                getDisplayName(recipient),
+                maskPhoneNumber(mpesaPhone),
+                invoice
+        );
+
+        sendNotification(sender, subject, body);
+    }
+
+
+    public void notifyOnRampRecipient(
+            User recipient,
+            User sender,
+            Long amountSats,
+            String mpesaPhone,
+            String invoice
+    ) {
+        String subject = "Your ChamaVault wallet is being funded";
+
+        String body = """
+        Hi %s!
+        
+        Someone has initiated an M-Pesa funding request for your
+        ChamaVault wallet.
+        
+         Amount: %,d sats
+         Initiated by: %s
+         M-Pesa number: %s
+        
+        The request has been submitted and the sats will be credited
+        to your wallet once the M-Pesa processing is completed.
+        
+        Payment reference:
+        %s
+        
+        If you did not expect this wallet funding request, please
+        contact the ChamaVault team.
+        
+        Thanks for using ChamaVault! 💜
+        
+        Warmly,
+        The ChamaVault Team
+        """.formatted(
+                getDisplayName(recipient),
+                amountSats,
+                getDisplayName(sender),
+                maskPhoneNumber(mpesaPhone),
+                invoice
+        );
+
+        sendNotification(recipient, subject, body);
+    }
+
 
     /*
 public void notifyInviteCreated(...)
