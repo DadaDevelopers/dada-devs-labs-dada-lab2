@@ -1,64 +1,147 @@
 package com.dada_labs_two.chamavault.messaging.integrations.gmail.service;
 
 import com.dada_labs_two.chamavault.messaging.dtos.RecipientDTO;
-import com.dada_labs_two.chamavault.messaging.models.Messages;
+import com.google.api.services.gmail.Gmail;
+import com.google.api.services.gmail.model.Message;
+import jakarta.mail.Message.RecipientType;
 import jakarta.mail.MessagingException;
+import jakarta.mail.Session;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.Arrays;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-
-import static reactor.netty.http.HttpConnectionLiveness.log;
+import java.util.Properties;
 
 @Service
 public class EmailService {
-    private final JavaMailSender mailSender;
 
-    public EmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
+    private final Gmail gmail;
+
+    private final String senderEmail;
+
+    public EmailService(
+            Gmail gmail,
+            @Value("${gmail.sender-email}") String senderEmail
+    ) {
+        this.gmail = gmail;
+        this.senderEmail = senderEmail;
     }
 
-    public void sendEmail(String to, String subject, String body){
-        log.debug("start process of sending email via GMAIL");
+    public void sendEmail(
+            String to,
+            String subject,
+            String body
+    ) {
 
         try {
-            MimeMessage email =  mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(email, true);
 
-            helper.setFrom("ChamaVault");
-            helper.setTo(mapper(List.of(new RecipientDTO(to, to))));
-            helper.setSubject(subject);
-            helper.setText(body);
-            log.info("email to be sent {}", email);
-            mailSender.send(email);
+            MimeMessage email = createEmail(
+                    to,
+                    subject,
+                    body
+            );
 
-        } catch (MessagingException e) {
-            throw new RuntimeException(e);
+            Message message = createGmailMessage(email);
+
+            Message sentMessage = gmail.users()
+                    .messages()
+                    .send("me", message)
+                    .execute();
+
+            System.out.println(
+                    "Email sent successfully. Gmail message ID: "
+                            + sentMessage.getId()
+            );
+
+        } catch (MessagingException | IOException e) {
+
+            throw new RuntimeException(
+                    "Failed to send email via Gmail API",
+                    e
+            );
         }
     }
 
-    private InternetAddress[] mapper(Collection<RecipientDTO> emails) {
-        log.info("Mapping Emails to Internet Address <<start>>");
+    private MimeMessage createEmail(
+            String to,
+            String subject,
+            String body
+    ) throws MessagingException, UnsupportedEncodingException {
 
-        var internetAddresses = emails.stream().map(emailAddressDTO -> {
-            try {
-                return  new InternetAddress(emailAddressDTO.recipient(), emailAddressDTO.name());
-            } catch (UnsupportedEncodingException e) {
-                log.error("failed to map email {} skipping", emailAddressDTO.recipient());
-            }
-            return null;
-        }).filter(Objects::nonNull).toList().toArray(InternetAddress[]:: new);
+        Properties properties = new Properties();
 
-        log.info("array of internet address {}", Arrays.toString(internetAddresses));
+        Session session =
+                Session.getInstance(properties);
 
-        return internetAddresses;
+        MimeMessage email =
+                new MimeMessage(session);
+
+        /*
+         * Sender
+         */
+        email.setFrom(
+                new InternetAddress(
+                        senderEmail,
+                        "ChamaVault"
+                )
+        );
+
+        /*
+         * Recipient
+         */
+        email.setRecipient(
+                RecipientType.TO,
+                new InternetAddress(to)
+        );
+
+        /*
+         * Subject
+         */
+        email.setSubject(
+                subject,
+                StandardCharsets.UTF_8.name()
+        );
+
+        /*
+         * Body
+         */
+        email.setText(
+                body,
+                StandardCharsets.UTF_8.name()
+        );
+
+        return email;
+    }
+
+    private Message createGmailMessage(
+            MimeMessage email
+    ) throws MessagingException, IOException {
+
+        ByteArrayOutputStream buffer =
+                new ByteArrayOutputStream();
+
+        email.writeTo(buffer);
+
+        String encodedEmail =
+                Base64.getUrlEncoder()
+                        .withoutPadding()
+                        .encodeToString(
+                                buffer.toByteArray()
+                        );
+
+        Message message = new Message();
+
+        message.setRaw(encodedEmail);
+
+        return message;
     }
 }
