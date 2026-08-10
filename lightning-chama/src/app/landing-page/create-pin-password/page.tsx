@@ -89,6 +89,7 @@ export default function SetPinPage() {
       localStorage.setItem("token", data.token);
       localStorage.setItem("userReference", data.user.userReference);
       localStorage.setItem("msisdn", data.user.msisdn);
+      sessionStorage.removeItem('email_prompt_dismissed');
 
       router.push("/userdashboard");
     } catch {

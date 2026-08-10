@@ -71,6 +71,13 @@ type ApiErrorResponse = {
   timestamp?: string;
 };
 
+type UserProfile = {
+  msisdn?: string;
+  username?: string;
+  email?: string;
+  kyc?: Record<string, unknown> & { email?: string };
+};
+
 const TOUR_STEPS: TourStep[] = [
   {
     target: null,
@@ -111,6 +118,11 @@ const TOUR_STEPS: TourStep[] = [
 
 // Main Dashboard Component
 export default function Dashboard() {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [emailPromptOpen, setEmailPromptOpen] = useState(false);
+  const [emailValue, setEmailValue] = useState('');
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailError, setEmailError] = useState('');
   const [activities, setActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [activityError, setActivityError] = useState('');
@@ -254,6 +266,12 @@ export default function Dashboard() {
         
         const data = await res.json();
 
+        setProfile(data);
+        const email = data.kyc?.email || data.email;
+        if (!email && sessionStorage.getItem('email_prompt_dismissed') !== 'true') {
+          setEmailPromptOpen(true);
+        }
+
         // Sort newest first
         const sortedActions = (data.actions || []).sort(
           (a: any, b: any) =>
@@ -317,6 +335,59 @@ export default function Dashboard() {
     fetchRecentTransactions();
     fetchWallets();
   }, []);
+
+  const dismissEmailPrompt = () => {
+    sessionStorage.setItem('email_prompt_dismissed', 'true');
+    setEmailPromptOpen(false);
+    setEmailError('');
+  };
+
+  const saveEmail = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const email = emailValue.trim();
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      setEmailError('Enter a valid email address.');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    const msisdn = profile?.msisdn || localStorage.getItem('msisdn');
+    if (!token || !msisdn || !profile?.username) {
+      setEmailError('Your profile could not be loaded. Please try again.');
+      return;
+    }
+
+    try {
+      setEmailSaving(true);
+      setEmailError('');
+      const response = await fetch(
+        'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/users/profile/user',
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            msisdn,
+            username: profile.username,
+            email,
+            kyc: { ...profile.kyc, email: undefined, receiveNewsletter: 'yes' },
+          }),
+        }
+      );
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.message || data?.error || 'Unable to save your email.');
+      }
+      setProfile(data || { ...profile, email });
+      setEmailPromptOpen(false);
+    } catch (error) {
+      setEmailError(error instanceof Error ? error.message : 'Unable to save your email.');
+    } finally {
+      setEmailSaving(false);
+    }
+  };
 
   /* =========================
      ESC KEY SUPPORT
@@ -1026,6 +1097,38 @@ export default function Dashboard() {
       </main>
 
       <OnboardingTour steps={TOUR_STEPS} storageKey="dashboard_tour_seen" />
+
+      {emailPromptOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 text-gray-900" role="dialog" aria-modal="true" aria-labelledby="email-prompt-title">
+          <button className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={dismissEmailPrompt} aria-label="Dismiss email prompt" />
+          <form onSubmit={saveEmail} className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <button type="button" onClick={dismissEmailPrompt} className="absolute right-4 top-4 rounded-full p-1 text-gray-500 hover:bg-gray-100" aria-label="Close">
+              <X className="h-5 w-5" />
+            </button>
+            <h2 id="email-prompt-title" className="pr-8 text-xl font-semibold">Add your email</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Get important account and chama notifications by email. You can skip this and add it later from your profile.
+            </p>
+            <label htmlFor="notification-email" className="mt-5 block text-sm font-medium">Email address</label>
+            <input
+              id="notification-email"
+              type="email"
+              value={emailValue}
+              onChange={(event) => { setEmailValue(event.target.value); setEmailError(''); }}
+              placeholder="you@example.com"
+              autoFocus
+              className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            />
+            {emailError && <p className="mt-2 text-sm text-red-600">{emailError}</p>}
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button type="button" onClick={dismissEmailPrompt} className="rounded-xl px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-100">Maybe later</button>
+              <button type="submit" disabled={emailSaving} className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+                {emailSaving ? 'Saving…' : 'Save email'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* ================= ACTIVITY MODAL ================= */}
       {selectedAction && (

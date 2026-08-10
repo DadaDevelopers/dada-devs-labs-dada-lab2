@@ -23,7 +23,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 
-type EditField = 'name' | 'phone' | null;
+type EditField = 'name' | 'phone' | 'email' | null;
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -33,6 +33,8 @@ export default function ProfilePage() {
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('Your Name');
   const [displayPhone, setDisplayPhone] = useState('—');
+  const [displayEmail, setDisplayEmail] = useState('');
+  const [profileKyc, setProfileKyc] = useState<Record<string, unknown>>({});
 
   // ── name / phone bottom-sheet ────────────────────────────
   const [editField, setEditField] = useState<EditField>(null);
@@ -70,6 +72,8 @@ export default function ProfilePage() {
           const data = await res.json();
           setDisplayName(data.username || data.name || 'Your Name');
           setDisplayPhone(data.msisdn || msisdn || '—');
+          setDisplayEmail(data.kyc?.email || data.email || '');
+          setProfileKyc(data.kyc || {});
         } else {
           setDisplayPhone(msisdn || '—');
         }
@@ -102,7 +106,7 @@ export default function ProfilePage() {
   const openEdit = (field: EditField) => {
     setSaveSuccess(false);
     setSaveError('');
-    setEditValue(field === 'name' ? displayName : displayPhone);
+    setEditValue(field === 'name' ? displayName : field === 'phone' ? displayPhone : displayEmail);
     setEditField(field);
   };
 
@@ -116,13 +120,20 @@ export default function ProfilePage() {
     setSaving(true);
     setSaveError('');
     try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Not authenticated');
+
+      let nextName = displayName;
+      let nextPhone = displayPhone;
+      let nextEmail = displayEmail;
+
       if (editField === 'name') {
         if (!editValue.trim()) {
           setSaveError('Name cannot be empty.');
           setSaving(false);
           return;
         }
-        setDisplayName(editValue.trim());
+        nextName = editValue.trim();
       } else if (editField === 'phone') {
         const cleaned = editValue.trim();
         if (!cleaned) {
@@ -135,14 +146,47 @@ export default function ProfilePage() {
           setSaving(false);
           return;
         }
-        setDisplayPhone(cleaned);
-        localStorage.setItem('msisdn', cleaned);
+        nextPhone = cleaned;
+      } else if (editField === 'email') {
+        const cleaned = editValue.trim();
+        if (!/^\S+@\S+\.\S+$/.test(cleaned)) {
+          setSaveError('Enter a valid email address.');
+          setSaving(false);
+          return;
+        }
+        nextEmail = cleaned;
       }
-      await new Promise((r) => setTimeout(r, 450));
+
+      const response = await fetch(
+        'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/users/profile/user',
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            msisdn: nextPhone,
+            username: nextName,
+            email: nextEmail || undefined,
+            kyc: { ...profileKyc, email: undefined },
+          }),
+        }
+      );
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.message || data?.error || 'Unable to update your profile.');
+      }
+
+      setDisplayName(data?.username || nextName);
+      setDisplayPhone(data?.msisdn || nextPhone);
+      setDisplayEmail(data?.kyc?.email || data?.email || nextEmail);
+      setProfileKyc(data?.kyc || profileKyc);
+      localStorage.setItem('msisdn', data?.msisdn || nextPhone);
       setSaveSuccess(true);
       setTimeout(closeEdit, 900);
-    } catch {
-      setSaveError('Something went wrong. Please try again.');
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -288,13 +332,27 @@ export default function ProfilePage() {
 
             {/* Phone Number */}
             <button
-              onClick={() => openEdit('phone')}
               className="flex flex-row justify-between items-center px-4 py-4 w-full text-left hover:bg-slate-50 transition-colors"
             >
               <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                 <span className="text-[10px] font-bold uppercase tracking-[-0.5px]" style={{ color: '#94A3B8' }}>Phone Number</span>
                 <span className="text-base font-medium leading-6 truncate" style={{ color: '#0F172A' }}>
                   {loading ? <span className="inline-block w-32 h-5 bg-slate-200 rounded animate-pulse" /> : displayPhone}
+                </span>
+              </div>
+            </button>
+
+            <div style={{ height: 1, background: '#F1F5F9', margin: '0 16px' }} />
+
+            {/* Email Address */}
+            <button
+              onClick={() => openEdit('email')}
+              className="flex flex-row justify-between items-center px-4 py-4 w-full text-left hover:bg-slate-50 transition-colors"
+            >
+              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-[-0.5px]" style={{ color: '#94A3B8' }}>Email Address</span>
+                <span className="text-base font-medium leading-6 truncate" style={{ color: displayEmail ? '#0F172A' : '#94A3B8' }}>
+                  {loading ? <span className="inline-block w-36 h-5 bg-slate-200 rounded animate-pulse" /> : displayEmail || 'Add an email (optional)'}
                 </span>
               </div>
               <div className="flex items-center justify-center w-8 h-8 rounded-full ml-2 shrink-0" style={{ background: '#F1F5F9' }}>
@@ -495,7 +553,7 @@ export default function ProfilePage() {
 
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold" style={{ color: '#0F172A' }}>
-                  {editField === 'name' ? 'Edit Full Name' : 'Edit Phone Number'}
+                  {editField === 'name' ? 'Edit Full Name' : editField === 'phone' ? 'Edit Phone Number' : 'Edit Email Address'}
                 </h3>
                 <button onClick={closeEdit} className="w-8 h-8 flex items-center justify-center rounded-full" style={{ background: '#F1F5F9' }}>
                   <X className="w-4 h-4" style={{ color: '#64748B' }} />
@@ -504,13 +562,13 @@ export default function ProfilePage() {
 
               <div className="flex flex-col gap-2 mb-6">
                 <label className="text-xs font-bold uppercase tracking-[1px]" style={{ color: '#94A3B8' }}>
-                  {editField === 'name' ? 'Full Name' : 'Phone Number'}
+                  {editField === 'name' ? 'Full Name' : editField === 'phone' ? 'Phone Number' : 'Email Address'}
                 </label>
                 <input
-                  type={editField === 'phone' ? 'tel' : 'text'}
+                  type={editField === 'phone' ? 'tel' : editField === 'email' ? 'email' : 'text'}
                   value={editValue}
                   onChange={(e) => { setEditValue(e.target.value); if (saveError) setSaveError(''); }}
-                  placeholder={editField === 'name' ? 'Enter your full name' : 'e.g. 254700000000'}
+                  placeholder={editField === 'name' ? 'Enter your full name' : editField === 'phone' ? 'e.g. 254700000000' : 'you@example.com'}
                   autoFocus
                   className="w-full h-12 px-4 rounded-xl text-base outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                   style={{
