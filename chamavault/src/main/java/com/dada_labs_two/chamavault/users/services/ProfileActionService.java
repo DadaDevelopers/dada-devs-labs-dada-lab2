@@ -486,6 +486,138 @@ public class ProfileActionService {
         sendNotification(admin, subject, body);
     }
 
+    public void notifyContributionCycleStarted(
+            User beneficiary,
+            Chama chama,
+            ContributionCycle cycle
+    ) {
+        String beneficiaryName = getDisplayName(beneficiary);
+
+        String subject = "Your Chama rotation has started!";
+
+        String body = """
+        Hi %s!
+        
+        It's your turn! Your contribution rotation for "%s" has
+        officially started.
+        
+         Rotation: %d
+         Contribution per member: %,d sats
+         Expected total: %,d sats
+         Start date: %s
+         Contribution deadline: %s
+        
+        Contributions from the other Chama members will be collected
+        towards your rotation during this cycle.
+        
+        You can keep an eye on your Chama dashboard to track the
+        progress of your rotation.
+        
+        We'll let you know as contributions come in.
+        
+        Good luck with your rotation! 💜
+        
+        Warmly,
+        The ChamaVault Team
+        """.formatted(
+                beneficiaryName,
+                chama.getName(),
+                cycle.getRotationIndex(),
+                cycle.getContributionAmount(),
+                cycle.getExpectedTotalContributionAmount(),
+                cycle.getStartAt(),
+                cycle.getEndAt()
+        );
+
+        sendNotification(beneficiary, subject, body);
+    }
+
+
+    public void notifyContributionDue(
+            User contributor,
+            User beneficiary,
+            Chama chama,
+            ContributionCycle cycle
+    ) {
+        String contributorName = getDisplayName(contributor);
+        String beneficiaryName = getDisplayName(beneficiary);
+
+        String subject = "Your Chama contribution is due";
+
+        String body = """
+        Hi %s!
+        
+        A new contribution cycle has started for "%s".
+        
+        Your contribution is expected to go towards %s's rotation.
+        
+         Rotation: %d
+         Amount due: %,d sats
+         Deadline: %s
+        
+        Please make your contribution before the deadline to help keep
+        the Chama rotation running smoothly.
+        
+        You can make your payment from your Chama dashboard.
+        
+        Thanks for keeping the Chama moving! 💜
+        
+        Warmly,
+        The ChamaVault Team
+        """.formatted(
+                contributorName,
+                chama.getName(),
+                beneficiaryName,
+                cycle.getRotationIndex(),
+                cycle.getContributionAmount(),
+                cycle.getEndAt()
+        );
+
+        sendNotification(contributor, subject, body);
+    }
+
+
+    public void notifyContributionCycleClosed(
+            User beneficiary,
+            Chama chama,
+            ContributionCycle cycle
+    ) {
+        String beneficiaryName = getDisplayName(beneficiary);
+
+        String subject = "Your Chama rotation has ended";
+
+        String body = """
+        Hi %s!
+        
+        Your contribution rotation for "%s" has now ended.
+        
+         Rotation: %d
+         Expected contribution: %,d sats
+         Collected: %,d sats
+         Deadline: %s
+        
+        Thank you for being part of the Chama.
+        
+        If the expected amount was not fully collected, please check
+        your Chama dashboard for the current status and any outstanding
+        contributions.
+        
+        We appreciate you helping keep the Chama moving! 💜
+        
+        Warmly,
+        The ChamaVault Team
+        """.formatted(
+                beneficiaryName,
+                chama.getName(),
+                cycle.getRotationIndex(),
+                cycle.getExpectedTotalContributionAmount(),
+                cycle.getCurrentTotalContributionAmount(),
+                cycle.getEndAt()
+        );
+
+        sendNotification(beneficiary, subject, body);
+    }
+
 
     /*
 public void notifyInviteCreated(...)
