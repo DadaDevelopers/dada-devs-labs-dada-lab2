@@ -16,6 +16,7 @@ import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.LnurlPayLi
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
 import com.dada_labs_two.chamavault.users.constants.Activity;
+import com.dada_labs_two.chamavault.users.models.User;
 import com.dada_labs_two.chamavault.users.services.ProfileActionService;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
@@ -120,21 +121,46 @@ public class ContributionCycleService {
         );
 
         //notify
-        profileActionService.createProfileActions(beneficiary.getUser(), Activity.STARTED,"Your turn",
+        profileActionService.createProfileActions(
+                beneficiary.getUser(),
+                Activity.STARTED,
+                "Your turn",
                 "chama contribution cycle created successfully",
-                "You're next in the contribution cycle, expect contributions by " + cycle.getEndAt(),
+                "You're next in the contribution cycle, expect contributions by "
+                        + cycle.getEndAt(),
                 "[Admins]: ",
-                cycle.getEndAt());
+                cycle.getEndAt()
+        );
+        profileActionService.notifyContributionCycleStarted(
+                beneficiary.getUser(),
+                chama,
+                cycle
+        );
 
         for (ChamaMember member : activeMembers) {
             if (member == beneficiary) continue;
 
-            profileActionService.createProfileActions(member.getUser(), Activity.WAITING,"Contributions Expected",
+            profileActionService.createProfileActions(
+                    member.getUser(),
+                    Activity.WAITING,
+                    "Contributions Expected",
                     "chama contribution cycle created successfully",
                     "contribution cycle, Deadline is " + cycle.getEndAt(),
-                    "[Admins]: "+ beneficiary.getUser().getUsername()+ " is expecting your contributions for chama cycle "
-                            + chama.getCurrentRotationIndex() + " please make your payments before "+ cycle.getEndAt(),
-                    cycle.getEndAt());
+                    "[Admins]: "
+                            + beneficiary.getUser().getUsername()
+                            + " is expecting your contributions for chama cycle "
+                            + chama.getCurrentRotationIndex()
+                            + " please make your payments before "
+                            + cycle.getEndAt(),
+                    cycle.getEndAt()
+            );
+
+            profileActionService.notifyContributionDue(
+                    member.getUser(),
+                    beneficiary.getUser(),
+                    chama,
+                    cycle
+            );
         }
 
         return cycle;
@@ -149,11 +175,21 @@ public class ContributionCycleService {
                 );
 
         for (ContributionCycle cycle : expired) {
+
             cycle.setStatus(ContributionCycleStatus.CLOSED);
+
             log.info(
                     "Closed cycle {} for chama {}",
                     cycle.getRotationIndex(),
                     cycle.getChama().getChamaReference()
+            );
+
+            User beneficiary = cycle.getBeneficiaryUser().getUser();
+
+            profileActionService.notifyContributionCycleClosed(
+                    beneficiary,
+                    cycle.getChama(),
+                    cycle
             );
         }
     }

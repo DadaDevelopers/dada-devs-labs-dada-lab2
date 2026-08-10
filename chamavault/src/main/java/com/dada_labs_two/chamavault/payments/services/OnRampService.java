@@ -29,31 +29,82 @@ public class OnRampService {
     private final ProfileActionService profileActionService;
     private final LightningWalletService lightningWalletService;
 
-    public OnrampResponseDTO triggerOnrampViaMpesa(FundWalletByMpesa request) throws InvalidObjectException {
-        //validate phone
+    public OnrampResponseDTO triggerOnrampViaMpesa(
+            FundWalletByMpesa request,
+            User currentUser
+    ) throws InvalidObjectException {
+
+        // Validate phone
         String phoneNumber = request.phoneNumber();
-        if (phoneNumber == null || (phoneNumber.length() != 10 && phoneNumber.length() != 12))
+
+        if (phoneNumber == null ||
+                (phoneNumber.length() != 10 && phoneNumber.length() != 12)) {
             throw new InvalidObjectException("invalid phone number");
-        
-        //create invoice
+        }
+
+        // Find wallet
         Wallet wallet = walletRepository.findById(request.walletId())
-                .orElseThrow(() -> new InvalidObjectException("invalid wallet id"));
-        String invoice =
-                lightningWalletService.createInvoice(
-                        wallet.getLightning().get("inkey"),
-                        request.amountSats(),
-                        "Buy sats via mpesa"
-                );
-        var response = bitikaClient.buySats(invoice, request.phoneNumber());
+                .orElseThrow(() ->
+                        new InvalidObjectException("invalid wallet id"));
+
+        // Find wallet recipient
+        User recipient = userRepository.findById(wallet.getOwnerReference())
+                .orElseThrow(() ->
+                        new InvalidObjectException("wallet owner not found"));
+
+        // Create Lightning invoice
+        String invoice = lightningWalletService.createInvoice(
+                wallet.getLightning().get("inkey"),
+                request.amountSats(),
+                "Buy sats via mpesa"
+        );
+
+        // Dispatch M-Pesa on-ramp
+        var response = bitikaClient.buySats(
+                invoice,
+                phoneNumber
+        );
+
+        // In-app activity for recipient
         profileActionService.createProfileActions(
-                userRepository.getReferenceById(wallet.getOwnerReference()),
+                recipient,
                 USER_REQUEST_ACCEPTED,
                 "Wallet Deposit By Mpesa",
-                "You have successfully received  "+ request.amountSats() +"SATS from MPESA Number "+ phoneNumber,
+                "You have successfully received "
+                        + request.amountSats()
+                        + " SATS from MPESA Number "
+                        + phoneNumber,
                 "Wallet Funding via Mpesa",
                 "",
-                ZonedDateTime.now().plusYears(100));
+                ZonedDateTime.now().plusYears(100)
+        );
 
-        return  new OnrampResponseDTO("Request successfully dispatched","0000", response);
+        // Email sender
+        profileActionService.notifyOnRampInitiated(
+                currentUser,
+                recipient,
+                request.amountSats(),
+                phoneNumber,
+                invoice
+        );
+
+        // Email recipient
+        if (!currentUser.getUserReference()
+                .equals(recipient.getUserReference())) {
+
+            profileActionService.notifyOnRampRecipient(
+                    recipient,
+                    currentUser,
+                    request.amountSats(),
+                    phoneNumber,
+                    invoice
+            );
+        }
+
+        return new OnrampResponseDTO(
+                "Request successfully dispatched",
+                "0000",
+                response
+        );
     }
 }

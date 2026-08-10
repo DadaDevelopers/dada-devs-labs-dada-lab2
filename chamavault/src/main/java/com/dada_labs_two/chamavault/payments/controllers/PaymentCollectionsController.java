@@ -3,9 +3,11 @@ package com.dada_labs_two.chamavault.payments.controllers;
 import com.dada_labs_two.chamavault.payments.dtos.FundWalletByMpesa;
 import com.dada_labs_two.chamavault.payments.dtos.OnrampResponseDTO;
 import com.dada_labs_two.chamavault.payments.services.OnRampService;
+import com.dada_labs_two.chamavault.users.models.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,7 +22,8 @@ public class PaymentCollectionsController {
     private final OnRampService onRampService;
 
     @PostMapping("/fund-wallet/mpesa")
-    ResponseEntity<OnrampResponseDTO> fundWalletMpesa(@RequestBody @Valid FundWalletByMpesa request) throws InvalidObjectException {
-        return ResponseEntity.ok(onRampService.triggerOnrampViaMpesa(request));
+    ResponseEntity<OnrampResponseDTO> fundWalletMpesa(@AuthenticationPrincipal User currentUser,
+                                                      @RequestBody @Valid FundWalletByMpesa request) throws InvalidObjectException {
+        return ResponseEntity.ok(onRampService.triggerOnrampViaMpesa(request, currentUser));
     }
 }
