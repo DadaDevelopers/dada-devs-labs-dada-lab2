@@ -2,6 +2,7 @@ package com.dada_labs_two.chamavault.users.controllers;
 
 import com.dada_labs_two.chamavault.users.dtos.AccountSuspensionDTO;
 import com.dada_labs_two.chamavault.users.dtos.ProfileDTO;
+import com.dada_labs_two.chamavault.users.dtos.UpdateUserRequest;
 import com.dada_labs_two.chamavault.users.dtos.UsersDTO;
 import com.dada_labs_two.chamavault.users.models.ProfileActions;
 import com.dada_labs_two.chamavault.users.models.User;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -73,5 +75,17 @@ public class UsersController {
     @PostMapping("/request-account-deletion")
     public ResponseEntity<ProfileActions> requestAccountDeletion(@RequestBody @Valid AccountSuspensionDTO suspensionDTO) {
         return new ResponseEntity<>(userService.accountRequestDeletion(suspensionDTO), HttpStatus.OK);
+    }
+
+    @PutMapping("/profile/user")
+    public ResponseEntity<User> updateProfile(
+            @AuthenticationPrincipal User currentUser,
+            @RequestBody UpdateUserRequest request) {
+
+        User updatedUser = userService.updateUser(
+                currentUser.getUserReference(),
+                request);
+
+        return ResponseEntity.ok(updatedUser);
     }
 }

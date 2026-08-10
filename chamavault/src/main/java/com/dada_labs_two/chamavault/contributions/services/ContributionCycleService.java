@@ -122,7 +122,7 @@ public class ContributionCycleService {
         //notify
         profileActionService.createProfileActions(beneficiary.getUser(), Activity.STARTED,"Your turn",
                 "chama contribution cycle created successfully",
-                "Youre next in the contribution cycle, expect contributions by " + cycle.getEndAt(),
+                "You're next in the contribution cycle, expect contributions by " + cycle.getEndAt(),
                 "[Admins]: ",
                 cycle.getEndAt());
 
