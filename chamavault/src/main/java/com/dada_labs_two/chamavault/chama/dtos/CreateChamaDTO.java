@@ -34,5 +34,9 @@ public class CreateChamaDTO {
     @NotNull(message = "contributionAmount is required") //make this a required field
     private Long contributionAmount;
     private Long dailyLimitSats;
-}
 
+    /** Optional. A group wallet is only provisioned when this is true. */
+    private Boolean createGroupWallet = false;
+    /** Required and positive when createGroupWallet is true. */
+    private Long groupWalletTargetAmountSats;
+}

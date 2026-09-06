@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,7 +25,7 @@ public class ChamaController {
     private final ChamaService chamaService;
 
     @PostMapping
-    public ResponseEntity<Chama> initiateChamaCreation(@RequestBody CreateChamaDTO chama) {
+    public ResponseEntity<Chama> initiateChamaCreation(@jakarta.validation.Valid @RequestBody CreateChamaDTO chama) {
         return ResponseEntity.ok(chamaService.createChama(chama));
     }
 
@@ -46,7 +47,9 @@ public class ChamaController {
     }
 
     @PostMapping("/create/invite")
-    public ResponseEntity<ChamaInviteDTO>  createChamaInvite(@RequestBody CreateChamaInviteDTO invite) {
+    public ResponseEntity<ChamaInviteDTO>  createChamaInvite(@AuthenticationPrincipal com.dada_labs_two.chamavault.users.models.User user,
+                                                              @jakarta.validation.Valid @RequestBody CreateChamaInviteDTO invite) {
+        invite.setAdminPhone(user.getMsisdn());
         return ResponseEntity.ok(toChamaInviteDTO(chamaService.generateChamaInvite(invite)));
     }
 

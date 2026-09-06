@@ -20,6 +20,7 @@ public class ChamaGroupWalletDTO {
     private String walletPurpose;
     private WalletType walletType;
     private Long balanceSats;
+    private Long targetAmountSats;
     private Long lnBitsbalanceSats;
     private Boolean active;
     private Map<String, String> lightning = new HashMap<>();

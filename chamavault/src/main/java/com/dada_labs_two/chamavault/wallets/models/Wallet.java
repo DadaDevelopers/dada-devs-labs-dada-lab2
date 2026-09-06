@@ -59,6 +59,9 @@ public class Wallet {
     @Column(nullable = false)
     private Long balanceSats = 0L;
 
+    /** Savings goal for a chama group wallet; null for wallets without a target. */
+    private Long targetAmountSats;
+
     private Long lnBitsbalanceSats = 0L;
 
     @Column(nullable = false)

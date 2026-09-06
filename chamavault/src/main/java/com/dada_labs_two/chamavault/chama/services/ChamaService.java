@@ -40,6 +40,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +52,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class ChamaService {
+    @Value("${chama.invites.expiry-days:7}")
+    private int defaultInviteExpiryDays;
     private final ObjectMapper objectMapper;
     private final OpenAiService openAiService;
     private final GeminiService geminiService;
@@ -71,6 +74,10 @@ public class ChamaService {
 
     @Transactional
     public Chama createChama(CreateChamaDTO createChamaDTO) {
+        if (Boolean.TRUE.equals(createChamaDTO.getCreateGroupWallet()) &&
+                (createChamaDTO.getGroupWalletTargetAmountSats() == null || createChamaDTO.getGroupWalletTargetAmountSats() <= 0)) {
+            throw new IllegalArgumentException("groupWalletTargetAmountSats must be positive when createGroupWallet is true");
+        }
         User creator  = userRepository.findById(createChamaDTO.getCreatorId()).orElseThrow();
         // 1. Create Chama
         Chama chama = chamaRepository.save(
@@ -96,16 +103,19 @@ public class ChamaService {
                         .build()
         );
 
-        // 3. Create Group Wallet
-        Wallet wallet = walletRepository.save(
+        Wallet wallet = null;
+        if (Boolean.TRUE.equals(createChamaDTO.getCreateGroupWallet())) {
+            wallet = walletRepository.save(
                 Wallet.builder()
                         .walletType(WalletType.CHAMA_GROUP)
                         .ownerReference(chama.getChamaReference())
                         .balanceSats(0L)
+                        .targetAmountSats(createChamaDTO.getGroupWalletTargetAmountSats())
                         .chama(chama)
                         .active(true)
                         .build()
-        );
+                );
+        }
 
         // 4. Create Rules
         chamaRulesRepository.save(
@@ -119,6 +129,7 @@ public class ChamaService {
                         .build()
         );
 
+        if (wallet != null) {
         //5. Create Group lightning Wallet
         WalletResponse lw= lightningWalletService.createUserWallet(chama.getName());
         log.info("LW created user wallet: {}", lw);
@@ -140,6 +151,7 @@ public class ChamaService {
         wallet.setLightning(lightningMap);
         wallet.setWalletPurpose("General wallet for the chama");
         wallet = walletRepository.save(wallet);
+        }
 
         //6. Assign group lightning  address
         String lnUsername = chama.getName()
@@ -312,6 +324,7 @@ public class ChamaService {
                             .walletReference(w.getWalletReference())
                             .walletType(w.getWalletType())
                             .balanceSats(w.getBalanceSats())
+                            .targetAmountSats(w.getTargetAmountSats())
                             .lnBitsbalanceSats(w.getLnBitsbalanceSats())
                             .active(w.getActive())
                             .createdAt(w.getCreatedAt())
@@ -334,6 +347,13 @@ public class ChamaService {
         //check chama exists
         Chama chama = chamaRepository.findById(chamaInviteDTO.getChamaReferenceId()).orElseThrow(() ->
                 new RuntimeException("Chama reference not found"));
+        User inviter = userRepository.findByMsisdn(chamaInviteDTO.getAdminPhone()).orElseThrow();
+        chamaMemberRepository.findByChama_ChamaReferenceAndUser_UserReferenceAndStatus(
+                chama.getChamaReference(), inviter.getUserReference(), MembershipStatus.ACTIVE)
+                .orElseThrow(() -> new SecurityException("Only active chama members can create invites"));
+        int expiryDays = chamaInviteDTO.getExpiryDays() == null ? defaultInviteExpiryDays : chamaInviteDTO.getExpiryDays();
+        if (expiryDays < 1 || expiryDays > 90) throw new IllegalArgumentException("expiryDays must be between 1 and 90");
+        ZonedDateTime expiresAt = ZonedDateTime.now().plusDays(expiryDays);
 
         //generate invite code
         Code inviteCode = codeService.createCode(CodeDTO.builder()
@@ -341,7 +361,7 @@ public class ChamaService {
                         .active(true)
                         .description(chama.getDescription())
                         .ownerMsisdn(chamaInviteDTO.getAdminPhone())
-                        .expirationDate(ZonedDateTime.now().plusMonths(30))
+                        .expirationDate(expiresAt)
                 .build());
 
         ChamaInvite chamaInvite = chamaInviteRepository.save(ChamaInvite.builder()
@@ -351,14 +371,14 @@ public class ChamaService {
                         .requiresApproval(chamaInviteDTO.getRequiresApproval())
                         .used(false)
                         .paused(false)
-                        .expiresAt(ZonedDateTime.now().plusMonths(30))
+                        .expiresAt(expiresAt)
                 .build());
 
         profileActionService.createProfileActions(userRepository.findByMsisdn(chamaInviteDTO.getAdminPhone()).orElseThrow(),
                 Activity.COMPLETED,"create invite code",
                 "chama invite code created successfully", chama.getDescription(),
                 "[Admins]: Kindly note that the invite expires after "+ chamaInvite.getExpiresAt(),
-                ZonedDateTime.now().plusMonths(30));
+                expiresAt);
 
         //send notification
         profileActionService.notifyInviteCreated(
