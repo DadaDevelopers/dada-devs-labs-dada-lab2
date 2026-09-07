@@ -156,6 +156,8 @@ public class ChamaService {
                         .merryGoRoundEnabled(merryEnabled).merryGoRoundContributionAmount(merryEnabled ? merryAmount : null)
                         .merryGoRoundFrequency(merryEnabled ? merryFrequency : null)
                         .beneficiaryContributes(merry != null && Boolean.TRUE.equals(merry.getBeneficiaryContributes()))
+                        .merryGoRoundRequiresApproval(merry == null || !Boolean.FALSE.equals(merry.getRequiresApproval()))
+                        .merryGoRoundRequiredApprovals(merry == null || merry.getRequiredApprovals() == null ? 2 : merry.getRequiredApprovals())
                         .build()
         );
 
@@ -373,7 +375,9 @@ public class ChamaService {
                                 .requiredApprovals(rules.getPoolingRequiredApprovals()).build())
                         .merryGoRoundConfig(MerryGoRoundConfigDTO.builder().enable(Boolean.TRUE.equals(rules.getMerryGoRoundEnabled()))
                                 .contributionAmount(rules.getMerryGoRoundContributionAmount()).frequency(rules.getMerryGoRoundFrequency())
-                                .beneficiaryContributes(rules.getBeneficiaryContributes()).build())
+                                .beneficiaryContributes(rules.getBeneficiaryContributes())
+                                .requiresApproval(rules.getMerryGoRoundRequiresApproval())
+                                .requiredApprovals(rules.getMerryGoRoundRequiredApprovals()).build())
                         .build())
                 .wallets(chamaWallets.stream().map(w ->  {
 

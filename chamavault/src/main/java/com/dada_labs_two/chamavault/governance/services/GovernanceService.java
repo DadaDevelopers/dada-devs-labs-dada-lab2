@@ -11,6 +11,10 @@ import com.dada_labs_two.chamavault.governance.dtos.CreateGovernanceRequest;
 import com.dada_labs_two.chamavault.governance.models.ChamaFine;
 import com.dada_labs_two.chamavault.governance.models.GovernanceRequest;
 import com.dada_labs_two.chamavault.governance.models.GovernanceVote;
+import com.dada_labs_two.chamavault.governance.models.RotationSkip;
+import com.dada_labs_two.chamavault.governance.repositories.RotationSkipRepository;
+import com.dada_labs_two.chamavault.contributions.constants.ContributionType;
+import com.dada_labs_two.chamavault.chama.constants.ContributionFrequency;
 import com.dada_labs_two.chamavault.governance.repositories.ChamaFineRepository;
 import com.dada_labs_two.chamavault.governance.repositories.GovernanceRequestRepository;
 import com.dada_labs_two.chamavault.governance.repositories.GovernanceVoteRepository;
@@ -51,14 +55,16 @@ public class GovernanceService {
     private final LightningWalletService lightningWalletService;
     private final FeeService feeService;
     private final TransactionRepository transactionRepository;
+    private final RotationSkipRepository rotationSkipRepository;
 
     @Transactional
     public GovernanceRequest create(UUID chamaId, User user, CreateGovernanceRequest input) {
         ChamaMember maker = activeMember(chamaId, user);
         ChamaRules rules = rulesRepository.findByChama(maker.getChama()).orElseThrow();
-        int approvals = rules.getRequiredApprovals() == null ? 2 : rules.getRequiredApprovals();
+        boolean requiresApproval = requiresApprovalFor(input.action(), input.parameters(), rules, maker.getChama());
+        int approvals = requiresApproval ? approvalsFor(input.action(), input.parameters(), rules, maker.getChama()) : 0;
         long eligibleCheckers = memberRepository.countByChama_ChamaReferenceAndStatus(chamaId, MembershipStatus.ACTIVE) - 1;
-        if (approvals < 1 || approvals > eligibleCheckers)
+        if (requiresApproval && (approvals < 1 || approvals > eligibleCheckers))
             throw new IllegalStateException("Not enough eligible checkers for " + approvals + " approvals");
         validateParameters(input.action(), input.parameters());
         GovernanceRequest saved = requestRepository.save(
@@ -70,7 +76,12 @@ public class GovernanceService {
                         .requiredApprovals(approvals).status(GovernanceRequestStatus.PENDING)
                         .build()
         );
-        notifyMembers(saved, "New maker request", user);
+        if (!requiresApproval) {
+            execute(saved);
+            saved.setDecidedAt(ZonedDateTime.now());
+            saved = requestRepository.save(saved);
+        }
+        notifyMembers(saved, requiresApproval ? "New maker request" : "Maker request executed", user);
         return saved;
     }
 
@@ -140,7 +151,7 @@ public class GovernanceService {
                         .active(true).build());
             }
             case WITHDRAW_GROUP_WALLET -> {
-                Wallet wallet = groupWallet(chama, p);
+                Wallet wallet = governedWallet(chama, p);
                 long amount = longParam(p, "amountSats");
                 FeeQuote fee = feeService.quote(TransactionCategory.WITHDRAWAL, amount);
                 if (wallet.getBalanceSats() < fee.totalSats())
@@ -182,8 +193,12 @@ public class GovernanceService {
                     .amountSats(longParam(p, "amountSats")).reason(p.get("reason")).paid(false).build());
             case CHANGE_CONTRIBUTION_AMOUNT -> {
                 long v = longParam(p, "contributionAmount");
-                rules.setContributionAmount(v);
-                chama.setContributionAmount(v);
+                ContributionType type = contributionType(p);
+                if (type == ContributionType.POOLING) rules.setPoolingContributionAmount(v);
+                else {
+                    rules.setMerryGoRoundContributionAmount(v);
+                    chama.setContributionAmount(v);
+                }
                 rulesRepository.save(rules);
                 chamaRepository.save(chama);
             }
@@ -195,8 +210,11 @@ public class GovernanceService {
                 chamaRepository.save(chama);
             }
             case SKIP_ROTATION_MEMBER -> {
-                chama.setCurrentRotationIndex(chama.getCurrentRotationIndex() + 1);
-                chamaRepository.save(chama);
+                ChamaMember skipped = member(chama, p);
+                if (rotationSkipRepository.existsByChama_ChamaReferenceAndMember_ReferenceAndConsumedAtIsNull(
+                        chama.getChamaReference(), skipped.getReference()))
+                    throw new IllegalStateException("Member already has a pending rotation skip");
+                rotationSkipRepository.save(RotationSkip.builder().chama(chama).member(skipped).governanceRequest(r).build());
             }
             case CHANGE_CHAMA_CONFIG -> applyConfig(chama, rules, p);
         }
@@ -208,6 +226,13 @@ public class GovernanceService {
         if (p.containsKey("requiredApprovals"))
             rules.setRequiredApprovals(Math.toIntExact(longParam(p, "requiredApprovals")));
         if (p.containsKey("dailyLimitSats")) rules.setDailyLimitSats(longParam(p, "dailyLimitSats"));
+        if (p.containsKey("poolingFrequency")) rules.setPoolingFrequency(enumParam(p, "poolingFrequency", ContributionFrequency.class));
+        if (p.containsKey("merryGoRoundFrequency")) rules.setMerryGoRoundFrequency(enumParam(p, "merryGoRoundFrequency", ContributionFrequency.class));
+        if (p.containsKey("beneficiaryContributes")) rules.setBeneficiaryContributes(booleanParam(p, "beneficiaryContributes"));
+        if (p.containsKey("poolingRequiresApproval")) rules.setPoolingRequiresApproval(booleanParam(p, "poolingRequiresApproval"));
+        if (p.containsKey("poolingRequiredApprovals")) rules.setPoolingRequiredApprovals(Math.toIntExact(longParam(p, "poolingRequiredApprovals")));
+        if (p.containsKey("merryGoRoundRequiresApproval")) rules.setMerryGoRoundRequiresApproval(booleanParam(p, "merryGoRoundRequiresApproval"));
+        if (p.containsKey("merryGoRoundRequiredApprovals")) rules.setMerryGoRoundRequiredApprovals(Math.toIntExact(longParam(p, "merryGoRoundRequiredApprovals")));
         chamaRepository.save(c);
         rulesRepository.save(rules);
     }
@@ -226,8 +251,13 @@ public class GovernanceService {
         return m;
     }
 
-    private Wallet groupWallet(Chama c, Map<String, String> p) {
-        return walletRepository.findByWalletReferenceAndChama_ChamaReferenceAndWalletTypeAndActiveTrue(UUID.fromString(required(p, "walletReference")), c.getChamaReference(), WalletType.CHAMA_GROUP).orElseThrow();
+    private Wallet governedWallet(Chama c, Map<String, String> p) {
+        Wallet wallet = walletRepository.findById(UUID.fromString(required(p, "walletReference"))).orElseThrow();
+        if (wallet.getChama() == null || !wallet.getChama().getChamaReference().equals(c.getChamaReference()) ||
+                !Boolean.TRUE.equals(wallet.getActive()) ||
+                (wallet.getWalletType() != WalletType.CHAMA_GROUP && wallet.getWalletType() != WalletType.CONTRIBUTION))
+            throw new IllegalArgumentException("Active pooled or merry-go-round wallet not found for chama");
+        return wallet;
     }
 
     private long longParam(Map<String, String> p, String key) {
@@ -255,13 +285,63 @@ public class GovernanceService {
                 required(p, "memberReference");
                 longParam(p, "amountSats");
             }
-            case CHANGE_CONTRIBUTION_AMOUNT -> longParam(p, "contributionAmount");
+            case CHANGE_CONTRIBUTION_AMOUNT -> {
+                contributionType(p);
+                longParam(p, "contributionAmount");
+            }
             case CHANGE_MAX_MEMBERS -> longParam(p, "maxMembers");
             case SKIP_ROTATION_MEMBER -> required(p, "memberReference");
             case CHANGE_CHAMA_CONFIG -> {
                 if (p.isEmpty()) throw new IllegalArgumentException("At least one config field is required");
             }
         }
+    }
+
+    private int approvalsFor(GovernanceAction action, Map<String, String> parameters, ChamaRules rules, Chama chama) {
+        ContributionType type = actionType(action, parameters, chama);
+        if (type == ContributionType.POOLING && rules.getPoolingRequiredApprovals() != null && rules.getPoolingRequiredApprovals() > 0)
+            return rules.getPoolingRequiredApprovals();
+        if (type == ContributionType.MERRY_GO_ROUND && rules.getMerryGoRoundRequiredApprovals() != null && rules.getMerryGoRoundRequiredApprovals() > 0)
+            return rules.getMerryGoRoundRequiredApprovals();
+        return rules.getRequiredApprovals() == null || rules.getRequiredApprovals() < 1 ? 2 : rules.getRequiredApprovals();
+    }
+
+    private boolean requiresApprovalFor(GovernanceAction action, Map<String, String> parameters, ChamaRules rules, Chama chama) {
+        ContributionType type = actionType(action, parameters, chama);
+        if (type == ContributionType.POOLING && rules.getPoolingRequiresApproval() != null)
+            return rules.getPoolingRequiresApproval();
+        if (type == ContributionType.MERRY_GO_ROUND && rules.getMerryGoRoundRequiresApproval() != null)
+            return rules.getMerryGoRoundRequiresApproval();
+        return rules.getRequiresApproval() == null || rules.getRequiresApproval();
+    }
+
+    private ContributionType actionType(GovernanceAction action, Map<String, String> parameters, Chama chama) {
+        if (action == GovernanceAction.CREATE_GROUP_WALLET) return ContributionType.POOLING;
+        if (action == GovernanceAction.CHANGE_CONTRIBUTION_AMOUNT) return contributionType(parameters);
+        if (action == GovernanceAction.WITHDRAW_GROUP_WALLET) {
+            Wallet wallet = governedWallet(chama, parameters);
+            return wallet.getWalletType() == WalletType.CONTRIBUTION ? ContributionType.MERRY_GO_ROUND : ContributionType.POOLING;
+        }
+        if (action == GovernanceAction.SKIP_ROTATION_MEMBER) return ContributionType.MERRY_GO_ROUND;
+        if (action == GovernanceAction.CHANGE_CHAMA_CONFIG && parameters.containsKey("contributionType"))
+            return contributionType(parameters);
+        return null;
+    }
+
+    private ContributionType contributionType(Map<String, String> p) {
+        return enumParam(p, "contributionType", ContributionType.class);
+    }
+
+    private boolean booleanParam(Map<String, String> p, String key) {
+        String value = required(p, key);
+        if (!value.equalsIgnoreCase("true") && !value.equalsIgnoreCase("false"))
+            throw new IllegalArgumentException(key + " must be true or false");
+        return Boolean.parseBoolean(value);
+    }
+
+    private <E extends Enum<E>> E enumParam(Map<String, String> p, String key, Class<E> type) {
+        try { return Enum.valueOf(type, required(p, key).toUpperCase(Locale.ROOT)); }
+        catch (IllegalArgumentException e) { throw new IllegalArgumentException("Invalid " + key); }
     }
 
     private void notifyMembers(GovernanceRequest r, String subject, User actor) {
