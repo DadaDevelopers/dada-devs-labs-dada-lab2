@@ -10,7 +10,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
-@RestController @RequiredArgsConstructor
+@RestController
+@RequiredArgsConstructor
 @RequestMapping("/chamas/{chamaId}/group-wallets/{walletId}/contributions")
 public class GroupWalletContributionController {
     private final GroupWalletContributionService service;
