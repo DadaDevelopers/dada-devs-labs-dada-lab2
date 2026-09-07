@@ -39,6 +39,34 @@ public class ChamaRules {
     @Enumerated(EnumType.STRING)
     private ContributionFrequency frequency;
 
+    private Boolean poolingEnabled;
+    private Long poolingContributionAmount;
+    @Enumerated(EnumType.STRING)
+    private ContributionFrequency poolingFrequency;
+    private Long poolingTargetAmountSats;
+    private Boolean poolingRequiresApproval;
+    private Integer poolingRequiredApprovals;
+
+    private Boolean merryGoRoundEnabled;
+    private Long merryGoRoundContributionAmount;
+    @Enumerated(EnumType.STRING)
+    private ContributionFrequency merryGoRoundFrequency;
+    private Boolean beneficiaryContributes;
+
+    public long effectivePoolingAmount() {
+        return poolingContributionAmount == null ? contributionAmount : poolingContributionAmount;
+    }
+    public ContributionFrequency effectivePoolingFrequency() {
+        return poolingFrequency == null ? frequency : poolingFrequency;
+    }
+    public long effectiveMerryGoRoundAmount() {
+        return merryGoRoundContributionAmount == null ? contributionAmount : merryGoRoundContributionAmount;
+    }
+    public ContributionFrequency effectiveMerryGoRoundFrequency() {
+        return merryGoRoundFrequency == null ? frequency : merryGoRoundFrequency;
+    }
+    public boolean doesBeneficiaryContribute() { return Boolean.TRUE.equals(beneficiaryContributes); }
+
     @UpdateTimestamp
     private ZonedDateTime updatedAt;
 

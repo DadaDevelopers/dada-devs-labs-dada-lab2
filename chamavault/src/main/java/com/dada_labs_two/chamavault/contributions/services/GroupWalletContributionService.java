@@ -14,6 +14,8 @@ import com.dada_labs_two.chamavault.users.services.ProfileActionService;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
+import com.dada_labs_two.chamavault.chama.constants.ChamaPurpose;
+import com.dada_labs_two.chamavault.contributions.models.PoolingCycle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,7 @@ public class GroupWalletContributionService {
     private final ProfileActionService notifications;
     private final LightningWalletService lightningWalletService;
     private final FeeService feeService;
+    private final PoolingCycleService poolingCycleService;
 
     @Transactional
     public GroupWalletContributionResponse contribute(UUID chamaId, UUID walletId, User user,
@@ -40,6 +43,15 @@ public class GroupWalletContributionService {
         Wallet wallet = walletRepository.findActiveChamaWalletForUpdate(
                         walletId, chamaId, WalletType.CHAMA_GROUP)
                 .orElseThrow(() -> new IllegalArgumentException("Active group wallet not found"));
+
+        ChamaPurpose purpose = wallet.getChama().getPurpose() == null
+                ? ChamaPurpose.MERRY_GO_ROUND : wallet.getChama().getPurpose();
+        PoolingCycle poolingCycle = null;
+        if (purpose.supportsPooling()) {
+            poolingCycle = poolingCycleService.getOrCreateActive(chamaId);
+            if (!poolingCycle.getWallet().getWalletReference().equals(walletId))
+                throw new IllegalArgumentException("Contribution must use the active pooling cycle wallet");
+        }
 
         Wallet fundingWallet = walletRepository.findById(request.fundingWalletReference())
                 .filter(w -> user.getUserReference().equals(w.getOwnerReference()))
@@ -61,8 +73,13 @@ public class GroupWalletContributionService {
         wallet.setBalanceSats(Math.addExact(wallet.getBalanceSats(), request.amountSats()));
         walletRepository.save(wallet);
 
+        if (poolingCycle != null) {
+            poolingCycle.setCurrentTotalContributionAmount(Math.addExact(
+                    poolingCycle.getCurrentTotalContributionAmount(), request.amountSats()));
+        }
+
         GroupWalletContribution saved = contributionRepository.save(GroupWalletContribution.builder()
-                .chama(wallet.getChama()).wallet(wallet).contributor(user)
+                .chama(wallet.getChama()).wallet(wallet).poolingCycle(poolingCycle).contributor(user)
                 .amountSats(request.amountSats()).externalReference(paymentReference)
                 .platformFeeSats(fee.platformFeeSats()).feeRuleReference(fee.feeRuleReference())
                 .feePaymentReference(feePaymentReference).build());
@@ -72,7 +89,8 @@ public class GroupWalletContributionService {
         notifications.notifyGroupWalletContribution(user, wallet.getChama(), request.amountSats(),
                 wallet.getBalanceSats(), wallet.getTargetAmountSats());
 
-        return new GroupWalletContributionResponse(saved.getReference(), walletId, request.amountSats(),
+        return new GroupWalletContributionResponse(saved.getReference(),
+                poolingCycle == null ? null : poolingCycle.getReference(), walletId, request.amountSats(),
                 wallet.getBalanceSats(), wallet.getTargetAmountSats(), Math.max(0, target - wallet.getBalanceSats()),
                 fee.platformFeeSats(), fee.totalSats(), fee.feeRuleReference(), paymentReference,
                 feePaymentReference, saved.getContributedAt());

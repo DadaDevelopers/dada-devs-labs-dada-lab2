@@ -2,6 +2,7 @@ package com.dada_labs_two.chamavault.users.services;
 
 import com.dada_labs_two.chamavault.chama.models.Chama;
 import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
+import com.dada_labs_two.chamavault.contributions.models.PoolingCycle;
 import com.dada_labs_two.chamavault.messaging.service.MessagingService;
 import com.dada_labs_two.chamavault.users.constants.Activity;
 import com.dada_labs_two.chamavault.users.models.ProfileActions;
@@ -281,6 +282,31 @@ public class ProfileActionService {
                 """.formatted(getDisplayName(member), cycle.getContributionAmount(), cycle.getRotationIndex(),
                 cycle.getChama().getName(), cycle.getEndAt(), cycle.getCurrentTotalContributionAmount(),
                 cycle.getExpectedTotalContributionAmount()));
+    }
+
+    public void notifyPoolingContributionDue(User member, PoolingCycle cycle) {
+        sendNotification(member, "New pooled-goal contribution period - " + cycle.getChama().getName(), """
+                Hi %s,
+
+                A new pooled-goal contribution period has started for %s.
+                Amount due: %,d sats
+                Due: %s
+                Wallet target: %,d sats
+
+                Your contribution goes into the chama group wallet, not to a rotation beneficiary.
+                """.formatted(getDisplayName(member), cycle.getChama().getName(), cycle.getContributionAmount(),
+                cycle.getEndAt(), cycle.getWallet().getTargetAmountSats()));
+    }
+
+    public void notifyMerryGoRoundWaitingForMembers(User member, Chama chama) {
+        sendNotification(member, "Merry-go-round waiting for members - " + chama.getName(), """
+                Hi %s,
+
+                %s is configured for a merry-go-round, but you are currently its only active member.
+                We will not start a contribution cycle or create a rotation wallet until at least one more member joins.
+
+                Invite another member to activate the rotation.
+                """.formatted(getDisplayName(member), chama.getName()));
     }
 
     public void notifyJoinRequestReceived(

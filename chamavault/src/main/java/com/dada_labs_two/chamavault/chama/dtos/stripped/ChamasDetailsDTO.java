@@ -1,6 +1,7 @@
 package com.dada_labs_two.chamavault.chama.dtos.stripped;
 
 import com.dada_labs_two.chamavault.chama.constants.ChamaVisibility;
+import com.dada_labs_two.chamavault.chama.constants.ChamaPurpose;
 import com.dada_labs_two.chamavault.chama.dtos.ChamaContributionCycleDTO;
 import com.dada_labs_two.chamavault.chama.dtos.ChamaGroupWalletDTO;
 import com.dada_labs_two.chamavault.chama.dtos.ChamaRulesDTO;
@@ -31,6 +32,7 @@ public class ChamasDetailsDTO {
         private String name;
         private String description;
         private Long contributionAmount;
+        private ChamaPurpose purpose;
         private ChamaVisibility visibility;
         private Integer maxMembers;
         private Integer currentRotationIndex;

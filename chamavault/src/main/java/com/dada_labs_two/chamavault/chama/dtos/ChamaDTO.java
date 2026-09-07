@@ -1,6 +1,7 @@
 package com.dada_labs_two.chamavault.chama.dtos;
 
 import com.dada_labs_two.chamavault.chama.constants.ChamaVisibility;
+import com.dada_labs_two.chamavault.chama.constants.ChamaPurpose;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,6 +19,7 @@ public class ChamaDTO {
     private String name;
     private String description;
     private Long contributionAmount;
+    private ChamaPurpose purpose;
     private String iconUrl;
     private ChamaVisibility visibility;
     private Integer maxMembers;

@@ -24,6 +24,8 @@ public class GroupWalletContribution {
     @ManyToOne(optional = false)
     @JoinColumn(name = "chama_reference")
     private Chama chama;
+    @ManyToOne @JoinColumn(name = "pooling_cycle_reference")
+    private PoolingCycle poolingCycle;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "wallet_reference")

@@ -4,10 +4,11 @@ import java.time.ZonedDateTime;
 import java.util.UUID;
 
 public record GroupWalletContributionResponse(UUID contributionReference,
+                                              UUID poolingCycleReference,
                                               UUID walletReference,
                                               long amountSats,
                                               long totalContributionSats,
-                                              long targetAmountSats,
+                                              Long targetAmountSats,
                                               long remainingToTargetSats,
                                               long platformFeeSats,
                                               long totalChargedSats,
