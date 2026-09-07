@@ -8,6 +8,7 @@ import ConfirmTransactionModal from '@/components/ConfirmTransactionModal';
 import SatsAmount from '@/components/SatsAmount';
 import { formatBtcFromSats, formatKesFromSats } from '@/lib/currency';
 import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
+import { formatWalletName } from '@/lib/wallet';
 
 type StoredWallet = {
   walletReference: string;
@@ -60,7 +61,7 @@ export default function SendPage() {
       try {
         const wallets: StoredWallet[] = JSON.parse(walletsData);
         const found = wallets.find(w => w.walletReference === selectedRef);
-        if (found) setSenderWalletName(found.lightning.name);
+        if (found) setSenderWalletName(formatWalletName(found.lightning.name));
       } catch (e) {
         console.error("Could not parse wallet list");
       }
@@ -157,7 +158,7 @@ export default function SendPage() {
         throw new Error(data.message || "Wallet not found");
       }
 
-      setRecipientWalletName(data.lightning?.name || "Unknown Wallet");
+      setRecipientWalletName(formatWalletName(data.lightning?.name) || "Unknown Wallet");
       setRecipientWalletType(data.walletType || "Personal");
       setRecipientActive(data.active ?? false);
       setOpenConfirm(true);

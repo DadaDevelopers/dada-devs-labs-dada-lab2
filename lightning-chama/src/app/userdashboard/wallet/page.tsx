@@ -8,6 +8,7 @@ import BalanceHero from '@/components/BalanceHero';
 import SatsAmount from '@/components/SatsAmount';
 import Image from 'next/image';
 import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
+import { formatWalletName } from '@/lib/wallet';
 
 // --- TYPES ---
 
@@ -96,7 +97,7 @@ const WalletPage = () => {
   const activeWalletName = useMemo(() => {
     if (selectedWalletRef === 'ALL') return "(All Wallets)";
     const found = wallets.find((w) => w.walletReference === selectedWalletRef);
-    return found ? `(${found.lightning.name})` : "";
+    return found ? `(${formatWalletName(found.lightning.name)})` : "";
   }, [wallets, selectedWalletRef]);
 
   const getInvoiceMeta = (invoice: Invoice) => {
@@ -368,7 +369,7 @@ const WalletPage = () => {
                   >
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-gray-800">
-                        {wallet.lightning.name}
+                        {formatWalletName(wallet.lightning.name)}
                         <span className="text-gray-400 text-xs ml-1">({wallet.walletType})</span>
                       </p>
                       {selectedWalletRef === wallet.walletReference && (
@@ -619,7 +620,7 @@ const WalletPage = () => {
                   <Wallet size={18} className="text-emerald-700" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 leading-tight">{selectedWalletDetails.lightning.name}</h3>
+                  <h3 className="font-semibold text-gray-900 leading-tight">{formatWalletName(selectedWalletDetails.lightning.name)}</h3>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{selectedWalletDetails.walletType}</span>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${selectedWalletDetails.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>

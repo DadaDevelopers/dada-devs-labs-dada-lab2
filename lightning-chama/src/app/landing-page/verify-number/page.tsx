@@ -5,6 +5,9 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+const CODE_PREFIX = "VAULT-";
+const CODE_PATTERN = /^[A-Z0-9]{4,5}$/;
+
 export default function VerifyNumber() {
   const router = useRouter();
 
@@ -16,7 +19,7 @@ export default function VerifyNumber() {
     setPhone(params.get("phone"));
   }, []);
 
-  const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
+  const [otp, setOtp] = useState("");
   const [timer, setTimer] = useState(25);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -28,26 +31,33 @@ export default function VerifyNumber() {
     return () => clearInterval(interval);
   }, [timer]);
 
-  const handleChange = (value: string, index: number) => {
-    if (!/^\d?$/.test(value)) return;
+  const handleChange = (value: string) => {
+    const suffix = value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
+    setOtp(suffix);
+  };
 
-    const updatedOtp = [...otp];
-    updatedOtp[index] = value;
-    setOtp(updatedOtp);
+  const handlePaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    const pastedCode = event.clipboardData
+      .getData("text")
+      .trim()
+      .toUpperCase()
+      .replace(/^VAULT-/, "");
 
-    if (value && index < 5) {
-      document.getElementById(`otp-${index + 1}`)?.focus();
-    }
+    if (!CODE_PATTERN.test(pastedCode)) return;
+
+    event.preventDefault();
+    setOtp(pastedCode);
   };
 
   const handleVerify = async () => {
     setError("");
 
-    const code = otp.join("");
-    if (code.length !== 6) {
-      setError("Please enter the full 6-digit code.");
+    if (!CODE_PATTERN.test(otp)) {
+      setError("Enter the 4 or 5 characters after VAULT-.");
       return;
     }
+
+    const code = `${CODE_PREFIX}${otp}`;
 
     if (!phone) {
       setError("Phone number missing.");
@@ -68,8 +78,6 @@ export default function VerifyNumber() {
           }),
         }
       );
-
-      const data = await response.json();
 
       if (!response.ok) {
         setError("Invalid or expired code.");
@@ -114,24 +122,33 @@ export default function VerifyNumber() {
             Verify Phone Number
           </h1>
           <p className="text-black mt-1">
-            Enter the 6 digit code sent to your number
+            Enter the verification code sent to your number
           </p>
         </div>
 
-        {/* OTP Inputs */}
-        <div className="flex justify-between gap-2 mb-3">
-          {otp.map((digit, index) => (
-            <input
-              key={index}
-              id={`otp-${index}`}
+        {/* Verification code input */}
+        <div className="mb-3 flex h-14 overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-600/20">
+          <span className="flex items-center border-r border-gray-200 bg-gray-50 px-4 font-semibold tracking-wider text-gray-500">
+            {CODE_PREFIX}
+          </span>
+          <input
+              id="verification-code"
               type="text"
-              maxLength={1}
-              value={digit}
-              onChange={(e) => handleChange(e.target.value, index)}
-              className="w-12 h-12 text-center text-gray-700 border border-gray-300 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              inputMode="text"
+              autoCapitalize="characters"
+              autoComplete="one-time-code"
+              maxLength={5}
+              value={otp}
+              onChange={(e) => handleChange(e.target.value)}
+              onPaste={handlePaste}
+              placeholder="PPIWD"
+              aria-label="Verification code suffix"
+              className="min-w-0 flex-1 px-4 text-lg font-semibold uppercase tracking-[0.25em] text-gray-700 outline-none placeholder:text-gray-300"
             />
-          ))}
         </div>
+        <p className="mb-5 text-center text-xs text-gray-500">
+          You can also paste the complete code, such as VAULT-PPIWD.
+        </p>
 
         {/* Error */}
         {error && (
@@ -141,11 +158,6 @@ export default function VerifyNumber() {
         {/* Resend */}
         <p className="text-center text-xs text-gray-500 mb-2">
           Resend code in <span className="text-emerald-600">{timer}s</span>
-        </p>
-
-        {/* Dev hint */}
-        <p className="text-center text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-6">
-          💡 Use <span className="font-bold tracking-widest">000000</span> as the verification code
         </p>
 
         {/* Continue Button */}

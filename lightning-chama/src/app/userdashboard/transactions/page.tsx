@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Filter, RefreshCw, Wallet } from 
 import { Navbar } from "@/components/Navbar";
 import SatsAmount from "@/components/SatsAmount";
 import { useBitcoinKesRate } from "@/hooks/useBitcoinKesRate";
+import { formatWalletName } from "@/lib/wallet";
 
 type WalletSummary = {
   walletReference: string;
@@ -281,7 +282,7 @@ export default function TransactionsPage() {
                 </option>
                 {wallets.map((wallet) => (
                   <option key={wallet.walletReference} value={wallet.walletReference}>
-                    {wallet.lightning?.name || wallet.walletPurpose || wallet.walletType} - {wallet.walletType}
+                    {formatWalletName(wallet.lightning?.name) || wallet.walletPurpose || wallet.walletType} - {wallet.walletType}
                   </option>
                 ))}
               </select>
@@ -445,7 +446,7 @@ export default function TransactionsPage() {
                           {transaction.memo || transaction.category || "Transaction"}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {transaction.wallet?.lightning?.name || transaction.wallet?.walletPurpose || transaction.wallet?.walletType || "Wallet"}
+                          {formatWalletName(transaction.wallet?.lightning?.name) || transaction.wallet?.walletPurpose || transaction.wallet?.walletType || "Wallet"}
                         </p>
                         <p className="text-xs text-gray-400">
                           {formatDateTime(transaction.occurredAt || transaction.createdAt)}
