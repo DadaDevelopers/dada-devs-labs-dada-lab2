@@ -3,6 +3,7 @@ package com.dada_labs_two.chamavault.contributions.services;
 
 import com.dada_labs_two.chamavault.chama.constants.ContributionFrequency;
 import com.dada_labs_two.chamavault.chama.constants.MembershipStatus;
+import com.dada_labs_two.chamavault.chama.constants.ChamaPurpose;
 import com.dada_labs_two.chamavault.chama.models.Chama;
 import com.dada_labs_two.chamavault.chama.models.ChamaMember;
 import com.dada_labs_two.chamavault.chama.models.ChamaRules;
@@ -43,6 +44,7 @@ public class ContributionCycleService {
     private final ChamaMemberRepository chamaMemberRepository;
     private final ContributionCycleRepository cycleRepository;
     private final WalletRepository walletRepository;
+    private final MemberContributionObligationService obligationService;
 
     /* ============================
        Scheduler
@@ -60,6 +62,9 @@ public class ContributionCycleService {
         Chama chama = chamaRepository
                 .findByReferenceForUpdate(chamaReference)
                 .orElseThrow(() -> new IllegalStateException("Chama not found"));
+        ChamaPurpose purpose = chama.getPurpose() == null ? ChamaPurpose.MERRY_GO_ROUND : chama.getPurpose();
+        if (!purpose.supportsMerryGoRound())
+            throw new IllegalStateException("This chama is not configured for merry-go-round rotations");
 
         // Safety check (DB constraint should also exist)
         if (cycleRepository.existsByChamaAndStatus(chama, ContributionCycleStatus.ACTIVE)) {
@@ -78,13 +83,15 @@ public class ContributionCycleService {
                                 MembershipStatus.ACTIVE
                         );
 
-        if (activeMembers.isEmpty()) {
-            throw new IllegalStateException("No active members");
+        if (activeMembers.size() < 2) {
+            throw new IllegalStateException("At least two active members are required for a merry-go-round");
         }
 
 
         int nextRotationIndex = chama.getCurrentRotationIndex() + 1;
-        Long expectedTotalContributionAmount = activeMembers.size() * rules.getContributionAmount();
+        long merryAmount = rules.effectiveMerryGoRoundAmount();
+        int contributorCount = activeMembers.size() - (rules.doesBeneficiaryContribute() ? 0 : 1);
+        Long expectedTotalContributionAmount = Math.multiplyExact((long) contributorCount, merryAmount);
 
         ChamaMember beneficiary =
                 activeMembers.get((nextRotationIndex - 1) % activeMembers.size());
@@ -92,7 +99,7 @@ public class ContributionCycleService {
         Wallet wallet = createCycleWallet(beneficiary, rules, nextRotationIndex);
 
         ZonedDateTime startAt = ZonedDateTime.now();
-        ZonedDateTime endAt = calculateEndDate(startAt, rules.getFrequency());
+        ZonedDateTime endAt = calculateEndDate(startAt, rules.effectiveMerryGoRoundFrequency());
 
         ContributionCycle cycle = cycleRepository.save(
                 ContributionCycle.builder()
@@ -105,13 +112,14 @@ public class ContributionCycleService {
                         .currentTotalContributionAmount(0L)
                         .expectedTotalContributionAmount(expectedTotalContributionAmount)
                         .contributorWallets(new ArrayList<>())
-                        .contributionAmount(rules.getContributionAmount())
+                        .contributionAmount(merryAmount)
                         .endAt(endAt)
                         .build()
         );
 
         chama.setCurrentRotationIndex(nextRotationIndex);
         chamaRepository.save(chama);
+        obligationService.createFor(cycle, activeMembers, rules.doesBeneficiaryContribute());
 
         log.info(
                 "Created cycle {} for chama {} beneficiary {}",
@@ -200,6 +208,23 @@ public class ContributionCycleService {
         List<Chama> chamas = chamaRepository.findAll();
 
         for (Chama chama : chamas) {
+            ChamaPurpose purpose = chama.getPurpose() == null ? ChamaPurpose.MERRY_GO_ROUND : chama.getPurpose();
+            if (!purpose.supportsMerryGoRound()) continue;
+            List<ChamaMember> activeMembers = chamaMemberRepository
+                    .findAllByChama_ChamaReferenceAndStatus(chama.getChamaReference(), MembershipStatus.ACTIVE);
+            if (activeMembers.size() < 2) {
+                if (activeMembers.size() == 1 && (chama.getMerryGoRoundWaitingNotifiedAt() == null ||
+                        chama.getMerryGoRoundWaitingNotifiedAt().isBefore(ZonedDateTime.now().minusDays(1)))) {
+                    profileActionService.notifyMerryGoRoundWaitingForMembers(activeMembers.getFirst().getUser(), chama);
+                    chama.setMerryGoRoundWaitingNotifiedAt(ZonedDateTime.now());
+                    chamaRepository.save(chama);
+                }
+                continue;
+            }
+            if (chama.getMerryGoRoundWaitingNotifiedAt() != null) {
+                chama.setMerryGoRoundWaitingNotifiedAt(null);
+                chamaRepository.save(chama);
+            }
             boolean hasActive =
                     cycleRepository.existsByChamaAndStatus(
                             chama,
@@ -246,7 +271,7 @@ public class ContributionCycleService {
                 .replaceAll("[^a-z0-9_-]", "-");
         lnUsername.concat("@chama-vault");
         log.info("lnUsername: {}", lnUsername);
-        long min = rules.getContributionAmount();        // sat
+        long min = rules.effectiveMerryGoRoundAmount();        // sat
         long max = 1_000_000_000; // 1,000,000 sats
 //        LnurlPayLinkResponse lnAddress  = lightningWalletService.createLightningAddress(lw.adminkey(),
 //                "contribution lightning address for beneficiary "+ lnUsername,

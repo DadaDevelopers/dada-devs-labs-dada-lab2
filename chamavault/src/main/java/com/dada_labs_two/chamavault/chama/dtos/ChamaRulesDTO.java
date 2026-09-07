@@ -15,4 +15,6 @@ public class ChamaRulesDTO {
     private Long contributionAmount;
     private Integer requiredApprovals;
     private ContributionFrequency frequency;
+    private PoolingConfigDTO poolingConfig;
+    private MerryGoRoundConfigDTO merryGoRoundConfig;
 }

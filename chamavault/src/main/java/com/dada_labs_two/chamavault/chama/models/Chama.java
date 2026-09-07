@@ -1,6 +1,7 @@
 package com.dada_labs_two.chamavault.chama.models;
 
 import com.dada_labs_two.chamavault.chama.constants.ChamaVisibility;
+import com.dada_labs_two.chamavault.chama.constants.ChamaPurpose;
 import com.dada_labs_two.chamavault.users.models.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -33,6 +34,10 @@ public class Chama {
 
     private Long contributionAmount = 0L;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "varchar(32) default 'MERRY_GO_ROUND'")
+    private ChamaPurpose purpose = ChamaPurpose.MERRY_GO_ROUND;
+
     private String iconUrl;
 
     @Enumerated(EnumType.STRING)
@@ -43,6 +48,8 @@ public class Chama {
 
     @Column(nullable = false)
     private Integer currentRotationIndex = 0;
+
+    private ZonedDateTime merryGoRoundWaitingNotifiedAt;
 
     @ManyToOne
     @JoinColumn(name = "user_id")
@@ -55,4 +62,8 @@ public class Chama {
     private ZonedDateTime updatedAt;
 
     private ZonedDateTime deletedAt;
+
+    public ChamaPurpose getPurpose() {
+        return purpose == null ? ChamaPurpose.MERRY_GO_ROUND : purpose;
+    }
 }

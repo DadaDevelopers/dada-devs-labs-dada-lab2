@@ -4,6 +4,7 @@ import com.dada_labs_two.chamavault.chama.constants.ChamaRole;
 import com.dada_labs_two.chamavault.chama.constants.ChamaVisibility;
 import com.dada_labs_two.chamavault.chama.constants.ContributionFrequency;
 import com.dada_labs_two.chamavault.chama.constants.MembershipStatus;
+import com.dada_labs_two.chamavault.chama.constants.ChamaPurpose;
 import com.dada_labs_two.chamavault.chama.dtos.*;
 import com.dada_labs_two.chamavault.chama.dtos.stripped.ChamasDetailsDTO;
 import com.dada_labs_two.chamavault.chama.models.Chama;
@@ -16,6 +17,7 @@ import com.dada_labs_two.chamavault.chama.repositories.ChamaRepository;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRulesRepository;
 import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
 import com.dada_labs_two.chamavault.contributions.repositories.ContributionCycleRepository;
+import com.dada_labs_two.chamavault.contributions.repositories.PoolingCycleRepository;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
 import com.dada_labs_two.chamavault.messaging.integrations.gemini.service.GeminiService;
@@ -71,12 +73,32 @@ public class ChamaService {
     private final ChamaRulesRepository chamaRulesRepository;
     private final ChamaInviteRepository chamaInviteRepository;
     private final ContributionCycleRepository contributionCycleRepository;
+    private final PoolingCycleRepository poolingCycleRepository;
 
     @Transactional
     public Chama createChama(CreateChamaDTO createChamaDTO) {
-        if (Boolean.TRUE.equals(createChamaDTO.getCreateGroupWallet()) &&
-                (createChamaDTO.getGroupWalletTargetAmountSats() == null || createChamaDTO.getGroupWalletTargetAmountSats() <= 0)) {
-            throw new IllegalArgumentException("groupWalletTargetAmountSats must be positive when createGroupWallet is true");
+        CreateChamaDTO.PoolingConfig pooling = createChamaDTO.getPoolingConfig();
+        CreateChamaDTO.MerryGoRoundConfig merry = createChamaDTO.getMerryGoRoundConfig();
+        boolean poolingEnabled = pooling != null ? !Boolean.FALSE.equals(pooling.getEnable())
+                : createChamaDTO.getPurpose() != null && createChamaDTO.getPurpose().supportsPooling();
+        boolean merryEnabled = merry != null ? !Boolean.FALSE.equals(merry.getEnable())
+                : createChamaDTO.getPurpose() == null || createChamaDTO.getPurpose().supportsMerryGoRound();
+        if (!poolingEnabled && !merryEnabled) throw new IllegalArgumentException("At least one contribution type must be enabled");
+        ChamaPurpose purpose = poolingEnabled && merryEnabled ? ChamaPurpose.BOTH
+                : poolingEnabled ? ChamaPurpose.POOLING : ChamaPurpose.MERRY_GO_ROUND;
+        long poolingAmount = !poolingEnabled ? 0 : pooling == null ? value(createChamaDTO.getContributionAmount(), "contributionAmount")
+                : value(pooling.getContributionAmount(), "poolingConfig.contributionAmount");
+        long merryAmount = !merryEnabled ? 0 : merry == null ? value(createChamaDTO.getContributionAmount(), "contributionAmount")
+                : value(merry.getContributionAmount(), "merryGoRoundConfig.contributionAmount");
+        ContributionFrequency poolingFrequency = !poolingEnabled ? null : pooling == null ? frequency(createChamaDTO.getFrequency(), "frequency")
+                : frequency(pooling.getFrequency(), "poolingConfig.frequency");
+        ContributionFrequency merryFrequency = !merryEnabled ? null : merry == null ? frequency(createChamaDTO.getFrequency(), "frequency")
+                : frequency(merry.getFrequency(), "merryGoRoundConfig.frequency");
+        Long target = pooling == null ? createChamaDTO.getGroupWalletTargetAmountSats() : pooling.getTargetAmount();
+        boolean createPoolingWallet = purpose.supportsPooling() || Boolean.TRUE.equals(createChamaDTO.getCreateGroupWallet());
+        if (createPoolingWallet &&
+                (target == null || target <= 0)) {
+            throw new IllegalArgumentException("poolingConfig.targetAmount must be positive for a pooled-goal wallet");
         }
         User creator  = userRepository.findById(createChamaDTO.getCreatorId()).orElseThrow();
         // 1. Create Chama
@@ -87,7 +109,8 @@ public class ChamaService {
                         .iconUrl(createChamaDTO.getIconUrl())
                         .visibility(createChamaDTO.getVisibility())
                         .currentRotationIndex(0)
-                        .contributionAmount(createChamaDTO.getContributionAmount())
+                        .contributionAmount(merryEnabled ? merryAmount : poolingAmount)
+                        .purpose(purpose)
                         .maxMembers(createChamaDTO.getMaxMembers())
                         .createdBy(creator)
                         .build()
@@ -104,13 +127,13 @@ public class ChamaService {
         );
 
         Wallet wallet = null;
-        if (Boolean.TRUE.equals(createChamaDTO.getCreateGroupWallet())) {
+        if (createPoolingWallet) {
             wallet = walletRepository.save(
                 Wallet.builder()
                         .walletType(WalletType.CHAMA_GROUP)
                         .ownerReference(chama.getChamaReference())
                         .balanceSats(0L)
-                        .targetAmountSats(createChamaDTO.getGroupWalletTargetAmountSats())
+                        .targetAmountSats(target)
                         .chama(chama)
                         .active(true)
                         .build()
@@ -121,11 +144,18 @@ public class ChamaService {
         chamaRulesRepository.save(
                 ChamaRules.builder()
                         .chama(chama)
-                        .contributionAmount(createChamaDTO.getContributionAmount())
-                        .requiresApproval(createChamaDTO.getRequiresApproval())
-                        .requiredApprovals(createChamaDTO.getRequiredApprovals())
+                        .contributionAmount(merryEnabled ? merryAmount : poolingAmount)
+                        .requiresApproval(createChamaDTO.getRequiresApproval() == null ? false : createChamaDTO.getRequiresApproval())
+                        .requiredApprovals(createChamaDTO.getRequiredApprovals() == null ? 0 : createChamaDTO.getRequiredApprovals())
                         .dailyLimitSats(createChamaDTO.getDailyLimitSats())
-                        .frequency(createChamaDTO.getFrequency())
+                        .frequency(merryEnabled ? merryFrequency : poolingFrequency)
+                        .poolingEnabled(poolingEnabled).poolingContributionAmount(poolingEnabled ? poolingAmount : null)
+                        .poolingFrequency(poolingEnabled ? poolingFrequency : null).poolingTargetAmountSats(target)
+                        .poolingRequiresApproval(pooling != null && Boolean.TRUE.equals(pooling.getRequiresApproval()))
+                        .poolingRequiredApprovals(pooling == null || pooling.getRequiredApprovals() == null ? 0 : pooling.getRequiredApprovals())
+                        .merryGoRoundEnabled(merryEnabled).merryGoRoundContributionAmount(merryEnabled ? merryAmount : null)
+                        .merryGoRoundFrequency(merryEnabled ? merryFrequency : null)
+                        .beneficiaryContributes(merry != null && Boolean.TRUE.equals(merry.getBeneficiaryContributes()))
                         .build()
         );
 
@@ -173,8 +203,23 @@ public class ChamaService {
 
         //send email if any
         profileActionService.notifyChamaCreated(creator, chama, wallet) ;
+        if (purpose.supportsMerryGoRound()) {
+            profileActionService.notifyMerryGoRoundWaitingForMembers(creator, chama);
+            chama.setMerryGoRoundWaitingNotifiedAt(ZonedDateTime.now());
+            chama = chamaRepository.save(chama);
+        }
 
         return chama;
+    }
+
+    private long value(Long amount, String field) {
+        if (amount == null || amount <= 0) throw new IllegalArgumentException(field + " must be positive");
+        return amount;
+    }
+
+    private ContributionFrequency frequency(ContributionFrequency frequency, String field) {
+        if (frequency == null) throw new IllegalArgumentException(field + " is required");
+        return frequency;
     }
 
     public Page<Chama> getChamas(Pageable pageable, ChamaVisibility visibility) {
@@ -196,6 +241,7 @@ public class ChamaService {
                             .name(chama.getName())
                             .description(chama.getDescription())
                             .contributionAmount(chama.getContributionAmount())
+                            .purpose(chama.getPurpose())
                             .visibility(chama.getVisibility())
                             .maxMembers(chama.getMaxMembers())
                             .currentRotationIndex(chama.getCurrentRotationIndex())
@@ -225,6 +271,7 @@ public class ChamaService {
                 .name(chama.getName())
                 .description(chama.getDescription())
                 .contributionAmount(chama.getContributionAmount())
+                .purpose(chama.getPurpose())
                 .visibility(chama.getVisibility())
                 .maxMembers(chama.getMaxMembers())
                 .currentRotationIndex(chama.getCurrentRotationIndex())
@@ -241,6 +288,7 @@ public class ChamaService {
                 .name(chama.getName())
                 .description(chama.getDescription())
                 .contributionAmount(chama.getContributionAmount())
+                .purpose(chama.getPurpose())
                 .visibility(chama.getVisibility())
                 .maxMembers(chama.getMaxMembers())
                 .currentRotationIndex(chama.getCurrentRotationIndex())
@@ -258,6 +306,7 @@ public class ChamaService {
         List<Wallet> chamaWallets = walletRepository.findAllByOwnerReference(chama.getChamaReference());
 
         Page<ContributionCycle> contributionCycles = contributionCycleRepository.findAllByChama(null, chama);
+        var poolingCycles = poolingCycleRepository.findByChama_ChamaReference(chamaReference, Pageable.unpaged());
 
 
 
@@ -267,6 +316,7 @@ public class ChamaService {
                         .name(chama.getName())
                         .description(chama.getDescription())
                         .contributionAmount(chama.getContributionAmount())
+                        .purpose(chama.getPurpose())
                         .iconUrl(chama.getIconUrl())
                         .visibility(chama.getVisibility())
                         .maxMembers(chama.getMaxMembers())
@@ -303,11 +353,27 @@ public class ChamaService {
                             .usersAlreadyContributed(usersAlreadyContributed)
                             .build();
                 }).stream().toList())
+                .poolingCycles(poolingCycles.stream().map(cycle -> ChamaPoolingCycleDTO.builder()
+                        .cycleReference(cycle.getReference())
+                        .groupWalletReference(cycle.getWallet().getWalletReference())
+                        .sequenceNumber(cycle.getSequenceNumber())
+                        .contributionAmount(cycle.getContributionAmount())
+                        .currentTotalContributionAmount(cycle.getCurrentTotalContributionAmount())
+                        .expectedTotalContributionAmount(cycle.getExpectedTotalContributionAmount())
+                        .status(cycle.getStatus()).startAt(cycle.getStartAt()).endAt(cycle.getEndAt())
+                        .build()).toList())
                 .rules(rules == null? null : ChamaRulesDTO.builder()
                         .requiresApproval(rules.getRequiresApproval())
                         .contributionAmount(rules.getContributionAmount())
                         .requiredApprovals(rules.getRequiredApprovals())
                         .frequency(rules.getFrequency())
+                        .poolingConfig(PoolingConfigDTO.builder().enable(Boolean.TRUE.equals(rules.getPoolingEnabled()))
+                                .contributionAmount(rules.getPoolingContributionAmount()).frequency(rules.getPoolingFrequency())
+                                .targetAmount(rules.getPoolingTargetAmountSats()).requiresApproval(rules.getPoolingRequiresApproval())
+                                .requiredApprovals(rules.getPoolingRequiredApprovals()).build())
+                        .merryGoRoundConfig(MerryGoRoundConfigDTO.builder().enable(Boolean.TRUE.equals(rules.getMerryGoRoundEnabled()))
+                                .contributionAmount(rules.getMerryGoRoundContributionAmount()).frequency(rules.getMerryGoRoundFrequency())
+                                .beneficiaryContributes(rules.getBeneficiaryContributes()).build())
                         .build())
                 .wallets(chamaWallets.stream().map(w ->  {
 

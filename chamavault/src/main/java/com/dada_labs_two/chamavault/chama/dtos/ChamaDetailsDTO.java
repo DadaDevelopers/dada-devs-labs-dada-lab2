@@ -18,4 +18,5 @@ public class ChamaDetailsDTO {
     private ChamaRulesDTO rules;
     private List<ChamaGroupWalletDTO> wallets = new ArrayList<>();
     private List<ChamaContributionCycleDTO>  contributionCycles = new ArrayList<>();
+    private List<ChamaPoolingCycleDTO> poolingCycles = new ArrayList<>();
 }
