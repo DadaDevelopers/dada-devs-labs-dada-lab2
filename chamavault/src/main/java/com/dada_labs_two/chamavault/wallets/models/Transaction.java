@@ -52,6 +52,9 @@ public class Transaction {
 
     private Long amountSats;
     private Long feeSats = 0L;
+    private Long platformFeeSats = 0L;
+    private Long networkFeeSats = 0L;
+    private UUID feeRuleReference;
 
     // LNbits payment_hash or internal transfer id
     @Column(unique = true)

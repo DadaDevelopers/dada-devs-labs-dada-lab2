@@ -14,6 +14,9 @@ import com.dada_labs_two.chamavault.users.repository.UserRepository;
 import com.dada_labs_two.chamavault.users.services.ProfileActionService;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionSource;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionType;
+import com.dada_labs_two.chamavault.wallets.constants.TransactionCategory;
+import com.dada_labs_two.chamavault.fees.dtos.FeeQuote;
+import com.dada_labs_two.chamavault.fees.services.FeeService;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import com.dada_labs_two.chamavault.wallets.dtos.InvoicePreviewDTO;
 import com.dada_labs_two.chamavault.wallets.dtos.MakeInvoicePaymentDTO;
@@ -49,6 +52,7 @@ public class TransactionService {
     private final ContributionCycleRepository cycleRepository;
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
+    private final FeeService feeService;
 
     @Transactional
     public Transaction makeRotationalPayments(
@@ -149,6 +153,7 @@ public class TransactionService {
         }
 
         long amountSats = cycle.getContributionAmount();
+        FeeQuote platformFee = feeService.quote(TransactionCategory.CHAMA_CONTRIBUTION, amountSats);
 
         /* ---------- STEP 2.1: fundingWallet → contributorWallet ---------- */
 
@@ -189,6 +194,7 @@ public class TransactionService {
                         contributorWallet.getLightning().get("adminkey"),
                         beneficiaryInvoice
                 );
+        String feePaymentHash = feeService.collect(fundingWallet, platformFee);
 
         // Update the contribution cycle with the new contribution
         updateContributionCycle(cycle, contributorWallet, amountSats);
@@ -224,6 +230,10 @@ public class TransactionService {
                         .type(TransactionType.DEBIT)
                         .source(TransactionSource.LN_INVOICE)
                         .amountSats(amountSats)
+                        .category(TransactionCategory.CHAMA_CONTRIBUTION)
+                        .platformFeeSats(platformFee.platformFeeSats())
+                        .feeSats(platformFee.platformFeeSats())
+                        .feeRuleReference(platformFee.feeRuleReference())
                         .externalRef(paymentHash2)
                         .initiatedBy(contributor.getUserReference())
                         .counterpartyUser(
@@ -231,27 +241,31 @@ public class TransactionService {
                         )
                         .rotationIndex(cycle.getRotationIndex())
                         .memo("Contribution payment")
-                        .metadata(recordInternalMoves)
+                        .metadata(withFeeMetadata(recordInternalMoves, platformFee, feePaymentHash))
                         .occurredAt(ZonedDateTime.now())
                         .build()
         );
 
     }
 
-    public InvoicePreviewDTO invoicePreview(String beneficiaryInvoice) {
+    public InvoicePreviewDTO invoicePreview(String beneficiaryInvoice, TransactionCategory category) {
         Long amountSats = Bolt11Utils.extractAmountSats(beneficiaryInvoice);
         ZonedDateTime expiry = Bolt11Utils.extractExpiry(beneficiaryInvoice);
         String memo = Bolt11Utils.extractDescription(beneficiaryInvoice).orElse("making payment for invoice");
-        Long interimFeeSats = 7L;
-
-        return new InvoicePreviewDTO(amountSats, expiry, memo, interimFeeSats);
+        FeeQuote fee = feeService.quote(category == null ? TransactionCategory.INVOICE_PAYMENT : category, amountSats);
+        return new InvoicePreviewDTO(amountSats, expiry, memo, fee.platformFeeSats(), fee.totalSats(), fee.percentage(), fee.feeRuleReference());
     }
 
     public Transaction makeInvoicePayment(UUID payerWalletId, String beneficiaryInvoice) {
+        return makeInvoicePayment(payerWalletId, beneficiaryInvoice, TransactionCategory.INVOICE_PAYMENT);
+    }
+
+    private Transaction makeInvoicePayment(UUID payerWalletId, String beneficiaryInvoice, TransactionCategory category) {
         Wallet payerWallet = walletRepository.findById(payerWalletId).orElseThrow(() ->
                 new RuntimeException("Payer wallet not found"));
 
         Long amountSats = Bolt11Utils.extractAmountSats(beneficiaryInvoice);
+        FeeQuote platformFee = feeService.quote(category, amountSats);
         String description = Bolt11Utils.extractDescription(beneficiaryInvoice).orElse("making payment for invoice");
 
         String paymentHash2 =
@@ -259,6 +273,7 @@ public class TransactionService {
                         payerWallet.getLightning().get("adminkey"),
                         beneficiaryInvoice
                 );
+        String feePaymentHash = feeService.collect(payerWallet, platformFee);
 
         //sync receiver wallet
         syncSenderLnBitsWalletBalance(payerWallet);
@@ -283,18 +298,20 @@ public class TransactionService {
                         .type(TransactionType.DEBIT)
                         .source(TransactionSource.LN_INVOICE)
                         .amountSats(amountSats)
+                        .category(category)
                         .externalRef(paymentHash2)
-                        .feeSats(fees.feeSats())
+                        .networkFeeSats(fees.feeSats())
+                        .platformFeeSats(platformFee.platformFeeSats())
+                        .feeSats(Math.addExact(fees.feeSats(), platformFee.platformFeeSats()))
+                        .feeRuleReference(platformFee.feeRuleReference())
                         .initiatedBy(null)
                         .counterpartyUser(
                                 payerWallet.getOwnerReference()
                         )
                         .rotationIndex(null)
                         .memo(description)
-                        .metadata(Map.of(
-                                "paymentHash", paymentHash2,
-                                "feeSats", String.valueOf(fees.feeSats())
-                        ))
+                        .metadata(withFeeMetadata(new HashMap<>(Map.of("paymentHash", paymentHash2,
+                                "networkFeeSats", String.valueOf(fees.feeSats()))), platformFee, feePaymentHash))
                         .occurredAt(ZonedDateTime.now())
                         .build()
         );
@@ -321,7 +338,7 @@ public class TransactionService {
 
         MakeInvoicePaymentDTO makeInvoicePaymentDTO = new MakeInvoicePaymentDTO(payerWalletId, response.pr());
         Transaction transaction = makeInvoicePayment(makeInvoicePaymentDTO.payerWalletId(),
-                makeInvoicePaymentDTO.beneficiaryInvoice());
+                makeInvoicePaymentDTO.beneficiaryInvoice(), TransactionCategory.WITHDRAWAL);
 
 
         profileActionService.notifyOffRampPayment(
@@ -361,6 +378,7 @@ public class TransactionService {
             throw new RuntimeException("Withdrawal may not be permitted on CHAMA_GROUP wallets");
 
         Wallet recipientWallet = walletRepository.findById(recipientWalletId).orElseThrow(() -> new RuntimeException("Recipient wallet not found"));
+        FeeQuote platformFee = feeService.quote(TransactionCategory.WALLET_TRANSFER, amountSats);
 
         //create invoice on behalf of recipient, then make a payment on behalf of sender
         String recipientInvoice =
@@ -376,6 +394,7 @@ public class TransactionService {
                         senderWallet.getLightning().get("adminkey"),
                         recipientInvoice
                 );
+        String feePaymentHash = feeService.collect(senderWallet, platformFee);
         log.info("paymentHash2 successfully created for senderWallet wallet {}", senderWallet.getLightning().get("adminkey"));
 
         //Sync Wallets
@@ -389,6 +408,7 @@ public class TransactionService {
                         .type(TransactionType.CREDIT)
                         .source(TransactionSource.LN_INVOICE)
                         .amountSats(amountSats)
+                        .category(TransactionCategory.WALLET_TRANSFER)
                         .externalRef(paymentHash2)
                         .initiatedBy(senderWallet.getOwnerReference())
                         .counterpartyUser(recipientWallet.getOwnerReference())
@@ -406,12 +426,16 @@ public class TransactionService {
                         .type(TransactionType.DEBIT)
                         .source(TransactionSource.LN_INVOICE)
                         .amountSats(amountSats)
+                        .category(TransactionCategory.WALLET_TRANSFER)
+                        .platformFeeSats(platformFee.platformFeeSats())
+                        .feeSats(platformFee.platformFeeSats())
+                        .feeRuleReference(platformFee.feeRuleReference())
                         .externalRef(paymentHash2)
                         .initiatedBy(senderWallet.getOwnerReference())
                         .counterpartyUser(recipientWallet.getOwnerReference())
                         .rotationIndex(null)
                         .memo(memo)
-                        .metadata(new HashMap<>())
+                        .metadata(withFeeMetadata(new HashMap<>(), platformFee, feePaymentHash))
                         .occurredAt(ZonedDateTime.now())
                         .build()
         );
@@ -520,5 +544,13 @@ public class TransactionService {
     public Page<Transaction> searchTransactions(Map<String, String> filters, Pageable page) {
         Specification<Transaction> spec = TransactionSpecificationBuilder.build(filters);
         return transactionRepository.findAll(spec, page);
+    }
+
+    private Map<String,String> withFeeMetadata(Map<String,String> metadata, FeeQuote fee, String feePaymentHash) {
+        metadata.put("platformFeeSats", String.valueOf(fee.platformFeeSats()));
+        metadata.put("feePercentage", fee.percentage().toPlainString());
+        if (fee.feeRuleReference() != null) metadata.put("feeRuleReference", fee.feeRuleReference().toString());
+        if (feePaymentHash != null) metadata.put("feePaymentHash", feePaymentHash);
+        return metadata;
     }
 }

@@ -35,6 +35,10 @@ public class GroupWalletContribution {
 
     @Column(nullable = false)
     private Long amountSats;
+    private Long platformFeeSats;
+
+    private UUID feeRuleReference;
+    private String feePaymentReference;
 
     private String externalReference;
 

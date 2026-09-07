@@ -7,6 +7,7 @@ import com.dada_labs_two.chamavault.wallets.dtos.MakeInvoicePaymentDTO;
 import com.dada_labs_two.chamavault.wallets.dtos.TransferToMpesaRequestDTO;
 import com.dada_labs_two.chamavault.wallets.models.Transaction;
 import com.dada_labs_two.chamavault.wallets.services.TransactionService;
+import com.dada_labs_two.chamavault.wallets.constants.TransactionCategory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -50,8 +51,9 @@ public class TransactionsController {
     }
 
     @GetMapping("/invoice-preview")
-    ResponseEntity<InvoicePreviewDTO> invoicePreview(@RequestParam String invoiceHash) {
-        return ResponseEntity.ok(transactionService.invoicePreview(invoiceHash));
+    ResponseEntity<InvoicePreviewDTO> invoicePreview(@RequestParam String invoiceHash,
+                                                      @RequestParam(required = false) TransactionCategory category) {
+        return ResponseEntity.ok(transactionService.invoicePreview(invoiceHash, category));
     }
 
     @GetMapping("/find-by/{rotationIndex}")
