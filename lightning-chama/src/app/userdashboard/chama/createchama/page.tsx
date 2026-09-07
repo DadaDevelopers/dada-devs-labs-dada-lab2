@@ -1,6 +1,6 @@
 "use client";
 import { useState } from 'react';
-import { ArrowLeft, ImageUp } from 'lucide-react';
+import { ArrowLeft, Globe2, ImageUp, Lock } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import React from 'react';
 import Link from 'next/link';
@@ -13,13 +13,15 @@ export default function CreateChama() {
     termsAccepted: boolean;
     logoUrl: string; // store uploaded image URL
     uploading: boolean;
+    visibility: 'PUBLIC' | 'PRIVATE';
   }>({
     name: '',
     description: '',
     logo: null,
     termsAccepted: false,
     logoUrl: '',
-    uploading: false
+    uploading: false,
+    visibility: 'PUBLIC'
   });
 
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -87,6 +89,7 @@ export default function CreateChama() {
         name: formData.name,
         description: formData.description,
         iconUrl: formData.logoUrl || '', // uploaded logo URL
+        visibility: formData.visibility,
       })
     );
 
@@ -160,6 +163,34 @@ export default function CreateChama() {
               className="w-full px-4 py-3 text-gray-600 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#059669] focus:border-transparent text-sm resize-none"
             />
           </div>
+
+          {/* Visibility */}
+          <fieldset className="mb-6">
+            <legend className="mb-3 block text-sm font-medium text-gray-900">
+              Who can discover this Chama?
+            </legend>
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                { value: 'PUBLIC' as const, label: 'Public', description: 'Anyone can discover it', Icon: Globe2 },
+                { value: 'PRIVATE' as const, label: 'Private', description: 'Invite-only access', Icon: Lock },
+              ]).map(({ value, label, description, Icon }) => {
+                const selected = formData.visibility === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setFormData((previous) => ({ ...previous, visibility: value }))}
+                    aria-pressed={selected}
+                    className={`rounded-xl border p-4 text-left transition ${selected ? 'border-emerald-600 bg-emerald-50 ring-1 ring-emerald-600' : 'border-gray-200 hover:border-emerald-300'}`}
+                  >
+                    <Icon className={`mb-3 h-5 w-5 ${selected ? 'text-emerald-700' : 'text-gray-500'}`} />
+                    <span className="block text-sm font-semibold text-gray-900">{label}</span>
+                    <span className="mt-1 block text-xs leading-4 text-gray-500">{description}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
 
           {/* Logo Upload */}
           <div className="mb-6">

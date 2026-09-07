@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Wallet } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -25,12 +25,22 @@ export default function CreateChamaForm() {
     purpose: "",
     targetAmount: "",
     membersRequired: "",
+    createGroupWallet: false,
+    poolingContributionAmount: "",
+    poolingFrequency: "MONTHLY",
+    merryGoRoundEnabled: true,
+    beneficiaryContributes: false,
+    poolingRequiresApproval: true,
+    poolingRequiredApprovals: "2",
+    merryGoRoundRequiresApproval: true,
+    merryGoRoundRequiredApprovals: "2",
   });
 
   const [step1Data, setStep1Data] = useState<{
     name: string;
     description: string;
     iconUrl: string;
+    visibility: "PUBLIC" | "PRIVATE";
   } | null>(null);
 
   const [loading, setLoading] = useState(false);
@@ -41,7 +51,13 @@ export default function CreateChamaForm() {
 
   useEffect(() => {
     const saved = localStorage.getItem("createChamaStep1");
-    if (saved) setStep1Data(JSON.parse(saved));
+    if (saved) {
+      const data = JSON.parse(saved);
+      setStep1Data({
+        ...data,
+        visibility: data.visibility === "PRIVATE" ? "PRIVATE" : "PUBLIC",
+      });
+    }
   }, []);
 
   // Convert KES to Satoshis
@@ -73,13 +89,22 @@ export default function CreateChamaForm() {
   }, [formData.dueDate, selectedFrequency]);
 
   const isFormValid =
-    step1Data &&
-    formData.contributionAmount &&
-    formData.contributionFrequency &&
+    Boolean(step1Data) &&
     formData.dueDate &&
     formData.membersRequired &&
-    Number(formData.contributionAmount) > 0 &&
-    Number(formData.membersRequired) > 0;
+    Number(formData.membersRequired) > 0 &&
+    (formData.createGroupWallet || formData.merryGoRoundEnabled) &&
+    (!formData.createGroupWallet || (
+      Number(formData.poolingContributionAmount) > 0 &&
+      Number(formData.targetAmount) > 0 &&
+      Boolean(formData.poolingFrequency)
+      && (!formData.poolingRequiresApproval || Number(formData.poolingRequiredApprovals) > 0)
+    )) &&
+    (!formData.merryGoRoundEnabled || (
+      Number(formData.contributionAmount) > 0 &&
+      Boolean(formData.contributionFrequency)
+      && (!formData.merryGoRoundRequiresApproval || Number(formData.merryGoRoundRequiredApprovals) > 0)
+    ));
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -105,18 +130,47 @@ export default function CreateChamaForm() {
     const contributionAmountInSatoshis = convertKesToSatoshis(
       Number(formData.contributionAmount)
     );
+    const groupWalletTargetAmountSats = convertKesToSatoshis(
+      Number(formData.targetAmount)
+    );
+    const poolingContributionAmountSats = convertKesToSatoshis(
+      Number(formData.poolingContributionAmount)
+    );
+
+    const purpose = formData.createGroupWallet && formData.merryGoRoundEnabled
+      ? "BOTH"
+      : formData.createGroupWallet
+        ? "POOLING"
+        : "MERRY_GO_ROUND";
 
     const payload = {
       name: step1Data.name,
       description: step1Data.description,
       iconUrl: step1Data.iconUrl || "",
-      visibility: "PUBLIC",
-      maxMembers: Number(formData.membersRequired),
+      visibility: step1Data.visibility,
+      purpose,
       creatorId,
-      contributionAmount: contributionAmountInSatoshis, // Send in Satoshis
-      requiresApproval: true,
-      requiredApprovals: 2,
-      frequency: formData.contributionFrequency,
+      maximumMembers: Number(formData.membersRequired),
+      poolingConfig: formData.createGroupWallet
+        ? {
+            enable: true,
+            contributionAmount: poolingContributionAmountSats,
+            frequency: formData.poolingFrequency,
+            targetAmount: groupWalletTargetAmountSats,
+            requiresApproval: formData.poolingRequiresApproval,
+            requiredApprovals: formData.poolingRequiresApproval ? Number(formData.poolingRequiredApprovals) : 0,
+          }
+        : { enable: false },
+      merryGoRoundConfig: formData.merryGoRoundEnabled
+        ? {
+            enable: true,
+            contributionAmount: contributionAmountInSatoshis,
+            frequency: formData.contributionFrequency,
+            beneficiaryContributes: formData.beneficiaryContributes,
+            requiresApproval: formData.merryGoRoundRequiresApproval,
+            requiredApprovals: formData.merryGoRoundRequiresApproval ? Number(formData.merryGoRoundRequiredApprovals) : 0,
+          }
+        : { enable: false },
     };
 
     try {
@@ -142,7 +196,7 @@ export default function CreateChamaForm() {
       localStorage.removeItem("createChamaStep1");
       alert("Chama created successfully 🎉");
       router.push(`/userdashboard/contribute/${data.chamaReference}`);
-    } catch (err) {
+    } catch {
       alert("Something went wrong");
     } finally {
       setLoading(false);
@@ -186,10 +240,18 @@ export default function CreateChamaForm() {
             Contribution Rules
           </h2>
 
+          <label className={`mb-5 flex cursor-pointer items-start gap-4 rounded-xl border p-4 transition ${formData.merryGoRoundEnabled ? 'border-emerald-600 bg-emerald-50 ring-1 ring-emerald-600' : 'border-gray-200 hover:border-emerald-300'}`}>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-gray-900">Enable merry-go-round contributions</span>
+              <span className="mt-1 block text-xs leading-5 text-gray-500">Members contribute toward a rotating beneficiary.</span>
+            </span>
+            <input type="checkbox" checked={formData.merryGoRoundEnabled} onChange={(event) => setFormData((previous) => ({ ...previous, merryGoRoundEnabled: event.target.checked }))} className="mt-2 h-5 w-5 accent-emerald-600" />
+          </label>
+
           {/* Contribution Amount */}
-          <div className="mb-4">
+          {formData.merryGoRoundEnabled && <div className="mb-4">
             <label className="block text-sm font-medium text-gray-900 mb-2">
-              Contribution Amount (KES)
+              Merry-go-round Amount (KES)
             </label>
             <input
               type="number"
@@ -228,12 +290,12 @@ export default function CreateChamaForm() {
                 Loading exchange rate...
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Contribution Frequency (Dropdown) */}
-          <div className="mb-4">
+          {formData.merryGoRoundEnabled && <div className="mb-4">
             <label className="block text-sm font-medium text-gray-900 mb-2">
-              Contribution Frequency
+              Merry-go-round Frequency
             </label>
             <select
               name="contributionFrequency"
@@ -250,7 +312,21 @@ export default function CreateChamaForm() {
                 </option>
               ))}
             </select>
-          </div>
+          </div>}
+
+          {formData.merryGoRoundEnabled && (
+            <div className="mb-4 space-y-3 rounded-xl bg-gray-50 p-4">
+              <label className="flex items-center gap-3 text-sm text-gray-700">
+                <input type="checkbox" checked={formData.beneficiaryContributes} onChange={(event) => setFormData((previous) => ({ ...previous, beneficiaryContributes: event.target.checked }))} className="h-4 w-4 accent-emerald-600" />
+                The current beneficiary also contributes during their cycle
+              </label>
+              <label className="flex items-center gap-3 text-sm text-gray-700">
+                <input type="checkbox" checked={formData.merryGoRoundRequiresApproval} onChange={(event) => setFormData((previous) => ({ ...previous, merryGoRoundRequiresApproval: event.target.checked }))} className="h-4 w-4 accent-emerald-600" />
+                Require approvals for merry-go-round operations
+              </label>
+              {formData.merryGoRoundRequiresApproval && <input type="number" min="1" name="merryGoRoundRequiredApprovals" value={formData.merryGoRoundRequiredApprovals} onChange={handleInputChange} aria-label="Required merry-go-round approvals" className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-gray-600" />}
+            </div>
+          )}
 
           {/* Due Date (Date Picker) */}
           <div className="mb-4">
@@ -272,6 +348,48 @@ export default function CreateChamaForm() {
           <h2 className="text-center text-base font-semibold text-gray-900 mb-4">
             Saving Goals
           </h2>
+
+          {/* Pooled group wallet */}
+          <label className={`mb-5 flex cursor-pointer items-start gap-4 rounded-xl border p-4 transition ${formData.createGroupWallet ? 'border-emerald-600 bg-emerald-50 ring-1 ring-emerald-600' : 'border-gray-200 hover:border-emerald-300'}`}>
+            <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${formData.createGroupWallet ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+              <Wallet className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-gray-900">Create a pooled group wallet</span>
+              <span className="mt-1 block text-xs leading-5 text-gray-500">Create a shared wallet for this Chama&apos;s contributions and savings goal.</span>
+            </span>
+            <input
+              type="checkbox"
+              checked={formData.createGroupWallet}
+              onChange={(event) => setFormData((previous) => ({ ...previous, createGroupWallet: event.target.checked }))}
+              className="mt-2 h-5 w-5 accent-emerald-600"
+            />
+          </label>
+
+          {formData.createGroupWallet && (
+            <div className="mb-5 space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-900">Pooling Contribution Amount (KES)</label>
+                <input type="number" name="poolingContributionAmount" value={formData.poolingContributionAmount} onChange={handleInputChange} placeholder="Amount per member" className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#059669]" />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-900">Pooling Frequency</label>
+                <select name="poolingFrequency" value={formData.poolingFrequency} onChange={handleInputChange} className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#059669]">
+                  {CONTRIBUTION_FREQUENCIES.map((frequency) => <option key={frequency.value} value={frequency.value}>{frequency.label}</option>)}
+                </select>
+              </div>
+              <label className="flex items-center gap-3 text-sm text-gray-700">
+                <input type="checkbox" checked={formData.poolingRequiresApproval} onChange={(event) => setFormData((previous) => ({ ...previous, poolingRequiresApproval: event.target.checked }))} className="h-4 w-4 accent-emerald-600" />
+                Require approvals for pooled-wallet operations
+              </label>
+              {formData.poolingRequiresApproval && (
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-900">Required approvals</label>
+                  <input type="number" min="1" name="poolingRequiredApprovals" value={formData.poolingRequiredApprovals} onChange={handleInputChange} className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-gray-600" />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Purpose of the Chama */}
           <div className="mb-4">
@@ -352,6 +470,16 @@ export default function CreateChamaForm() {
               <div className="flex justify-between">
                 <span className="text-gray-500">Chama Name</span>
                 <span className="font-medium">{step1Data?.name}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-gray-500">Visibility</span>
+                <span className="font-medium capitalize">{step1Data?.visibility.toLowerCase()}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-gray-500">Group Wallet</span>
+                <span className="font-medium">{formData.createGroupWallet ? 'Create pooled wallet' : 'Do not create'}</span>
               </div>
 
               <div className="flex justify-between">
