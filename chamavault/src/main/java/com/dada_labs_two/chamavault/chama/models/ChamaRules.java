@@ -52,6 +52,8 @@ public class ChamaRules {
     @Enumerated(EnumType.STRING)
     private ContributionFrequency merryGoRoundFrequency;
     private Boolean beneficiaryContributes;
+    private Boolean merryGoRoundRequiresApproval;
+    private Integer merryGoRoundRequiredApprovals;
 
     public long effectivePoolingAmount() {
         return poolingContributionAmount == null ? contributionAmount : poolingContributionAmount;

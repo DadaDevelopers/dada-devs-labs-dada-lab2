@@ -7,4 +7,6 @@ public class MerryGoRoundConfigDTO {
     private Long contributionAmount;
     private ContributionFrequency frequency;
     private Boolean beneficiaryContributes;
+    private Boolean requiresApproval;
+    private Integer requiredApprovals;
 }

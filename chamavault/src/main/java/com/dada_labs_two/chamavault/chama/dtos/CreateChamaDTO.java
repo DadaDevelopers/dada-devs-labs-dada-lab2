@@ -61,5 +61,7 @@ public class CreateChamaDTO {
         private Long contributionAmount;
         private ContributionFrequency frequency;
         private Boolean beneficiaryContributes = false;
+        private Boolean requiresApproval = true;
+        private Integer requiredApprovals = 2;
     }
 }

@@ -22,6 +22,8 @@ import com.dada_labs_two.chamavault.users.services.ProfileActionService;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
+import com.dada_labs_two.chamavault.governance.models.RotationSkip;
+import com.dada_labs_two.chamavault.governance.repositories.RotationSkipRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -45,6 +47,7 @@ public class ContributionCycleService {
     private final ContributionCycleRepository cycleRepository;
     private final WalletRepository walletRepository;
     private final MemberContributionObligationService obligationService;
+    private final RotationSkipRepository rotationSkipRepository;
 
     /* ============================
        Scheduler
@@ -93,8 +96,17 @@ public class ContributionCycleService {
         int contributorCount = activeMembers.size() - (rules.doesBeneficiaryContribute() ? 0 : 1);
         Long expectedTotalContributionAmount = Math.multiplyExact((long) contributorCount, merryAmount);
 
-        ChamaMember beneficiary =
-                activeMembers.get((nextRotationIndex - 1) % activeMembers.size());
+        ChamaMember beneficiary;
+        while (true) {
+            beneficiary = activeMembers.get((nextRotationIndex - 1) % activeMembers.size());
+            Optional<RotationSkip> skip = rotationSkipRepository
+                    .findFirstByChama_ChamaReferenceAndMember_ReferenceAndConsumedAtIsNullOrderByCreatedAtAsc(
+                            chamaReference, beneficiary.getReference());
+            if (skip.isEmpty()) break;
+            skip.get().setConsumedAt(ZonedDateTime.now());
+            rotationSkipRepository.save(skip.get());
+            nextRotationIndex++;
+        }
 
         Wallet wallet = createCycleWallet(beneficiary, rules, nextRotationIndex);
 
