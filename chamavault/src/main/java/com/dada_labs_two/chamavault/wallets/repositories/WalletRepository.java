@@ -8,6 +8,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
@@ -19,6 +21,11 @@ public interface WalletRepository extends JpaRepository<Wallet, UUID> {
     Optional<Wallet> findByOwnerReferenceAndWalletRole(UUID ownerReference, WalletRole  walletRole);
     Page<Wallet> findAllByOwnerReference(Pageable pageable,  UUID ownerReference);
     List<Wallet> findAllByOwnerReference(UUID ownerReference);
+    Optional<Wallet> findByWalletReferenceAndChama_ChamaReferenceAndWalletTypeAndActiveTrue(
+            UUID walletReference, UUID chamaReference, WalletType walletType);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select w from Wallet w where w.walletReference=:walletReference and w.chama.chamaReference=:chamaReference and w.walletType=:walletType and w.active=true")
+    Optional<Wallet> findActiveChamaWalletForUpdate(UUID walletReference, UUID chamaReference, WalletType walletType);
 
     Optional<Wallet> findByOwnerReferenceAndWalletTypeAndChamaAndActive(UUID ownerReference, WalletType walletType,
                                                                Chama chama, Boolean active);

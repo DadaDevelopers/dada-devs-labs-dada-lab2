@@ -52,6 +52,9 @@ public interface ChamaMemberRepository extends JpaRepository<ChamaMember, UUID> 
 
     Optional<ChamaMember> findByUserAndChama(User user, Chama chama);
 
+    Optional<ChamaMember> findByChama_ChamaReferenceAndUser_UserReferenceAndStatus(
+            UUID chamaReference, UUID userReference, MembershipStatus status);
+
     Page<ChamaMember> findAllByChama_ChamaReferenceAndStatus(UUID chamaReference, MembershipStatus status, Pageable pageable);
 
     List<ChamaMember> findAllByChama_ChamaReferenceAndStatus(UUID chamaReference, MembershipStatus status);

@@ -12,7 +12,7 @@ public class CreateChamaInviteDTO {
     @NotNull(message = "chamaReferenceId is a required field")
     private UUID chamaReferenceId;
 
-    @NotBlank(message = "adminPhone is required")
+    /** Populated from the authenticated principal; request values are ignored. */
     private String adminPhone;
 
     @NotNull(message = "specify if to join chama, member requires admin approval")
@@ -20,4 +20,7 @@ public class CreateChamaInviteDTO {
 
     @NotNull(message = "specify the open role in the chama")
     private ChamaRole role;
+
+    /** Defaults to chama.invites.expiry-days (7) and is capped by the service. */
+    private Integer expiryDays;
 }

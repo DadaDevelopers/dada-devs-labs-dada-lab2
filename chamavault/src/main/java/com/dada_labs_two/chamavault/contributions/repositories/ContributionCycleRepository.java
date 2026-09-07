@@ -22,6 +22,7 @@ public interface ContributionCycleRepository extends JpaRepository<ContributionC
     List<ContributionCycle> findByStatusAndEndAtBefore(ContributionCycleStatus contributionCycleStatus, ZonedDateTime date);
 
     boolean existsByChamaAndStatus(Chama chama, ContributionCycleStatus contributionCycleStatus);
+    List<ContributionCycle> findByStatus(ContributionCycleStatus contributionCycleStatus);
 
     Page<ContributionCycle> findAllByChama(Pageable pageable, Chama chama);
 

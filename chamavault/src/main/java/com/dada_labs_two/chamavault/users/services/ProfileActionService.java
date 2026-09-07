@@ -217,9 +217,7 @@ public class ProfileActionService {
               Visibility: %s
               Current rotation: %d
             
-            We've also set up a Lightning wallet for your Chama. This
-            wallet can be used for pooled Chama funds and other group
-            transactions.
+            %s
             
             Your Chama is now ready for you to start inviting members
             and building together. 
@@ -235,10 +233,54 @@ public class ProfileActionService {
                 chama.getContributionAmount(),
                 chama.getMaxMembers(),
                 chama.getVisibility(),
-                chama.getCurrentRotationIndex()
+                chama.getCurrentRotationIndex(),
+                wallet == null
+                        ? "No group wallet was requested. Members can create one later through governance."
+                        : "We've also set up a Lightning group wallet with a target of %,d sats.".formatted(wallet.getTargetAmountSats())
         );
 
         sendNotification(creator, subject, body);
+    }
+
+    public void notifyGroupWalletContribution(User contributor, Chama chama, long amount, long total, Long target) {
+        String progress = target == null ? "No target configured" : "Target: %,d sats (%,d remaining)"
+                .formatted(target, Math.max(0, target - total));
+        sendNotification(contributor, "Contribution received for " + chama.getName(), """
+                Hi %s,
+
+                Your contribution of %,d sats to %s was recorded.
+                Total contributed: %,d sats
+                %s
+
+                Thank you for contributing.
+                """.formatted(getDisplayName(contributor), amount, chama.getName(), total, progress));
+    }
+
+    public void notifyGovernance(User recipient, Chama chama, String subject, String action, String actor) {
+        sendNotification(recipient, subject + " - " + chama.getName(), """
+                Hi %s,
+
+                Governance update for %s:
+                Action: %s
+                Initiated/updated by: %s
+                Status: %s
+
+                Open ChamaVault to review the request.
+                """.formatted(getDisplayName(recipient), chama.getName(), action, actor, subject));
+    }
+
+    public void notifyContributionReminder(User member, ContributionCycle cycle) {
+        sendNotification(member, "Contribution reminder - " + cycle.getChama().getName(), """
+                Hi %s,
+
+                Your %,d sats contribution for rotation %d of %s is still outstanding.
+                Due: %s
+                Current group total: %,d of %,d sats
+
+                Please contribute before the due date.
+                """.formatted(getDisplayName(member), cycle.getContributionAmount(), cycle.getRotationIndex(),
+                cycle.getChama().getName(), cycle.getEndAt(), cycle.getCurrentTotalContributionAmount(),
+                cycle.getExpectedTotalContributionAmount()));
     }
 
     public void notifyJoinRequestReceived(

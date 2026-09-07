@@ -47,7 +47,7 @@ public class ContributionCycleService {
     /* ============================
        Scheduler
      ============================ */
-    @Scheduled(cron = "0 */10 * * * *") // every 30 minutes
+    @Scheduled(cron = "0 */30 * * * *") // every 30 minutes
     @Transactional
     public void manageCycles() {
         closeExpiredCycles();
