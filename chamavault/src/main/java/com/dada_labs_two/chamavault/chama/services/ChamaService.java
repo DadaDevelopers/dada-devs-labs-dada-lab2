@@ -135,7 +135,7 @@ public class ChamaService {
         log.info("LW created user wallet: {}", lw);
 
         // We use the NEW wallet's admin key to enable the extension for itself
-//        lightningWalletService.enableLnurlpExtension(lw.id(),lw.adminkey());
+//        lightningWalletService.enableLnurlpExtension();
 
         Map<String, String> lightningMap = new HashMap<>();
         lightningMap.put("id", lw.id());

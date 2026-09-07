@@ -13,23 +13,25 @@ import java.util.List;
 public class LightningWalletService {
 
     private final LNbitsClient client;
-    private final String adminKey;
-    private final String userId;
+    private final String accessToken;
+    private final String username;
+    private final String password;
 
     public LightningWalletService(LNbitsClient client,
-                         @Value("${lnbits.admin-key}") String adminKey,
-                         @Value("${lnbits.user-id}") String userId
+                         @Value("${lnbits.access-token:}") String accessToken,
+                         @Value("${lnbits.username:}") String username,
+                         @Value("${lnbits.password:}") String password
     ) {
         this.client = client;
-        this.adminKey = adminKey;
-        this.userId = userId;
+        this.accessToken = accessToken;
+        this.username = username;
+        this.password = password;
     }
 
     public WalletResponse createUserWallet(String name) {
         WalletResponse wallet = client.createWallet(
-                adminKey,
-                userId,
-                new CreateWalletRequest("user-" + name)
+                accountAccessToken(),
+                new CreateWalletRequest("user-" + name, "lightning")
         );
 
         // Persist wallet.id + wallet.invoice_key
@@ -98,9 +100,23 @@ public class LightningWalletService {
         return status;
     }
 
-    public void enableLnurlpExtension(String userId, String userAdminKey) {
+    public void enableLnurlpExtension() {
         log.info("Enabling lnurlp extension for wallet...");
-        client.enableExtension(userId, adminKey, new EnableExtensionRequest("lnurlp", true));
+        client.enableExtension(accountAccessToken(), new EnableExtensionRequest("lnurlp", true));
+    }
+
+    public List<WalletResponse> listUserWallets() {
+        return client.listWallets(accountAccessToken());
+    }
+
+    private String accountAccessToken() {
+        if (username != null && !username.isBlank()) {
+            return client.authenticate(username, password);
+        }
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalStateException("Configure lnbits.username/password or lnbits.access-token for account operations");
+        }
+        return accessToken.trim();
     }
 
 

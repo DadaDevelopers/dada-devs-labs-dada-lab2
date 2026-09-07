@@ -27,16 +27,53 @@ public class LNbitsClient {
 
     /* ---------- Wallets ---------- */
 
-    public WalletResponse createWallet(String adminKey, String userId, CreateWalletRequest request) {
+    public String authenticate(String username, String password) {
+        if (username == null || username.isBlank() || password == null || password.isBlank()) {
+            throw new IllegalStateException("LNbits username and password are required to obtain an access token");
+        }
+        LNbitsAuthResponse response = webClient.post()
+                .uri("/api/v1/auth")
+                .bodyValue(new LNbitsAuthRequest(username, password))
+                .retrieve()
+                .onStatus(
+                        status -> status.isError(),
+                        clientResponse -> clientResponse.bodyToMono(String.class)
+                                .map(body -> new RuntimeException("LNbits authentication failed: " + body))
+                )
+                .bodyToMono(LNbitsAuthResponse.class)
+                .block();
+        if (response == null || response.access_token() == null || response.access_token().isBlank()) {
+            throw new IllegalStateException("LNbits authentication returned no access token");
+        }
+        return response.access_token();
+    }
+
+    public WalletResponse createWallet(String accessToken, CreateWalletRequest request) {
         return webClient.post()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/api/v1/wallet")
-                        .queryParam("usr", userId)
-                        .build())
-                .header("X-Api-Key", adminKey)
+                .uri("/api/v1/wallet")
+                .headers(headers -> headers.setBearerAuth(requireAccessToken(accessToken)))
                 .bodyValue(request)
                 .retrieve()
+                .onStatus(
+                        status -> status.isError(),
+                        response -> response.bodyToMono(String.class)
+                                .map(body -> new RuntimeException("LNbits wallet creation failed: " + body))
+                )
                 .bodyToMono(WalletResponse.class)
+                .block();
+    }
+
+    public List<WalletResponse> listWallets(String accessToken) {
+        return webClient.get()
+                .uri("/api/v1/wallets")
+                .headers(headers -> headers.setBearerAuth(requireAccessToken(accessToken)))
+                .retrieve()
+                .onStatus(
+                        status -> status.isError(),
+                        response -> response.bodyToMono(String.class)
+                                .map(body -> new RuntimeException("LNbits wallet listing failed: " + body))
+                )
+                .bodyToMono(new ParameterizedTypeReference<List<WalletResponse>>() {})
                 .block();
     }
 
@@ -104,7 +141,7 @@ public class LNbitsClient {
                 true // out=true = pay
         );
 
-        log.info("Starting payment for wallet {}", walletKey);
+        log.info("Starting LNbits payment");
 
         PayInvoiceResponse response = webClient.post()
                 .uri("/api/v1/payments")
@@ -214,15 +251,12 @@ public class LNbitsClient {
     }
 
 
-    public void enableExtension(String userId, String walletAdminKey, EnableExtensionRequest request) {
-        log.info("Enabling extension {} for user {}", request.extension(), userId);
+    public void enableExtension(String accessToken, EnableExtensionRequest request) {
+        log.info("Enabling LNbits extension {}", request.extension());
 
         webClient.post()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/api/v1/extension")
-                        .queryParam("usr", userId) // The critical missing piece
-                        .build())
-                .header("X-Api-Key", walletAdminKey)
+                .uri("/api/v1/extension")
+                .headers(headers -> headers.setBearerAuth(requireAccessToken(accessToken)))
                 .bodyValue(request)
                 .retrieve()
                 .onStatus(
@@ -232,5 +266,12 @@ public class LNbitsClient {
                 )
                 .bodyToMono(Void.class)
                 .block();
+    }
+
+    private String requireAccessToken(String accessToken) {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalStateException("lnbits.access-token is required for user-level LNbits operations");
+        }
+        return accessToken.trim();
     }
 }
