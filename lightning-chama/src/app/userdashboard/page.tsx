@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { ArrowUpRight, ArrowDownLeft, RefreshCw, Users, Check, Copy, X, Eye, Send, Download, HandCoins, ChevronDown, Wallet, Bot, Sparkles } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, RefreshCw, Users, Check, Copy, X, Eye, Send, Download, HandCoins, ChevronDown, Wallet, Bot, Sparkles, Plus } from 'lucide-react';
 import BalanceHero from '@/components/BalanceHero';
 import { Navbar } from '@/components/Navbar';
 import SatsAmount from '@/components/SatsAmount';
@@ -13,6 +13,7 @@ import chama1 from '@/assets/chama1.svg';
 import chama2 from '@/assets/chama2.svg';
 import chama3 from '@/assets/chama3.svg';
 import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
+import { formatWalletName } from '@/lib/wallet';
 
 type OnRampResponse = {
   message?: string;
@@ -778,7 +779,7 @@ export default function Dashboard() {
                 >
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium">
-                      {wallet.lightning?.name || wallet.walletType}
+                      {formatWalletName(wallet.lightning?.name) || wallet.walletType}
                     </p>
                     {selectedWalletRef === wallet.walletReference && (
                       <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full">
@@ -810,6 +811,18 @@ export default function Dashboard() {
                 </button>
               </div>
             ))}
+
+            {/* Create wallet */}
+            <div className="sticky bottom-0 border-t border-gray-100 bg-gray-50 p-3">
+              <Link
+                href="/userdashboard/wallet/newwallet"
+                onClick={() => setWalletsExpanded(false)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white py-2.5 text-sm font-bold text-emerald-700 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50"
+              >
+                <Plus size={18} />
+                Create New Wallet
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -1020,7 +1033,7 @@ export default function Dashboard() {
                         {transaction.memo || transaction.source || transaction.type}
                       </p>
                       <p className="text-xs md:text-sm text-gray-500 truncate">
-                        {transaction.wallet?.lightning?.name || transaction.wallet?.walletPurpose || transaction.wallet?.walletType || 'Wallet'}
+                        {formatWalletName(transaction.wallet?.lightning?.name) || transaction.wallet?.walletPurpose || transaction.wallet?.walletType || 'Wallet'}
                       </p>
                       <p className="text-xs text-gray-400">
                         {transaction.occurredAt || transaction.createdAt
@@ -1241,7 +1254,7 @@ export default function Dashboard() {
                         return w ? (
                           <span className="flex items-center gap-2 min-w-0">
                             <Wallet size={14} className="text-emerald-600 shrink-0" />
-                            <span className="font-medium truncate">{w.lightning?.name || w.walletType}</span>
+                            <span className="font-medium truncate">{formatWalletName(w.lightning?.name) || w.walletType}</span>
                             <span className="text-gray-400 shrink-0">{w.balanceSats.toLocaleString()} sats</span>
                           </span>
                         ) : <span className="text-gray-400">Select wallet</span>;
@@ -1278,7 +1291,7 @@ export default function Dashboard() {
                                     <Wallet size={14} className={isSelected ? 'text-white' : 'text-gray-500'} />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-gray-900 truncate">{wallet.lightning?.name || wallet.walletType}</p>
+                                    <p className="text-sm font-semibold text-gray-900 truncate">{formatWalletName(wallet.lightning?.name) || wallet.walletType}</p>
                                     <p className="text-xs text-gray-500">{wallet.balanceSats.toLocaleString()} sats{exchangeRate ? ` · KES ${convertSatsToKes(wallet.balanceSats).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}</p>
                                   </div>
                                   {isSelected && <Check size={14} className="text-emerald-600 shrink-0" />}
@@ -1431,7 +1444,7 @@ export default function Dashboard() {
                         return w ? (
                           <span className="flex items-center gap-2 min-w-0">
                             <Wallet size={14} className="text-emerald-600 shrink-0" />
-                            <span className="font-medium truncate">{w.lightning?.name || w.walletType}</span>
+                            <span className="font-medium truncate">{formatWalletName(w.lightning?.name) || w.walletType}</span>
                             <span className="text-gray-400 shrink-0">{w.balanceSats.toLocaleString()} sats</span>
                           </span>
                         ) : <span className="text-gray-400">Select wallet</span>;
@@ -1468,7 +1481,7 @@ export default function Dashboard() {
                                     <Wallet size={14} className={isSelected ? 'text-white' : 'text-gray-500'} />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-gray-900 truncate">{wallet.lightning?.name || wallet.walletType}</p>
+                                    <p className="text-sm font-semibold text-gray-900 truncate">{formatWalletName(wallet.lightning?.name) || wallet.walletType}</p>
                                     <p className="text-xs text-gray-500">{wallet.balanceSats.toLocaleString()} sats{exchangeRate ? ` · KES ${convertSatsToKes(wallet.balanceSats).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}</p>
                                   </div>
                                   {isSelected && <Check size={14} className="text-emerald-600 shrink-0" />}
@@ -1626,7 +1639,7 @@ export default function Dashboard() {
               
               {selectedWalletDetails.lightning && (
                 <>
-                  <p><strong>Lightning Wallet Name:</strong> {selectedWalletDetails.lightning.name}</p>
+                  <p><strong>Lightning Wallet Name:</strong> {formatWalletName(selectedWalletDetails.lightning.name)}</p>
                   
                   <div className="flex gap-2 items-start">
                     <p className="flex-1"><strong>Lightning ID:</strong> {selectedWalletDetails.lightning.id}</p>

@@ -20,6 +20,7 @@ import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
 import SatsAmount from '@/components/SatsAmount';
 import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
+import { formatWalletName } from '@/lib/wallet';
 
 // --- Types ---
 interface Wallet {
@@ -510,7 +511,7 @@ export default function ChamasContribution() {
                               <Wallet size={20} />
                             </div>
                             <div>
-                              <h4 className="font-bold text-gray-900">{wallet.lightning.name}</h4>
+                              <h4 className="font-bold text-gray-900">{formatWalletName(wallet.lightning.name)}</h4>
                               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{wallet.walletType}</span>
                             </div>
                           </div>
@@ -557,7 +558,7 @@ export default function ChamasContribution() {
                         <Wallet size={20} />
                       </div>
                       <div>
-                        <p className="font-bold text-sm">{paymentModal.selectedWallet.lightning.name}</p>
+                        <p className="font-bold text-sm">{formatWalletName(paymentModal.selectedWallet.lightning.name)}</p>
                         <p className="text-xs text-gray-400">{paymentModal.selectedWallet.walletType}</p>
                       </div>
                     </div>

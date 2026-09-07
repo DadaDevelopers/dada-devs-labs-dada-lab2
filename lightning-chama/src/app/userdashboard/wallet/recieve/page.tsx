@@ -8,6 +8,7 @@ import {
 import Link from 'next/link';
 import SatsAmount from '@/components/SatsAmount';
 import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
+import { formatWalletName } from '@/lib/wallet';
 
 // --- Typing ---
 type PaymentStatus = 'PENDING' | 'PAID' | 'EXPIRED';
@@ -196,7 +197,7 @@ export default function LightningQRPage() {
                     <Wallet size={28} />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">{wallet.lightning.name}</h3>
+                    <h3 className="text-lg font-bold text-gray-900">{formatWalletName(wallet.lightning.name)}</h3>
                     <span className="text-xs font-semibold bg-emerald-50 text-emerald-700 px-2 py-1 rounded-md border border-emerald-100">{wallet.walletType.replace('_', ' ')}</span>
                   </div>
                 </div>
@@ -248,7 +249,7 @@ export default function LightningQRPage() {
                 <p className="text-xs text-gray-400 font-bold uppercase tracking-wide mb-0.5">Receiving to</p>
                 {/* REMOVED TRUNCATION: Wallet name now displays fully */}
                 <p className="text-sm font-bold text-gray-900 leading-tight">
-                  {selectedWallet?.lightning.name}
+                  {formatWalletName(selectedWallet?.lightning.name)}
                 </p>
               </div>
             </div>

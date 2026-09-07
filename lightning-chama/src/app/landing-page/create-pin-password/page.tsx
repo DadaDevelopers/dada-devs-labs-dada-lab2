@@ -21,7 +21,10 @@ export default function SetPinPage() {
     }
   }, []);
 
-  const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [receiveNewsletter, setReceiveNewsletter] = useState(false);
+  const [howDidYouHearUs, setHowDidYouHearUs] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -38,8 +41,13 @@ export default function SetPinPage() {
       return;
     }
 
-    if (!fullName || !pin || !confirmPin) {
+    if (!username.trim() || !email.trim() || !howDidYouHearUs.trim() || !pin || !confirmPin) {
       setError("All fields are required.");
+      return;
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      setError("Enter a valid email address.");
       return;
     }
 
@@ -71,10 +79,14 @@ export default function SetPinPage() {
             msisdn,
             password: pin,
             passwordReEntered: confirmPin,
-            username: fullName,
+            username: username.trim(),
             roles: ["USER"],
             countries: ["KE"],
-            kyc: {},
+            kyc: {
+              email: email.trim(),
+              receive_newsletter: receiveNewsletter ? "Yes" : "No",
+              how_did_you_hear_us: howDidYouHearUs.trim(),
+            },
           }),
         }
       );
@@ -130,18 +142,56 @@ export default function SetPinPage() {
         </p>
 
         <div className="mt-8 space-y-5 text-left">
-          {/* Full Name */}
+          {/* Username */}
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-1">
-              Full Name
+              Username
             </label>
             <input
               type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+              placeholder="e.g. Janexxx"
               className="w-full border border-gray-300 rounded-lg px-4 py-3
                          focus:outline-none focus:ring-2 focus:ring-emerald-600 text-[#191919]"
             />
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1">
+              Email address
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              placeholder="you@example.com"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3
+                         focus:outline-none focus:ring-2 focus:ring-emerald-600 text-[#191919]"
+            />
+          </div>
+
+          {/* Referral source */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1">
+              How did you hear about us?
+            </label>
+            <select
+              value={howDidYouHearUs}
+              onChange={(e) => setHowDidYouHearUs(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg bg-white px-4 py-3
+                         focus:outline-none focus:ring-2 focus:ring-emerald-600 text-[#191919]"
+            >
+              <option value="">Select an option</option>
+              <option value="A friend's referral">A friend&apos;s referral</option>
+              <option value="Social media">Social media</option>
+              <option value="Community event">Community event</option>
+              <option value="Online search">Online search</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
 
           {/* PIN */}
@@ -187,6 +237,19 @@ export default function SetPinPage() {
               {showConfirmPin ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
+
+          {/* Terms */}
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={receiveNewsletter}
+              onChange={(e) => setReceiveNewsletter(e.target.checked)}
+              className="mt-1 h-4 w-4 accent-emerald-600"
+            />
+            <span className="text-sm text-gray-700">
+              Send me occasional ChamaVault news and product updates.
+            </span>
+          </label>
 
           {/* Terms */}
           <div className="flex items-start gap-3">

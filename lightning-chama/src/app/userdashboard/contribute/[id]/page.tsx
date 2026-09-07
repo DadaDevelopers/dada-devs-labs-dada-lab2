@@ -5,6 +5,8 @@ import { ArrowLeft, User, CheckCircle, XCircle, Wallet, AlertCircle, X, Loader2,
 import { useParams, useRouter } from 'next/navigation';
 import SatsAmount from '@/components/SatsAmount';
 import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
+import { formatWalletName } from '@/lib/wallet';
+import ChamaGovernancePanel from '@/components/ChamaGovernancePanel';
 
 // Helper to format time ago
 const timeAgo = (date: string) => {
@@ -32,6 +34,8 @@ export default function ChamasContribution() {
   // State variables
   const [chamaDetails, setChamaDetails] = useState<any>(null);
   const [cycles, setCycles] = useState<any[]>([]);
+  const [obligations, setObligations] = useState<any[]>([]);
+  const [obligationsExpanded, setObligationsExpanded] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -68,6 +72,7 @@ export default function ChamasContribution() {
     loading: false,
     error: ''
   });
+  const [obligationPaymentAmount, setObligationPaymentAmount] = useState('');
 
   const { exchangeRate, loadingRate } = useBitcoinKesRate();
 
@@ -108,8 +113,18 @@ export default function ChamasContribution() {
         } else {
           throw new Error('Failed to fetch contribution cycles');
         }
+
+        // 3. Fetch this member's contribution obligations
+        const obligationsResponse = await fetch(
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chamaId}/contribution-obligations?mine=true`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (obligationsResponse.ok) {
+          const obligationsData = await obligationsResponse.json();
+          setObligations(Array.isArray(obligationsData) ? obligationsData : obligationsData.content || []);
+        }
         
-        // 3. Fetch Members
+        // 4. Fetch Members
         const membersResponse = await fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${chamaId}/members-by-status/ACTIVE`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -119,7 +134,7 @@ export default function ChamasContribution() {
           setMembers(membersData || []);
         }
 
-        // 4. Fetch User Wallets
+        // 5. Fetch User Wallets
         const ownerRef = localStorage.getItem('userReference');
         if (token && ownerRef) {
             try {
@@ -187,6 +202,12 @@ export default function ChamasContribution() {
   const expectedSats = displayCycle?.expectedTotalContributionAmount || 0;
   
   const contributionSats = displayCycle?.contributionAmount || 0;
+  const payableObligation = obligations.find((obligation: any) =>
+    ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'].includes(obligation.status)
+  );
+  const modalPaymentSats = rotationalPaymentModal.cycle?.outstandingAmountSats
+    ?? rotationalPaymentModal.cycle?.amountSats
+    ?? contributionSats;
   
   const progress = expectedSats > 0 ? (currentSats / expectedSats) * 100 : 0;
 
@@ -201,6 +222,7 @@ export default function ChamasContribution() {
         alert("You have no wallets to pay from. Please create a wallet first.");
         return;
     }
+    setObligationPaymentAmount(String(cycle.outstandingAmountSats ?? cycle.amountSats ?? cycle.contributionAmount ?? ''));
     setRotationalPaymentModal({
       isOpen: true,
       cycle: cycle,
@@ -223,6 +245,41 @@ export default function ChamasContribution() {
     setRotationalPaymentModal(prev => ({ ...prev, loading: true, error: '' }));
 
     try {
+      if (rotationalPaymentModal.cycle.obligationReference) {
+        const amountSats = Number(obligationPaymentAmount);
+        if (!Number.isInteger(amountSats) || amountSats <= 0 || amountSats > modalPaymentSats) {
+          throw new Error(`Enter an amount between 1 and ${modalPaymentSats.toLocaleString()} sats`);
+        }
+        const response = await fetch(
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chamaId}/contribution-obligations/${rotationalPaymentModal.cycle.obligationReference}/payments`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              fundingWalletReference: rotationalPaymentModal.selectedWallet.walletReference,
+              amountSats,
+            }),
+          }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.message || 'Payment failed');
+
+        const obligationsResponse = await fetch(
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chamaId}/contribution-obligations?mine=true`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (obligationsResponse.ok) {
+          const obligationsData = await obligationsResponse.json();
+          setObligations(Array.isArray(obligationsData) ? obligationsData : obligationsData.content || []);
+        }
+        setRotationalPaymentModal({ isOpen: false, cycle: null, selectedWallet: null, loading: false, error: '' });
+        alert('Contribution paid successfully.');
+        return;
+      }
+
       const params = new URLSearchParams({
         contributionCycleReference: rotationalPaymentModal.cycle.cycleReference.toString(),
         msisdn: userMsisdn,
@@ -284,7 +341,7 @@ export default function ChamasContribution() {
       amount: '',
       memo: '',
       senderWalletId: defaultWallet?.walletReference || '',
-      senderWalletName: defaultWallet?.lightning?.name || (defaultWallet ? 'Unknown Wallet' : 'No Wallet'),
+      senderWalletName: formatWalletName(defaultWallet?.lightning?.name) || (defaultWallet ? 'Unknown Wallet' : 'No Wallet'),
       recipientName: '',
       recipientType: '',
       recipientActive: false,
@@ -302,7 +359,7 @@ export default function ChamasContribution() {
     setTopUpState(prev => ({
         ...prev,
         senderWalletId: wallet.walletReference,
-        senderWalletName: wallet.lightning?.name || wallet.walletType,
+        senderWalletName: formatWalletName(wallet.lightning?.name) || wallet.walletType,
         showWalletSelector: false
     }));
   };
@@ -329,7 +386,7 @@ export default function ChamasContribution() {
       setTopUpState(prev => ({
         ...prev,
         step: 'confirm',
-        recipientName: data.lightning?.name || "Wallet",
+        recipientName: formatWalletName(data.lightning?.name) || "Wallet",
         recipientType: data.walletType,
         recipientActive: data.active ?? false,
         loading: false
@@ -511,8 +568,8 @@ export default function ChamasContribution() {
 
         {/* Main CTA */}
         <button
-          onClick={() => displayCycle && handleInitiatePayment(displayCycle)}
-          disabled={!cycles.length || isBeneficiary || hasContributed}
+          onClick={() => payableObligation && handleInitiatePayment(payableObligation)}
+          disabled={!payableObligation}
           className="w-full h-14 rounded-xl flex items-center justify-center gap-2 font-bold text-[16px] text-white disabled:opacity-50 transition-opacity"
           style={{
             background: '#0F172A',
@@ -520,14 +577,36 @@ export default function ChamasContribution() {
           }}
         >
           <Zap className="w-5 h-5" fill="white" />
-          {isBeneficiary
-            ? 'Beneficiary This Round'
-            : hasContributed
-            ? 'Already Contributed'
-            : activeCycle
-            ? 'Contribute to Group'
-            : 'Make Late Contribution'}
+          {payableObligation ? 'Pay Next Obligation' : 'No Outstanding Contributions'}
         </button>
+
+        {/* Member obligations */}
+        <div className="w-full space-y-3">
+          <button type="button" onClick={() => setObligationsExpanded(value => !value)} aria-expanded={obligationsExpanded} className="flex w-full items-center justify-between rounded-xl border border-gray-100 bg-white p-4 text-left shadow-sm transition hover:bg-gray-50">
+            <span><span className="block text-[14px] font-bold uppercase tracking-[0.7px] text-[#64748B]">My Obligations</span><span className="mt-1 block text-xs text-gray-500">{payableObligation ? 'You have a contribution awaiting payment' : 'No outstanding contributions'}</span></span>
+            <span className="flex items-center gap-2 text-xs font-semibold text-gray-500">{obligations.length} total <ChevronDown size={17} className={`transition-transform ${obligationsExpanded ? 'rotate-180' : ''}`} /></span>
+          </button>
+          {obligationsExpanded && (obligations.length === 0 ? (
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-500">No contribution obligations yet.</div>
+          ) : obligations.map((obligation: any) => {
+            const canPay = ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'].includes(obligation.status);
+            const amount = obligation.outstandingAmountSats ?? obligation.amountSats ?? obligation.contributionAmount ?? 0;
+            return (
+              <div key={obligation.obligationReference} className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-gray-900">{obligation.contributionType === 'POOLING' ? 'Pooling' : 'Merry-go-round'}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${obligation.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : obligation.status === 'OVERDUE' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{obligation.status}</span>
+                  </div>
+                  <SatsAmount sats={amount} exchangeRate={exchangeRate} loadingRate={loadingRate} primaryClassName="mt-1 text-sm font-semibold text-gray-700" detailClassName="text-xs text-gray-400" />
+                </div>
+                {canPay && <button onClick={() => handleInitiatePayment(obligation)} className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700">Pay</button>}
+              </div>
+            );
+          }))}
+        </div>
+
+        <ChamaGovernancePanel chamaId={chamaId} wallets={wallets} members={members} />
 
         {/* ── CONTRIBUTION CYCLE ── */}
         <div className="w-full flex flex-col gap-3">
@@ -608,7 +687,7 @@ export default function ChamasContribution() {
                   </div>
                   <div>
                     <p className="text-[14px] font-bold text-[#0F172A]">
-                      {wallet.lightning?.walletName || wallet.lightning?.name || `Wallet ${i + 1}`}
+                      {formatWalletName(wallet.lightning?.walletName || wallet.lightning?.name) || `Wallet ${i + 1}`}
                     </p>
                     <p className="text-[12px] text-[#64748B]">{wallet.walletType}</p>
                   </div>
@@ -798,7 +877,7 @@ export default function ChamasContribution() {
                               <Wallet size={20} />
                             </div>
                             <div>
-                              <h4 className="font-bold text-gray-900">{wallet.lightning.name}</h4>
+                              <h4 className="font-bold text-gray-900">{formatWalletName(wallet.lightning.name)}</h4>
                               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{wallet.walletType}</span>
                             </div>
                           </div>
@@ -824,11 +903,11 @@ export default function ChamasContribution() {
                     <p className="text-xs text-gray-500 font-bold uppercase mb-1">Contributing to</p>
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs">
-                        {rotationalPaymentModal.cycle.beneficiaryUser?.user?.username.charAt(0)}
+                        {(rotationalPaymentModal.cycle.beneficiaryUser?.user?.username || chama?.name || 'C').charAt(0)}
                       </div>
                       <div>
-                        <p className="font-bold text-gray-900 text-sm">{rotationalPaymentModal.cycle.beneficiaryUser?.user?.username}</p>
-                        <p className="text-xs text-gray-500">{rotationalPaymentModal.cycle.chama.name}</p>
+                        <p className="font-bold text-gray-900 text-sm">{rotationalPaymentModal.cycle.obligationReference ? 'Contribution obligation' : rotationalPaymentModal.cycle.beneficiaryUser?.user?.username}</p>
+                        <p className="text-xs text-gray-500">{rotationalPaymentModal.cycle.chama?.name || chama?.name}</p>
                       </div>
                     </div>
                   </div>
@@ -845,13 +924,13 @@ export default function ChamasContribution() {
                         <Wallet size={20} />
                       </div>
                       <div>
-                        <p className="font-bold text-sm">{rotationalPaymentModal.selectedWallet.lightning.name}</p>
+                        <p className="font-bold text-sm">{formatWalletName(rotationalPaymentModal.selectedWallet.lightning.name)}</p>
                         <p className="text-xs text-gray-400">{rotationalPaymentModal.selectedWallet.walletType}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <SatsAmount
-                        sats={contributionSats}
+                        sats={modalPaymentSats}
                         exchangeRate={exchangeRate}
                         loadingRate={loadingRate}
                         align="right"
@@ -860,6 +939,22 @@ export default function ChamasContribution() {
                       />
                     </div>
                   </div>
+
+                  {rotationalPaymentModal.cycle.obligationReference && (
+                    <div>
+                      <label htmlFor="obligation-payment-amount" className="mb-2 block text-sm font-semibold text-gray-700">Amount to pay (sats)</label>
+                      <input
+                        id="obligation-payment-amount"
+                        type="number"
+                        min="1"
+                        max={modalPaymentSats}
+                        value={obligationPaymentAmount}
+                        onChange={(event) => setObligationPaymentAmount(event.target.value.replace(/\D/g, ''))}
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">You can pay partially, up to {modalPaymentSats.toLocaleString()} sats outstanding.</p>
+                    </div>
+                  )}
 
                   {rotationalPaymentModal.error && (
                     <div className="p-3 bg-red-50 text-red-600 rounded-xl text-sm flex items-start gap-2 border border-red-100">
@@ -940,7 +1035,7 @@ export default function ChamasContribution() {
                                     }`}
                                 >
                                     <div className="flex justify-between items-center">
-                                        <span className="text-sm font-medium text-gray-900">{wallet.lightning?.name || wallet.walletType}</span>
+                                        <span className="text-sm font-medium text-gray-900">{formatWalletName(wallet.lightning?.name) || wallet.walletType}</span>
                                         <SatsAmount
                                           sats={wallet.balanceSats}
                                           exchangeRate={exchangeRate}
