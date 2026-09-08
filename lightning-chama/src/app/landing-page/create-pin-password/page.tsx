@@ -9,20 +9,10 @@ import { useRouter } from "next/navigation";
 export default function SetPinPage() {
   const router = useRouter();
 
-  // Read phone from URL on client only
-  const [msisdn, setMsisdn] = useState<string | null>(null);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const phone = params.get("phone");
-    // Remove all spaces from the phone number
-    if (phone) {
-      setMsisdn(phone.replace(/\s+/g, ''));
-    }
-  }, []);
-
+  const [msisdn, setMsisdn] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
   const [receiveNewsletter, setReceiveNewsletter] = useState(false);
   const [howDidYouHearUs, setHowDidYouHearUs] = useState("");
   const [pin, setPin] = useState("");
@@ -33,11 +23,23 @@ export default function SetPinPage() {
   const [showPin, setShowPin] = useState(false);
   const [showConfirmPin, setShowConfirmPin] = useState(false);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const identifier = params.get("identifier") || params.get("phone") || "";
+    if (identifier.includes("@")) {
+      setEmail(identifier.toLowerCase());
+      setEmailVerified(true);
+    } else if (identifier) {
+      setMsisdn(identifier.replace(/\D/g, ""));
+    }
+  }, []);
+
   const handleSubmit = async () => {
     setError("");
 
-    if (!msisdn) {
-      setError("Phone number missing.");
+    const normalizedMsisdn = msisdn.replace(/\D/g, "");
+    if (normalizedMsisdn.length !== 12 || !normalizedMsisdn.startsWith("254")) {
+      setError("Enter a valid Kenyan phone number, e.g. 0712345678 or 254712345678.");
       return;
     }
 
@@ -76,7 +78,7 @@ export default function SetPinPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            msisdn,
+            msisdn: normalizedMsisdn,
             password: pin,
             passwordReEntered: confirmPin,
             username: username.trim(),
@@ -158,6 +160,26 @@ export default function SetPinPage() {
             />
           </div>
 
+          {/* Phone number */}
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1">
+              Phone number
+            </label>
+            <input
+              type="tel"
+              value={msisdn}
+              onChange={(event) => {
+                const digits = event.target.value.replace(/\D/g, "");
+                setMsisdn(digits.startsWith("0") ? `254${digits.slice(1)}` : digits);
+              }}
+              autoComplete="tel"
+              placeholder="0712345678 or 254712345678"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3
+                         focus:outline-none focus:ring-2 focus:ring-emerald-600 text-[#191919]"
+            />
+            {emailVerified && <p className="mt-1 text-xs text-gray-500">Required to create your ChamaVault account after email verification.</p>}
+          </div>
+
           {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-1">
@@ -167,11 +189,13 @@ export default function SetPinPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              readOnly={emailVerified}
               autoComplete="email"
               placeholder="you@example.com"
               className="w-full border border-gray-300 rounded-lg px-4 py-3
-                         focus:outline-none focus:ring-2 focus:ring-emerald-600 text-[#191919]"
+                         focus:outline-none focus:ring-2 focus:ring-emerald-600 text-[#191919] read-only:bg-gray-50 read-only:text-gray-500"
             />
+            {emailVerified && <p className="mt-1 text-xs font-medium text-emerald-600">Email verified</p>}
           </div>
 
           {/* Referral source */}
