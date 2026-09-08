@@ -18,5 +18,9 @@ public class CodeDTO {
     private boolean active;
     private ZonedDateTime expirationDate;
     private String ownerMsisdn;
+    /** Email address or phone number. Preferred over ownerMsisdn for pre-registration OTPs. */
+    private String identifier;
+    /** Explicit email compatibility field; identifier is preferred. */
+    private String email;
     private Map<String, String> extraData = new HashMap<>();
 }

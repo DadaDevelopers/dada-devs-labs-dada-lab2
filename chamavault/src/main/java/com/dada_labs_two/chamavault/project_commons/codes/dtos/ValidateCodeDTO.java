@@ -10,4 +10,7 @@ import lombok.*;
 public class ValidateCodeDTO {
     private String code;
     private String ownerMsisdn;
+    /** Must match the email address or phone number used when the OTP was generated. */
+    private String identifier;
+    private String email;
 }
