@@ -52,6 +52,7 @@ export default function CreateAccount() {
           body: JSON.stringify({
             identifier: normalized,
             name: 'REGISTRATION_OTP',
+            active: true,
           }),
         }
       );
