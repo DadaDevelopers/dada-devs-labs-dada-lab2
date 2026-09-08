@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 export default function CreateAccount() {
   const router = useRouter();
 
-  const [phone, setPhone] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -20,15 +20,23 @@ export default function CreateAccount() {
   };
 
   const handleVerify = async () => {
-    if (!phone) {
-      setError('Please enter your phone number');
+    if (!identifier.trim()) {
+      setError('Please enter your email address or phone number');
       return;
     }
 
-    const normalized = normalizePhone(phone);
+    const isEmail = identifier.includes('@');
+    const normalized = isEmail
+      ? identifier.trim().toLowerCase()
+      : `+${normalizePhone(identifier)}`;
 
-    if (normalized.length !== 12) {
-      setError('Enter a valid Kenyan phone number e.g. 0712345678 or 254712345678');
+    if (isEmail && !/^\S+@\S+\.\S+$/.test(normalized)) {
+      setError('Enter a valid email address');
+      return;
+    }
+
+    if (!isEmail && normalized.replace(/\D/g, '').length !== 12) {
+      setError('Enter a valid Kenyan phone number, e.g. 0712345678');
       return;
     }
 
@@ -42,8 +50,8 @@ export default function CreateAccount() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ownerMsisdn: normalized,
-            active: true,
+            identifier: normalized,
+            name: 'REGISTRATION_OTP',
           }),
         }
       );
@@ -55,9 +63,8 @@ export default function CreateAccount() {
         return;
       }
 
-      // SUCCESS → go to verify page with normalized phone
       router.push(
-        `/landing-page/verify-number?phone=${encodeURIComponent(normalized)}`
+        `/landing-page/verify-number?identifier=${encodeURIComponent(normalized)}`
       );
 
     } catch (err) {
@@ -100,17 +107,18 @@ export default function CreateAccount() {
           Join ChamaVault Today
         </p>
 
-        {/* Phone Input */}
+        {/* Email or phone input */}
         <div className="mt-8 text-left">
           <label className="block text-sm font-medium text-black mb-1">
-            Phone Number
+            Email or Phone Number
           </label>
 
           <input
-            type="tel"
-            placeholder="0712345678 or 254712345678"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            type="text"
+            inputMode="email"
+            placeholder="person@example.com or 0712345678"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             className="w-full rounded-xl border border-gray-300 px-4 py-3
                        text-black placeholder-gray-400
                        outline-none focus:ring-2 focus:ring-[#059669]"
@@ -125,12 +133,12 @@ export default function CreateAccount() {
         {/* Verify Button */}
         <button
           onClick={handleVerify}
-          disabled={loading || !phone}
+          disabled={loading || !identifier.trim()}
           className={`w-full mt-6 bg-[#059669] text-white py-3 rounded-xl
                       font-semibold hover:bg-[#047857] transition
-                      ${loading || !phone ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      ${loading || !identifier.trim() ? 'opacity-60 cursor-not-allowed' : ''}`}
         >
-          {loading ? 'Sending code...' : 'Verify Phone Number'}
+          {loading ? 'Sending code...' : 'Send Verification Code'}
         </button>
 
         {/* Login Link */}
