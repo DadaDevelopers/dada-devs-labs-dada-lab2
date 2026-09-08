@@ -5,18 +5,16 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-const CODE_PREFIX = "VAULT-";
-const CODE_PATTERN = /^[A-Z0-9]{4,5}$/;
+const CODE_PATTERN = /^(?:[A-Z0-9]{6}|VAULT-[A-Z0-9]{4,5})$/;
 
 export default function VerifyNumber() {
   const router = useRouter();
 
-  // Read phone from URL on client only
-  const [phone, setPhone] = useState<string | null>(null);
+  const [identifier, setIdentifier] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setPhone(params.get("phone"));
+    setIdentifier(params.get("identifier") || params.get("phone"));
   }, []);
 
   const [otp, setOtp] = useState("");
@@ -32,16 +30,14 @@ export default function VerifyNumber() {
   }, [timer]);
 
   const handleChange = (value: string) => {
-    const suffix = value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
-    setOtp(suffix);
+    setOtp(value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 11));
   };
 
   const handlePaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
     const pastedCode = event.clipboardData
       .getData("text")
       .trim()
-      .toUpperCase()
-      .replace(/^VAULT-/, "");
+      .toUpperCase();
 
     if (!CODE_PATTERN.test(pastedCode)) return;
 
@@ -53,14 +49,14 @@ export default function VerifyNumber() {
     setError("");
 
     if (!CODE_PATTERN.test(otp)) {
-      setError("Enter the 4 or 5 characters after VAULT-.");
+      setError("Enter the complete verification code, e.g. ABC123.");
       return;
     }
 
-    const code = `${CODE_PREFIX}${otp}`;
+    const code = otp;
 
-    if (!phone) {
-      setError("Phone number missing.");
+    if (!identifier) {
+      setError("Email address or phone number missing.");
       return;
     }
 
@@ -73,7 +69,7 @@ export default function VerifyNumber() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ownerMsisdn: phone,
+            identifier,
             code,
           }),
         }
@@ -84,9 +80,8 @@ export default function VerifyNumber() {
         return;
       }
 
-      // SUCCESS → pass phone to next step
       router.push(
-        `/landing-page/create-pin-password?phone=${encodeURIComponent(phone)}`
+        `/landing-page/create-pin-password?identifier=${encodeURIComponent(identifier)}`
       );
     } catch {
       setError("Failed to connect to server. Try again.");
@@ -119,35 +114,32 @@ export default function VerifyNumber() {
         {/* Headings */}
         <div className="text-center mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">
-            Verify Phone Number
+            Check Your Inbox
           </h1>
           <p className="text-black mt-1">
-            Enter the verification code sent to your number
+            Enter the verification code sent to {identifier || 'your email or phone'}
           </p>
         </div>
 
         {/* Verification code input */}
         <div className="mb-3 flex h-14 overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-600/20">
-          <span className="flex items-center border-r border-gray-200 bg-gray-50 px-4 font-semibold tracking-wider text-gray-500">
-            {CODE_PREFIX}
-          </span>
           <input
               id="verification-code"
               type="text"
               inputMode="text"
               autoCapitalize="characters"
               autoComplete="one-time-code"
-              maxLength={5}
+              maxLength={11}
               value={otp}
               onChange={(e) => handleChange(e.target.value)}
               onPaste={handlePaste}
-              placeholder="PPIWD"
-              aria-label="Verification code suffix"
-              className="min-w-0 flex-1 px-4 text-lg font-semibold uppercase tracking-[0.25em] text-gray-700 outline-none placeholder:text-gray-300"
+              placeholder="ABC123"
+              aria-label="Verification code"
+              className="min-w-0 flex-1 px-4 text-center text-lg font-semibold uppercase tracking-[0.25em] text-gray-700 outline-none placeholder:text-gray-300"
             />
         </div>
         <p className="mb-5 text-center text-xs text-gray-500">
-          You can also paste the complete code, such as VAULT-PPIWD.
+          Codes may look like ABC123 or VAULT-PPIWD.
         </p>
 
         {/* Error */}
