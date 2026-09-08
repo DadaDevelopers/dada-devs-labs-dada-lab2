@@ -5,7 +5,8 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-const CODE_PATTERN = /^(?:[A-Z0-9]{6}|VAULT-[A-Z0-9]{4,5})$/;
+const CODE_PREFIX = "VAULT-";
+const CODE_PATTERN = /^[A-Z0-9]+$/;
 
 export default function VerifyNumber() {
   const router = useRouter();
@@ -30,14 +31,15 @@ export default function VerifyNumber() {
   }, [timer]);
 
   const handleChange = (value: string) => {
-    setOtp(value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 11));
+    setOtp(value.toUpperCase().replace(/[^A-Z0-9]/g, ""));
   };
 
   const handlePaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
     const pastedCode = event.clipboardData
       .getData("text")
       .trim()
-      .toUpperCase();
+      .toUpperCase()
+      .replace(/^VAULT-/, "");
 
     if (!CODE_PATTERN.test(pastedCode)) return;
 
@@ -49,11 +51,11 @@ export default function VerifyNumber() {
     setError("");
 
     if (!CODE_PATTERN.test(otp)) {
-      setError("Enter the complete verification code, e.g. ABC123.");
+      setError("Enter the characters after VAULT-.");
       return;
     }
 
-    const code = otp;
+    const code = `${CODE_PREFIX}${otp}`;
 
     if (!identifier) {
       setError("Email address or phone number missing.");
@@ -123,23 +125,25 @@ export default function VerifyNumber() {
 
         {/* Verification code input */}
         <div className="mb-3 flex h-14 overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-600/20">
+          <span className="flex items-center border-r border-gray-200 bg-gray-50 px-4 font-semibold tracking-wider text-gray-500">
+            {CODE_PREFIX}
+          </span>
           <input
               id="verification-code"
               type="text"
               inputMode="text"
               autoCapitalize="characters"
               autoComplete="one-time-code"
-              maxLength={11}
               value={otp}
               onChange={(e) => handleChange(e.target.value)}
               onPaste={handlePaste}
-              placeholder="ABC123"
-              aria-label="Verification code"
-              className="min-w-0 flex-1 px-4 text-center text-lg font-semibold uppercase tracking-[0.25em] text-gray-700 outline-none placeholder:text-gray-300"
+              placeholder="HOIIC"
+              aria-label="Verification code suffix"
+              className="min-w-0 flex-1 px-4 text-lg font-semibold uppercase tracking-[0.25em] text-gray-700 outline-none placeholder:text-gray-300"
             />
         </div>
         <p className="mb-5 text-center text-xs text-gray-500">
-          Codes may look like ABC123 or VAULT-PPIWD.
+          You can also paste the complete code, such as VAULT-HOIIC.
         </p>
 
         {/* Error */}
