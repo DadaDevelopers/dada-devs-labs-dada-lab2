@@ -397,6 +397,11 @@ public class TransactionService {
         String feePaymentHash = feeService.collect(senderWallet, platformFee);
         log.info("paymentHash2 successfully created for senderWallet wallet {}", senderWallet.getLightning().get("adminkey"));
 
+        Map<String, String> transferMetadata = new HashMap<>();
+        transferMetadata.put("paymentHash", paymentHash2);
+        transferMetadata.put("senderWalletReference", senderWallet.getWalletReference().toString());
+        transferMetadata.put("recipientWalletReference", recipientWallet.getWalletReference().toString());
+
         //Sync Wallets
         syncReceiverLnBitsWalletBalance(senderWallet);
         syncSenderLnBitsWalletBalance(recipientWallet);
@@ -409,12 +414,12 @@ public class TransactionService {
                         .source(TransactionSource.LN_INVOICE)
                         .amountSats(amountSats)
                         .category(TransactionCategory.WALLET_TRANSFER)
-                        .externalRef(paymentHash2)
+                        .externalRef(paymentHash2 + "-CREDIT")
                         .initiatedBy(senderWallet.getOwnerReference())
                         .counterpartyUser(recipientWallet.getOwnerReference())
                         .rotationIndex(null)
                         .memo(memo)
-                        .metadata(new HashMap<>())
+                        .metadata(new HashMap<>(transferMetadata))
                         .occurredAt(ZonedDateTime.now())
                         .build()
         );
@@ -430,12 +435,12 @@ public class TransactionService {
                         .platformFeeSats(platformFee.platformFeeSats())
                         .feeSats(platformFee.platformFeeSats())
                         .feeRuleReference(platformFee.feeRuleReference())
-                        .externalRef(paymentHash2)
+                        .externalRef(paymentHash2 + "-DEBIT")
                         .initiatedBy(senderWallet.getOwnerReference())
                         .counterpartyUser(recipientWallet.getOwnerReference())
                         .rotationIndex(null)
                         .memo(memo)
-                        .metadata(withFeeMetadata(new HashMap<>(), platformFee, feePaymentHash))
+                        .metadata(withFeeMetadata(new HashMap<>(transferMetadata), platformFee, feePaymentHash))
                         .occurredAt(ZonedDateTime.now())
                         .build()
         );
