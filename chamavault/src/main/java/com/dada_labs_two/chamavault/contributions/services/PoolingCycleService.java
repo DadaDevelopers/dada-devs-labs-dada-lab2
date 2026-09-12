@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.ZonedDateTime;
 import java.util.*;
+import com.dada_labs_two.chamavault.chama.activities.*;
 
 @Service @RequiredArgsConstructor @Slf4j
 public class PoolingCycleService {
@@ -28,6 +29,7 @@ public class PoolingCycleService {
     private final WalletRepository walletRepository;
     private final ProfileActionService notifications;
     private final MemberContributionObligationService obligationService;
+    private final ChamaActivityService activityService;
 
     @Scheduled(cron = "${chama.cycles.cron:0 */30 * * * *}")
     @Transactional
@@ -36,6 +38,10 @@ public class PoolingCycleService {
         for (PoolingCycle cycle : cycleRepository.findByStatusAndEndAtBefore(ContributionCycleStatus.ACTIVE, now)) {
             cycle.setStatus(ContributionCycleStatus.CLOSED);
             cycleRepository.save(cycle);
+            activityService.record(cycle.getChama(), null, ChamaActivityType.POOLING_CYCLE_CLOSED, ActivityCategory.CONTRIBUTION,
+                    "Pooling cycle closed", "Pooling contribution period " + cycle.getSequenceNumber() + " closed",
+                    "POOLING_CYCLE", cycle.getReference().toString(), null, cycle.getWallet().getWalletReference(), null, null,
+                    "POOLING_CYCLE_CLOSED:" + cycle.getReference(), Map.of());
         }
         for (Chama chama : chamaRepository.findAll()) {
             if (purpose(chama).supportsPooling()) {
@@ -76,6 +82,10 @@ public class PoolingCycleService {
                 .status(ContributionCycleStatus.ACTIVE).startAt(start)
                 .endAt(endDate(start, rules.effectivePoolingFrequency())).build());
         obligationService.createFor(cycle, members);
+        activityService.record(chama, null, ChamaActivityType.POOLING_CYCLE_STARTED, ActivityCategory.CONTRIBUTION,
+                "Pooling cycle started", "Members are expected to contribute " + cycle.getContributionAmount() + " sats",
+                "POOLING_CYCLE", cycle.getReference().toString(), cycle.getContributionAmount(), wallet.getWalletReference(), null, null,
+                "POOLING_CYCLE_STARTED:" + cycle.getReference(), Map.of("expectedTotalSats", cycle.getExpectedTotalContributionAmount().toString()));
         members.forEach(member -> notifications.notifyPoolingContributionDue(member.getUser(), cycle));
         return cycle;
     }

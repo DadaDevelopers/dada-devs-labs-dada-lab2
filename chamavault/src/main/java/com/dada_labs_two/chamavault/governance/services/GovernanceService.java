@@ -15,6 +15,7 @@ import com.dada_labs_two.chamavault.governance.models.RotationSkip;
 import com.dada_labs_two.chamavault.governance.repositories.RotationSkipRepository;
 import com.dada_labs_two.chamavault.contributions.constants.ContributionType;
 import com.dada_labs_two.chamavault.chama.constants.ContributionFrequency;
+import com.dada_labs_two.chamavault.chama.activities.*;
 import com.dada_labs_two.chamavault.governance.repositories.ChamaFineRepository;
 import com.dada_labs_two.chamavault.governance.repositories.GovernanceRequestRepository;
 import com.dada_labs_two.chamavault.governance.repositories.GovernanceVoteRepository;
@@ -56,6 +57,7 @@ public class GovernanceService {
     private final FeeService feeService;
     private final TransactionRepository transactionRepository;
     private final RotationSkipRepository rotationSkipRepository;
+    private final ChamaActivityService activityService;
 
     @Transactional
     public GovernanceRequest create(UUID chamaId, User user, CreateGovernanceRequest input) {
@@ -81,6 +83,11 @@ public class GovernanceService {
             saved.setDecidedAt(ZonedDateTime.now());
             saved = requestRepository.save(saved);
         }
+        activityService.record(maker.getChama(), user, ChamaActivityType.GOVERNANCE_REQUEST_CREATED, ActivityCategory.GOVERNANCE,
+                "Governance request created", user.getUsername() + " created a " + input.action() + " request",
+                "GOVERNANCE_REQUEST", saved.getReference().toString(), null, null, null, saved.getReference(),
+                "GOVERNANCE_REQUEST_CREATED:" + saved.getReference(), Map.of("action", input.action().name(), "status", saved.getStatus().name()));
+        if (!requiresApproval) recordGovernanceOutcome(saved, user);
         notifyMembers(saved, requiresApproval ? "New maker request" : "Maker request executed", user);
         return saved;
     }
@@ -114,6 +121,10 @@ public class GovernanceService {
                         .decision(input.decision())
                         .comment(input.comment())
                         .build());
+        activityService.record(request.getChama(), user, ChamaActivityType.GOVERNANCE_VOTE_CAST, ActivityCategory.GOVERNANCE,
+                "Governance vote cast", user.getUsername() + " voted " + input.decision(), "GOVERNANCE_REQUEST",
+                request.getReference().toString(), null, null, null, request.getReference(),
+                "GOVERNANCE_VOTE:" + request.getReference() + ":" + checker.getReference(), Map.of("decision", input.decision().name()));
 
         long votes = voteRepository.countByRequestAndDecision(request, input.decision());
 
@@ -127,6 +138,7 @@ public class GovernanceService {
             requestRepository.save(request);
 
             notifyMembers(request, "Maker request " + request.getStatus().name().toLowerCase(), user);
+            recordGovernanceOutcome(request, user);
         }
         return request;
     }
@@ -219,6 +231,30 @@ public class GovernanceService {
             case CHANGE_CHAMA_CONFIG -> applyConfig(chama, rules, p);
         }
         r.setStatus(GovernanceRequestStatus.EXECUTED);
+        ChamaActivityType actionType = switch (r.getAction()) {
+            case WITHDRAW_GROUP_WALLET -> ChamaActivityType.PAYOUT_COMPLETED;
+            case CREATE_GROUP_WALLET -> ChamaActivityType.POOLING_WALLET_CREATED;
+            case REMOVE_MEMBER -> ChamaActivityType.MEMBER_REMOVED;
+            case SUSPEND_MEMBER -> ChamaActivityType.MEMBER_SUSPENDED;
+            case ISSUE_FINE -> ChamaActivityType.FINE_ISSUED;
+            case CHANGE_CONTRIBUTION_AMOUNT -> ChamaActivityType.CONTRIBUTION_AMOUNT_CHANGED;
+            case CHANGE_MAX_MEMBERS -> ChamaActivityType.MAXIMUM_MEMBERS_CHANGED;
+            case SKIP_ROTATION_MEMBER -> ChamaActivityType.ROTATION_MEMBER_SKIPPED;
+            case CHANGE_CHAMA_CONFIG -> ChamaActivityType.CHAMA_CONFIG_CHANGED;
+        };
+        ActivityCategory category = switch (r.getAction()) {
+            case WITHDRAW_GROUP_WALLET -> ActivityCategory.PAYOUT;
+            case CREATE_GROUP_WALLET -> ActivityCategory.WALLET;
+            case REMOVE_MEMBER, SUSPEND_MEMBER -> ActivityCategory.MEMBERSHIP;
+            case ISSUE_FINE -> ActivityCategory.FINE;
+            case SKIP_ROTATION_MEMBER -> ActivityCategory.ROTATION;
+            default -> ActivityCategory.CONFIGURATION;
+        };
+        activityService.record(chama, r.getMaker().getUser(), actionType, category, "Governance action executed",
+                r.getAction() + " was executed", "GOVERNANCE_REQUEST", r.getReference().toString(),
+                p.containsKey("amountSats") ? Long.valueOf(p.get("amountSats")) : null,
+                p.containsKey("walletReference") ? UUID.fromString(p.get("walletReference")) : null,
+                null, r.getReference(), "GOVERNANCE_ACTION_EXECUTED:" + r.getReference(), Map.of("action", r.getAction().name()));
     }
 
     private void applyConfig(Chama c, ChamaRules rules, Map<String, String> p) {
@@ -346,5 +382,17 @@ public class GovernanceService {
 
     private void notifyMembers(GovernanceRequest r, String subject, User actor) {
         memberRepository.findMembersByChamaAndStatus(r.getChama().getChamaReference(), MembershipStatus.ACTIVE).forEach(m -> notifications.notifyGovernance(m.getUser(), r.getChama(), subject, r.getAction().name(), actor.getUsername()));
+    }
+
+    private void recordGovernanceOutcome(GovernanceRequest request, User actor) {
+        ChamaActivityType type = request.getStatus() == GovernanceRequestStatus.REJECTED
+                ? ChamaActivityType.GOVERNANCE_REQUEST_REJECTED :
+                request.getStatus() == GovernanceRequestStatus.EXECUTED
+                        ? ChamaActivityType.GOVERNANCE_REQUEST_EXECUTED : ChamaActivityType.GOVERNANCE_REQUEST_APPROVED;
+        activityService.record(request.getChama(), actor, type, ActivityCategory.GOVERNANCE,
+                "Governance request " + request.getStatus().name().toLowerCase(),
+                request.getAction() + " request is " + request.getStatus().name().toLowerCase(), "GOVERNANCE_REQUEST",
+                request.getReference().toString(), null, null, null, request.getReference(),
+                "GOVERNANCE_OUTCOME:" + request.getReference(), Map.of("action", request.getAction().name(), "status", request.getStatus().name()));
     }
 }

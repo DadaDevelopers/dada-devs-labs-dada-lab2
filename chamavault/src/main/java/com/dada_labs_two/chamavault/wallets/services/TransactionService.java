@@ -25,6 +25,7 @@ import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.models.specs.TransactionSpecificationBuilder;
 import com.dada_labs_two.chamavault.wallets.repositories.TransactionRepository;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
+import com.dada_labs_two.chamavault.chama.activities.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -53,6 +54,7 @@ public class TransactionService {
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
     private final FeeService feeService;
+    private final ChamaActivityService chamaActivityService;
 
     @Transactional
     public Transaction makeRotationalPayments(
@@ -407,7 +409,7 @@ public class TransactionService {
         syncSenderLnBitsWalletBalance(recipientWallet);
 
         // Ledger DT: Lightning payment to beneficiary
-         transactionRepository.save(
+         Transaction creditTransaction = transactionRepository.save(
                 Transaction.builder()
                         .wallet(recipientWallet)
                         .type(TransactionType.CREDIT)
@@ -425,7 +427,7 @@ public class TransactionService {
         );
 
         // Ledger: Lightning payment to beneficiary
-         return transactionRepository.save(
+         Transaction debitTransaction = transactionRepository.save(
                 Transaction.builder()
                         .wallet(senderWallet)
                         .type(TransactionType.DEBIT)
@@ -444,6 +446,19 @@ public class TransactionService {
                         .occurredAt(ZonedDateTime.now())
                         .build()
         );
+        var activityChama = recipientWallet.getChama() != null ? recipientWallet.getChama() : senderWallet.getChama();
+        if (activityChama != null) {
+            transferMetadata.put("creditTransactionReference", creditTransaction.getTransactionReference().toString());
+            transferMetadata.put("debitTransactionReference", debitTransaction.getTransactionReference().toString());
+            User actor = userRepository.findById(senderWallet.getOwnerReference()).orElse(null);
+            chamaActivityService.record(activityChama, actor, ChamaActivityType.WALLET_TOPPED_UP,
+                    ActivityCategory.WALLET, "Chama wallet topped up",
+                    (actor == null ? "A member" : actor.getUsername()) + " transferred " + amountSats + " sats to a chama wallet",
+                    "TRANSACTION", debitTransaction.getTransactionReference().toString(), amountSats,
+                    recipientWallet.getWalletReference(), debitTransaction.getTransactionReference(), null,
+                    "WALLET_TOPPED_UP:" + paymentHash2, transferMetadata);
+        }
+        return debitTransaction;
     }
 
     /**

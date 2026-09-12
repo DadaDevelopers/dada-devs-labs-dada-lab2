@@ -24,6 +24,7 @@ import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
 import com.dada_labs_two.chamavault.governance.models.RotationSkip;
 import com.dada_labs_two.chamavault.governance.repositories.RotationSkipRepository;
+import com.dada_labs_two.chamavault.chama.activities.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -48,6 +49,7 @@ public class ContributionCycleService {
     private final WalletRepository walletRepository;
     private final MemberContributionObligationService obligationService;
     private final RotationSkipRepository rotationSkipRepository;
+    private final ChamaActivityService activityService;
 
     /* ============================
        Scheduler
@@ -132,6 +134,11 @@ public class ContributionCycleService {
         chama.setCurrentRotationIndex(nextRotationIndex);
         chamaRepository.save(chama);
         obligationService.createFor(cycle, activeMembers, rules.doesBeneficiaryContribute());
+        activityService.record(chama, null, ChamaActivityType.ROTATION_CYCLE_STARTED, ActivityCategory.ROTATION,
+                "Merry-go-round cycle started", beneficiary.getUser().getUsername() + " is the current beneficiary",
+                "CONTRIBUTION_CYCLE", cycle.getCycleReference().toString(), cycle.getContributionAmount(), wallet.getWalletReference(), null, null,
+                "ROTATION_CYCLE_STARTED:" + cycle.getCycleReference(), Map.of("beneficiaryUserReference", beneficiary.getUser().getUserReference().toString(),
+                        "expectedTotalSats", cycle.getExpectedTotalContributionAmount().toString()));
 
         log.info(
                 "Created cycle {} for chama {} beneficiary {}",
@@ -211,6 +218,10 @@ public class ContributionCycleService {
                     cycle.getChama(),
                     cycle
             );
+            activityService.record(cycle.getChama(), null, ChamaActivityType.ROTATION_CYCLE_CLOSED, ActivityCategory.ROTATION,
+                    "Merry-go-round cycle closed", "Rotation " + cycle.getRotationIndex() + " closed",
+                    "CONTRIBUTION_CYCLE", cycle.getCycleReference().toString(), null, cycle.getWallet().getWalletReference(), null, null,
+                    "ROTATION_CYCLE_CLOSED:" + cycle.getCycleReference(), Map.of());
         }
     }
 
@@ -230,6 +241,10 @@ public class ContributionCycleService {
                     profileActionService.notifyMerryGoRoundWaitingForMembers(activeMembers.getFirst().getUser(), chama);
                     chama.setMerryGoRoundWaitingNotifiedAt(ZonedDateTime.now());
                     chamaRepository.save(chama);
+                    activityService.record(chama, null, ChamaActivityType.ROTATION_WAITING_FOR_MEMBERS, ActivityCategory.ROTATION,
+                            "Rotation waiting for members", "At least two active members are required to begin a rotation",
+                            "CHAMA", chama.getChamaReference().toString(), null, null, null, null,
+                            "ROTATION_WAITING:" + chama.getChamaReference() + ":" + ZonedDateTime.now().toLocalDate(), Map.of());
                 }
                 continue;
             }

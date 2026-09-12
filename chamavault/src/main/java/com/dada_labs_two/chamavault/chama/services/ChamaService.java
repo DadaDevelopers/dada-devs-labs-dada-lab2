@@ -5,6 +5,7 @@ import com.dada_labs_two.chamavault.chama.constants.ChamaVisibility;
 import com.dada_labs_two.chamavault.chama.constants.ContributionFrequency;
 import com.dada_labs_two.chamavault.chama.constants.MembershipStatus;
 import com.dada_labs_two.chamavault.chama.constants.ChamaPurpose;
+import com.dada_labs_two.chamavault.chama.activities.*;
 import com.dada_labs_two.chamavault.chama.dtos.*;
 import com.dada_labs_two.chamavault.chama.dtos.stripped.ChamasDetailsDTO;
 import com.dada_labs_two.chamavault.chama.models.Chama;
@@ -74,6 +75,7 @@ public class ChamaService {
     private final ChamaInviteRepository chamaInviteRepository;
     private final ContributionCycleRepository contributionCycleRepository;
     private final PoolingCycleRepository poolingCycleRepository;
+    private final ChamaActivityService activityService;
 
     @Transactional
     public Chama createChama(CreateChamaDTO createChamaDTO) {
@@ -210,6 +212,14 @@ public class ChamaService {
             chama.setMerryGoRoundWaitingNotifiedAt(ZonedDateTime.now());
             chama = chamaRepository.save(chama);
         }
+        activityService.record(chama, creator, ChamaActivityType.CHAMA_CREATED, ActivityCategory.CHAMA,
+                "Chama created", creator.getUsername() + " created " + chama.getName(), "CHAMA",
+                chama.getChamaReference().toString(), null, wallet == null ? null : wallet.getWalletReference(), null, null,
+                "CHAMA_CREATED:" + chama.getChamaReference(), Map.of("purpose", purpose.name()));
+        if (wallet != null) activityService.record(chama, creator, ChamaActivityType.POOLING_WALLET_CREATED, ActivityCategory.WALLET,
+                "Pooling wallet created", "A pooled-goal wallet was created", "WALLET", wallet.getWalletReference().toString(),
+                null, wallet.getWalletReference(), null, null, "POOLING_WALLET_CREATED:" + wallet.getWalletReference(),
+                Map.of("targetAmountSats", String.valueOf(wallet.getTargetAmountSats())));
 
         return chama;
     }
@@ -457,6 +467,10 @@ public class ChamaService {
                 chamaInvite.getInviteCode().getCode(),
                 chamaInvite.getExpiresAt()
         );
+        activityService.record(chama, inviter, ChamaActivityType.INVITE_CREATED, ActivityCategory.INVITE,
+                "Chama invite created", inviter.getUsername() + " created an invite", "CHAMA_INVITE",
+                chamaInvite.getInviteReference().toString(), null, null, null, null,
+                "INVITE_CREATED:" + chamaInvite.getInviteReference(), Map.of("expiresAt", expiresAt.toString()));
 
         return chamaInvite;
     }
@@ -479,6 +493,9 @@ public class ChamaService {
                 code.getCode(),
                 invite.getExpiresAt()
         );
+        activityService.record(invite.getChama(), code.getOwner(), ChamaActivityType.INVITE_PAUSED, ActivityCategory.INVITE,
+                "Chama invite paused", "An invite was paused", "CHAMA_INVITE", invite.getInviteReference().toString(),
+                null, null, null, null, "INVITE_PAUSED:" + invite.getInviteReference(), Map.of());
 
         return invite;
     }
@@ -552,6 +569,10 @@ public class ChamaService {
                 currentChama,
                 inviteCode.getCode()
         );
+        activityService.record(currentChama, user, ChamaActivityType.INVITE_USED, ActivityCategory.INVITE,
+                "Chama invite used", user.getUsername() + " used an invite to request membership", "CHAMA_INVITE",
+                chamaInvite.getInviteReference().toString(), null, null, null, null,
+                "INVITE_USED:" + chamaInvite.getInviteReference() + ":" + user.getUserReference(), Map.of());
 
         return newChamaMember;
     }
@@ -615,6 +636,13 @@ public class ChamaService {
 
         prospect.setStatus(status);
         prospect = chamaMemberRepository.save(prospect);
+        ChamaActivityType membershipActivity = status == MembershipStatus.ACTIVE
+                ? ChamaActivityType.MEMBER_APPROVED : ChamaActivityType.MEMBER_REJECTED;
+        activityService.record(chama, approver, membershipActivity, ActivityCategory.MEMBERSHIP,
+                status == MembershipStatus.ACTIVE ? "Member approved" : "Membership request rejected",
+                prospect.getUser().getUsername() + " membership is now " + status, "CHAMA_MEMBER",
+                prospect.getReference().toString(), null, null, null, null,
+                "MEMBERSHIP_DECISION:" + prospect.getReference() + ":" + status, Map.of("status", status.name()));
 
         profileActionService.createProfileActions(prospect.getUser(), Activity.USER_REQUEST_REJECTED,"join chama approval status",
                 "requested to join chama: "+ chama.getName(), chama.getDescription(),
@@ -665,6 +693,10 @@ public class ChamaService {
 
             //send notification to admin
             profileActionService.notifyAdminOfJoinRequest(chama.getCreatedBy(), user, chama);
+            activityService.record(chama, user, ChamaActivityType.MEMBER_JOIN_REQUESTED, ActivityCategory.MEMBERSHIP,
+                    "Membership requested", user.getUsername() + " requested to join the chama", "CHAMA_MEMBER",
+                    chamaMember.getReference().toString(), null, null, null, null,
+                    "MEMBER_JOIN_REQUESTED:" + chamaMember.getReference(), Map.of("role", chamaRole.name()));
         } else {
             throw  new RuntimeException("user is null");
         }

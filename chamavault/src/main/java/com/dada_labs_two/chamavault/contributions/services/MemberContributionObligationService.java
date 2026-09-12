@@ -14,6 +14,7 @@ import com.dada_labs_two.chamavault.users.models.User;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionCategory;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
+import com.dada_labs_two.chamavault.chama.activities.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class MemberContributionObligationService {
     private final WalletRepository walletRepository;
     private final LightningWalletService lightningWalletService;
     private final FeeService feeService;
+    private final ChamaActivityService activityService;
 
     @Transactional
     public void createFor(PoolingCycle cycle, List<ChamaMember> members) {
@@ -110,6 +112,28 @@ public class MemberContributionObligationService {
         ObligationPayment payment = paymentRepository.save(ObligationPayment.builder().obligation(obligation)
                 .amountSats(request.amountSats()).platformFeeSats(fee.platformFeeSats()).feeRuleReference(fee.feeRuleReference())
                 .paymentReference(lightningReference).feePaymentReference(feeReference).build());
+        ChamaActivityType activityType = obligation.getType() == ContributionType.POOLING
+                ? (obligation.getStatus() == ObligationStatus.PAID ? ChamaActivityType.POOLING_CONTRIBUTION_PAID
+                    : ChamaActivityType.POOLING_CONTRIBUTION_PARTIALLY_PAID)
+                : (obligation.getStatus() == ObligationStatus.PAID ? ChamaActivityType.ROTATION_CONTRIBUTION_PAID
+                    : ChamaActivityType.ROTATION_CONTRIBUTION_PARTIALLY_PAID);
+        activityService.record(obligation.getChama(), user, activityType, ActivityCategory.CONTRIBUTION,
+                obligation.getType() == ContributionType.POOLING ? "Pooling contribution received" : "Rotation contribution received",
+                user.getUsername() + " contributed " + request.amountSats() + " sats",
+                "CONTRIBUTION_OBLIGATION", obligation.getReference().toString(), request.amountSats(),
+                destination.getWalletReference(), null, null, "OBLIGATION_PAYMENT:" + payment.getReference(),
+                Map.of("obligationPaymentReference", payment.getReference().toString(), "paymentHash", lightningReference,
+                        "cycleCollectedSats", String.valueOf(collected), "cycleExpectedSats", String.valueOf(expected),
+                        "obligationStatus", obligation.getStatus().name()));
+        if (obligation.getType() == ContributionType.POOLING && destination.getTargetAmountSats() != null &&
+                destination.getBalanceSats() >= destination.getTargetAmountSats()) {
+            activityService.record(obligation.getChama(), user, ChamaActivityType.POOLING_TARGET_REACHED,
+                    ActivityCategory.CONTRIBUTION, "Pooling target reached",
+                    "The chama reached its target of " + destination.getTargetAmountSats() + " sats", "WALLET",
+                    destination.getWalletReference().toString(), destination.getBalanceSats(), destination.getWalletReference(),
+                    null, null, "POOLING_TARGET_REACHED:" + destination.getWalletReference(),
+                    Map.of("targetAmountSats", destination.getTargetAmountSats().toString()));
+        }
         return new ObligationPaymentResponse(payment.getReference(), obligation.getReference(), request.amountSats(), newPaid,
                 obligation.outstandingAmountSats(), obligation.getStatus(), collected, expected, fee.platformFeeSats(), fee.totalSats(), lightningReference);
     }
