@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, User, CheckCircle, XCircle, Wallet, AlertCircle, X, Loader2, ChevronDown, ChevronUp, Zap, Bell, MoreVertical } from 'lucide-react';
+import { ArrowLeft, User, CheckCircle, XCircle, Wallet, AlertCircle, X, Loader2, ChevronDown, ChevronUp, Zap, Bell, MoreVertical, Lock, Users, CalendarDays, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import SatsAmount from '@/components/SatsAmount';
 import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
@@ -9,7 +9,8 @@ import { formatWalletName } from '@/lib/wallet';
 import ChamaGovernancePanel from '@/components/ChamaGovernancePanel';
 
 // Helper to format time ago
-const timeAgo = (date: string) => {
+const timeAgo = (date?: string) => {
+  if (!date) return 'Recently';
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
   const map: any = { year: 31536000, month: 2592000, day: 86400, hour: 3600, minute: 60 };
   for (const k in map) {
@@ -26,6 +27,31 @@ const getContributorName = (wallet: any) => {
   return parts[0] || wallet.lightning.lnAddressUsername;
 };
 
+const normalizeObligations = (payload: any) => {
+  const items = Array.isArray(payload) ? payload : payload?.content || [];
+  return items.map((item: any) => {
+    const obligation = item.obligation || item;
+    return {
+      ...obligation,
+      ...item,
+      obligationReference:
+        obligation.obligationReference ||
+        obligation.contributionObligationReference ||
+        obligation.reference ||
+        obligation.id,
+    };
+  });
+};
+
+const ACTIVITY_CATEGORIES = [
+  'ALL', 'CHAMA', 'MEMBERSHIP', 'CONTRIBUTION', 'WALLET', 'PAYOUT',
+  'GOVERNANCE', 'FINE', 'INVITE', 'CONFIGURATION', 'ROTATION', 'SECURITY',
+];
+
+const readableActivityType = (value?: string) => value
+  ? value.toLowerCase().replaceAll('_', ' ').replace(/^\w/, character => character.toUpperCase())
+  : 'Chama activity';
+
 export default function ChamasContribution() {
   const params = useParams();
   const router = useRouter();
@@ -36,9 +62,21 @@ export default function ChamasContribution() {
   const [cycles, setCycles] = useState<any[]>([]);
   const [obligations, setObligations] = useState<any[]>([]);
   const [obligationsExpanded, setObligationsExpanded] = useState(false);
+  const [linkedObligationHandled, setLinkedObligationHandled] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [accessState, setAccessState] = useState<'checking' | 'member' | 'pending' | 'non-member' | 'unauthenticated'>('checking');
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState('');
+  const [activities, setActivities] = useState<any[]>([]);
+  const [activityCategory, setActivityCategory] = useState('ALL');
+  const [activityPage, setActivityPage] = useState(0);
+  const [activityTotalPages, setActivityTotalPages] = useState(0);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activitiesError, setActivitiesError] = useState('');
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0);
+  const [activitiesLastRefreshed, setActivitiesLastRefreshed] = useState<Date | null>(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showCycleDetailsModal, setShowCycleDetailsModal] = useState(false);
   const [selectedCycle, setSelectedCycle] = useState<any>(null);
@@ -73,34 +111,63 @@ export default function ChamasContribution() {
     error: ''
   });
   const [obligationPaymentAmount, setObligationPaymentAmount] = useState('');
+  const [obligationPaymentMode, setObligationPaymentMode] = useState<'full' | 'partial'>('full');
 
   const { exchangeRate, loadingRate } = useBitcoinKesRate();
 
-  const currentUserRef = useMemo(() => localStorage.getItem('userReference'), []);
+  const [currentUserRef, setCurrentUserRef] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCurrentUserRef(window.localStorage.getItem('userReference'));
+  }, []);
 
   const convertSatsToKes = (sats: number): number => {
     if (!exchangeRate) return 0;
     return (sats / 100000000) * exchangeRate;
   };
 
-  // --- FETCHING ALL DATA ---
+  // Check membership before requesting member-only operational data.
   useEffect(() => {
     const fetchAllData = async () => {
       try {
         const token = localStorage.getItem('token');
-        if (!token) { setError('Not authenticated'); return; }
-        
-        // 1. Fetch Chama Details
+        const msisdn = localStorage.getItem('msisdn');
+        if (!token || !msisdn) {
+          setAccessState('unauthenticated');
+          setError('Please sign in to view this Chama.');
+          return;
+        }
+
         const detailsResponse = await fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${chamaId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        
-        if (detailsResponse.ok) {
-          const detailsData = await detailsResponse.json();
-          setChamaDetails(detailsData);
-        }
+        if (!detailsResponse.ok) throw new Error('Failed to fetch Chama details');
+        const detailsData = await detailsResponse.json();
+        setChamaDetails(detailsData);
 
-        // 2. Fetch Contribution Cycles
+        const [activeChamasResponse, pendingChamasResponse] = await Promise.all([
+          fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${msisdn}/status/ACTIVE`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${msisdn}/status/PENDING`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+        const activeChamasData = activeChamasResponse.ok ? await activeChamasResponse.json() : [];
+        const pendingChamasData = pendingChamasResponse.ok ? await pendingChamasResponse.json() : [];
+        const asList = (value: any) => Array.isArray(value) ? value : value?.content || [];
+        const referencesChama = (item: any) =>
+          (item?.chama?.chamaReference || item?.chamaReference) === chamaId;
+        const isActiveMember = asList(activeChamasData).some(referencesChama);
+        const hasPendingRequest = asList(pendingChamasData).some(referencesChama);
+
+        if (!isActiveMember) {
+          setAccessState(hasPendingRequest ? 'pending' : 'non-member');
+          setLoadingWallets(false);
+          return;
+        }
+        setAccessState('member');
+
         const cyclesResponse = await fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/contribution-cycles/chama/${chamaId}?size=5`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -110,21 +177,17 @@ export default function ChamasContribution() {
           if (cyclesData.content) {
             setCycles(cyclesData.content);
           }
-        } else {
-          throw new Error('Failed to fetch contribution cycles');
         }
 
-        // 3. Fetch this member's contribution obligations
         const obligationsResponse = await fetch(
           `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chamaId}/contribution-obligations?mine=true`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (obligationsResponse.ok) {
           const obligationsData = await obligationsResponse.json();
-          setObligations(Array.isArray(obligationsData) ? obligationsData : obligationsData.content || []);
+          setObligations(normalizeObligations(obligationsData));
         }
         
-        // 4. Fetch Members
         const membersResponse = await fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${chamaId}/members-by-status/ACTIVE`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -134,7 +197,6 @@ export default function ChamasContribution() {
           setMembers(membersData || []);
         }
 
-        // 5. Fetch User Wallets
         const ownerRef = localStorage.getItem('userReference');
         if (token && ownerRef) {
             try {
@@ -164,21 +226,67 @@ export default function ChamasContribution() {
     if (chamaId) fetchAllData();
   }, [chamaId]);
 
-  const activities = useMemo(() => {
-    if (!cycles || cycles.length === 0) return [];
-    
-    return cycles.map((cycle: any) => ({
-      id: cycle.cycleReference,
-      type: 'CYCLE_END',
-      beneficiary: cycle.beneficiaryUser?.user?.username || 'Unknown',
-      status: cycle.status,
-      date: cycle.createdAt || cycle.endAt,
-      details: `Cycle for ${cycle.beneficiaryUser?.user?.username} is ${cycle.status.toLowerCase()}`,
-      rawCycle: cycle 
-    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [cycles]);
+  useEffect(() => {
+    if (accessState !== 'member') return;
 
-  const chama = chamaDetails?.chama || (cycles.length > 0 ? cycles[0].chama : null);
+    const fetchActivities = async () => {
+      try {
+        setActivitiesLoading(true);
+        setActivitiesError('');
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('Not authenticated');
+        const search = new URLSearchParams({
+          page: String(activityPage),
+          size: '20',
+          sort: 'occurredAt,desc',
+        });
+        if (activityCategory !== 'ALL') search.set('category', activityCategory);
+        const response = await fetch(
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chamaId}/activities?${search.toString()}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(data?.message || 'Unable to load activity');
+        const items = Array.isArray(data) ? data : data?.content || [];
+        setActivities(current => activityPage === 0 ? items : [...current, ...items]);
+        setActivityTotalPages(Number(data?.totalPages ?? data?.pageable?.totalPages ?? 1));
+        setActivitiesLastRefreshed(new Date());
+      } catch (activityError) {
+        console.error('Failed to fetch Chama activity:', activityError);
+        setActivitiesError('We could not load the Chama activity right now.');
+      } finally {
+        setActivitiesLoading(false);
+      }
+    };
+
+    fetchActivities();
+  }, [accessState, activityCategory, activityPage, activityRefreshKey, chamaId]);
+
+  const refreshActivities = () => {
+    setActivities([]);
+    setActivityPage(0);
+    setActivityRefreshKey(key => key + 1);
+  };
+
+  useEffect(() => {
+    if (accessState !== 'member') return;
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        setActivities([]);
+        setActivityPage(0);
+        setActivityRefreshKey(key => key + 1);
+      }
+    }, 30_000);
+    return () => window.clearInterval(interval);
+  }, [accessState]);
+
+  const selectActivityCategory = (category: string) => {
+    setActivities([]);
+    setActivityPage(0);
+    setActivityCategory(category);
+  };
+
+  const chama = chamaDetails?.chama || chamaDetails || (cycles.length > 0 ? cycles[0].chama : null);
   const rules = chamaDetails?.rules;
   const wallets = chamaDetails?.wallets || [];
   
@@ -214,6 +322,97 @@ export default function ChamasContribution() {
   const totalMembers = members.length;
   const visibleMembers = members.slice(0, 4);
 
+  const visibility = String(chama?.visibility || 'PRIVATE').toUpperCase();
+  const poolingConfig = chama?.poolingConfig || chamaDetails?.poolingConfig;
+  const merryGoRoundConfig = chama?.merryGoRoundConfig || chamaDetails?.merryGoRoundConfig;
+  const maximumMembers = Number(chama?.maximumMembers ?? chama?.maxMembers ?? 0);
+  const publicMemberCount = Number(
+    chama?.activeMemberCount ?? chama?.currentMembers ?? chama?.memberCount ?? chama?.numberOfMembers ?? 0
+  );
+  const chamaIsFull = maximumMembers > 0 && publicMemberCount >= maximumMembers;
+  const formatFrequency = (value?: string) => value
+    ? value.toLowerCase().replaceAll('_', ' ').replace(/^\w/, character => character.toUpperCase())
+    : 'Schedule not specified';
+  const purpose = chama?.purpose || (
+    poolingConfig?.enable && merryGoRoundConfig?.enable
+      ? 'BOTH'
+      : poolingConfig?.enable
+        ? 'POOLING'
+        : merryGoRoundConfig?.enable
+          ? 'MERRY_GO_ROUND'
+          : 'GROUP_SAVINGS'
+  );
+  const purposeLabel = purpose === 'BOTH'
+    ? 'Pooled savings and merry-go-round'
+    : purpose === 'POOLING'
+      ? 'Pooled group savings'
+      : purpose === 'MERRY_GO_ROUND'
+        ? 'Merry-go-round contributions'
+        : 'Group savings';
+  const commitments = [
+    ...(poolingConfig?.enable ? [{
+      label: 'Pooled savings',
+      amount: Number(poolingConfig.contributionAmount || 0),
+      frequency: poolingConfig.frequency,
+    }] : []),
+    ...(merryGoRoundConfig?.enable ? [{
+      label: 'Merry-go-round',
+      amount: Number(merryGoRoundConfig.contributionAmount || 0),
+      frequency: merryGoRoundConfig.frequency,
+    }] : []),
+  ];
+  if (commitments.length === 0 && Number(chama?.contributionAmount || rules?.contributionAmount) > 0) {
+    commitments.push({
+      label: 'Member contribution',
+      amount: Number(chama?.contributionAmount || rules?.contributionAmount),
+      frequency: rules?.frequency,
+    });
+  }
+  const approvalRequired = Boolean(
+    poolingConfig?.requiresApproval || merryGoRoundConfig?.requiresApproval || rules?.requiresApproval
+  );
+
+  const handleJoinChama = async () => {
+    const token = localStorage.getItem('token');
+    const msisdn = localStorage.getItem('msisdn');
+    if (!token || !msisdn) {
+      router.push('/landing-page/login');
+      return;
+    }
+
+    try {
+      setJoining(true);
+      setJoinError('');
+      const response = await fetch(
+        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/join/${chamaId}/request?role=MEMBER&joinerPhone=${encodeURIComponent(msisdn)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.reason || data?.message || 'We could not send your join request.');
+      }
+
+      if (visibility === 'PRIVATE') {
+        setAccessState('pending');
+        return;
+      }
+
+      // Public Chamas may activate the member immediately. Reload so the
+      // membership check gates and then loads the full member experience.
+      window.location.reload();
+    } catch (joinRequestError) {
+      setJoinError(joinRequestError instanceof Error ? joinRequestError.message : 'We could not send your join request.');
+    } finally {
+      setJoining(false);
+    }
+  };
+
   // --- ROTATIONAL PAYMENT HANDLERS ---
   const handleInitiatePayment = (cycle: any) => {
     if (!cycle) return;
@@ -222,6 +421,7 @@ export default function ChamasContribution() {
         alert("You have no wallets to pay from. Please create a wallet first.");
         return;
     }
+    setObligationPaymentMode('full');
     setObligationPaymentAmount(String(cycle.outstandingAmountSats ?? cycle.amountSats ?? cycle.contributionAmount ?? ''));
     setRotationalPaymentModal({
       isOpen: true,
@@ -231,6 +431,31 @@ export default function ChamasContribution() {
       error: ''
     });
   };
+
+  useEffect(() => {
+    if (linkedObligationHandled || loadingWallets || obligations.length === 0) return;
+    const obligationReference = new URLSearchParams(window.location.search).get('obligation');
+    if (!obligationReference) return;
+
+    const obligation = obligations.find(item => item.obligationReference === obligationReference);
+    if (!obligation) return;
+
+    setLinkedObligationHandled(true);
+    setObligationsExpanded(true);
+    if (userWallets.length === 0) {
+      alert('You have no wallets to pay from. Please create a wallet first.');
+      return;
+    }
+    setObligationPaymentMode('full');
+    setObligationPaymentAmount(String(obligation.outstandingAmountSats ?? obligation.amountSats ?? obligation.contributionAmount ?? ''));
+    setRotationalPaymentModal({
+      isOpen: true,
+      cycle: obligation,
+      selectedWallet: null,
+      loading: false,
+      error: '',
+    });
+  }, [linkedObligationHandled, loadingWallets, obligations, userWallets]);
 
   const handleSelectRotationalWallet = (wallet: any) => {
     setRotationalPaymentModal(prev => ({ ...prev, selectedWallet: wallet }));
@@ -246,9 +471,12 @@ export default function ChamasContribution() {
 
     try {
       if (rotationalPaymentModal.cycle.obligationReference) {
-        const amountSats = Number(obligationPaymentAmount);
+        const amountSats = obligationPaymentMode === 'full' ? modalPaymentSats : Number(obligationPaymentAmount);
         if (!Number.isInteger(amountSats) || amountSats <= 0 || amountSats > modalPaymentSats) {
-          throw new Error(`Enter an amount between 1 and ${modalPaymentSats.toLocaleString()} sats`);
+          throw new Error(`Enter an amount between 1 and ${modalPaymentSats.toLocaleString()} sats.`);
+        }
+        if (obligationPaymentMode === 'partial' && amountSats >= modalPaymentSats) {
+          throw new Error(`A partial payment must be less than ${modalPaymentSats.toLocaleString()} sats. Choose “Pay in full” to clear the balance.`);
         }
         const response = await fetch(
           `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chamaId}/contribution-obligations/${rotationalPaymentModal.cycle.obligationReference}/payments`,
@@ -273,7 +501,7 @@ export default function ChamasContribution() {
         );
         if (obligationsResponse.ok) {
           const obligationsData = await obligationsResponse.json();
-          setObligations(Array.isArray(obligationsData) ? obligationsData : obligationsData.content || []);
+          setObligations(normalizeObligations(obligationsData));
         }
         setRotationalPaymentModal({ isOpen: false, cycle: null, selectedWallet: null, loading: false, error: '' });
         alert('Contribution paid successfully.');
@@ -450,13 +678,139 @@ export default function ChamasContribution() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error || 'Chama not found'}</p>
-          <button 
-            onClick={() => router.push('/userdashboard/chama')}
+          <button
+            onClick={() => router.push(accessState === 'unauthenticated' ? '/landing-page/login' : '/userdashboard/chama')}
             className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
           >
-            Back to Chamas
+            {accessState === 'unauthenticated' ? 'Sign in' : 'Back to Chamas'}
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (accessState !== 'member') {
+    return (
+      <div className="min-h-screen bg-gray-50 text-slate-900">
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 px-4 backdrop-blur">
+          <div className="mx-auto flex h-[73px] max-w-3xl items-center gap-3">
+            <button onClick={() => router.back()} aria-label="Go back" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100">
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div>
+              <p className="font-bold">Chama overview</p>
+              <p className="text-xs text-slate-500">See if this group is right for you</p>
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 pb-16">
+          <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-800 via-emerald-700 to-teal-600 p-6 text-white shadow-lg">
+            <div className="flex items-start gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/30 bg-white/15">
+                {chama.iconUrl ? (
+                  <img src={chama.iconUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <Users className="h-7 w-7" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide">
+                    {visibility === 'PUBLIC' ? 'Public Chama' : 'Private Chama'}
+                  </span>
+                  <span className="rounded-full bg-amber-300 px-2.5 py-1 text-[11px] font-bold text-amber-950">{purposeLabel}</span>
+                </div>
+                <h1 className="text-2xl font-bold leading-tight">{chama.name}</h1>
+                <p className="mt-2 text-sm leading-6 text-emerald-50">{chama.description || 'No description has been added yet.'}</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <Users className="mb-3 h-5 w-5 text-emerald-600" />
+              <p className="text-xs text-slate-500">Members</p>
+              <p className="mt-1 font-bold">{publicMemberCount || '—'}{maximumMembers ? ` of ${maximumMembers}` : ''}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <CalendarDays className="mb-3 h-5 w-5 text-emerald-600" />
+              <p className="text-xs text-slate-500">Contribution plans</p>
+              <p className="mt-1 font-bold">{commitments.length || 1}</p>
+            </div>
+            <div className="col-span-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:col-span-1">
+              <ShieldCheck className="mb-3 h-5 w-5 text-emerald-600" />
+              <p className="text-xs text-slate-500">Group decisions</p>
+              <p className="mt-1 font-bold">{approvalRequired ? 'Member approval' : 'Managed directly'}</p>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-bold">How this Chama works</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              {purpose === 'BOTH'
+                ? 'Members build shared savings while also taking turns receiving merry-go-round payouts.'
+                : purpose === 'POOLING'
+                  ? 'Members contribute toward a shared savings goal managed by the group.'
+                  : 'Members contribute on a schedule and take turns receiving the group payout.'}
+            </p>
+            <div className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">
+              {approvalRequired
+                ? 'Important group decisions require member approval before they are carried out.'
+                : 'The Chama’s authorised leaders can carry out routine group decisions directly.'}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-bold">Your contribution commitment</h2>
+            <p className="mt-1 text-sm text-slate-500">Review what members are expected to contribute before joining.</p>
+            <div className="mt-4 space-y-3">
+              {commitments.length > 0 ? commitments.map(commitment => (
+                <div key={commitment.label} className="flex items-center justify-between gap-4 rounded-xl bg-slate-50 p-4">
+                  <div>
+                    <p className="font-semibold">{commitment.label}</p>
+                    <p className="text-xs text-slate-500">{formatFrequency(commitment.frequency)}</p>
+                  </div>
+                  <SatsAmount sats={commitment.amount} exchangeRate={exchangeRate} loadingRate={loadingRate} align="right" primaryClassName="font-bold text-slate-900" detailClassName="text-xs text-slate-500" />
+                </div>
+              )) : (
+                <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Contribution details have not been published yet.</p>
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100"><Lock className="h-5 w-5 text-slate-500" /></div>
+              <div>
+                <h2 className="font-bold">More is available to members</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-500">Join to view wallet activity, group decisions, schedules, contribution progress, and your payment obligations.</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="sticky bottom-4 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur">
+            {accessState === 'pending' ? (
+              <div className="flex items-center gap-3 rounded-xl bg-amber-50 p-4 text-amber-900">
+                <CheckCircle className="h-5 w-5 shrink-0" />
+                <div><p className="font-bold">Request pending</p><p className="text-xs">An administrator will review your request to join.</p></div>
+              </div>
+            ) : chamaIsFull ? (
+              <button disabled className="w-full rounded-xl bg-slate-200 py-3.5 font-bold text-slate-500">This Chama is currently full</button>
+            ) : (
+              <button onClick={handleJoinChama} disabled={joining} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 font-bold text-white hover:bg-emerald-700 disabled:opacity-60">
+                {joining && <Loader2 className="h-5 w-5 animate-spin" />}
+                {joining ? 'Sending request…' : visibility === 'PUBLIC' ? 'Join Chama' : 'Request to Join'}
+              </button>
+            )}
+            {joinError && <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{joinError}</p>}
+            {accessState === 'non-member' && !chamaIsFull && (
+              <p className="mt-2 text-center text-xs text-slate-500">
+                {visibility === 'PUBLIC' ? 'Public Chamas can be joined immediately.' : 'Private Chamas require administrator approval.'}
+              </p>
+            )}
+          </section>
+        </main>
       </div>
     );
   }
@@ -795,48 +1149,101 @@ export default function ChamasContribution() {
 
         {/* ── RECENT ACTIVITY ── */}
         <div className="w-full flex flex-col gap-3">
-          <h3 className="text-[14px] font-bold text-[#64748B] uppercase tracking-[0.7px] px-1">
-            Recent Activity
-          </h3>
-          <div className="relative flex flex-col gap-6 isolation-isolate">
+          <div className="flex items-start justify-between gap-3 px-1">
+            <div>
+              <h3 className="text-[14px] font-bold text-[#64748B] uppercase tracking-[0.7px]">Recent Activity</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                {activitiesLastRefreshed
+                  ? `Updated ${timeAgo(activitiesLastRefreshed.toISOString())}`
+                  : 'A readable record of what has happened in this Chama.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={refreshActivities}
+              disabled={activitiesLoading}
+              aria-label="Refresh Chama activity"
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${activitiesLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {ACTIVITY_CATEGORIES.map(category => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => selectActivityCategory(category)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${activityCategory === category ? 'bg-emerald-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:border-emerald-300'}`}
+              >
+                {category === 'ALL' ? 'All activity' : readableActivityType(category)}
+              </button>
+            ))}
+          </div>
+          {activitiesError && (
+            <div className="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{activitiesError}</span>
+            </div>
+          )}
+          <div className="relative flex flex-col gap-5 isolation-isolate">
             {/* Vertical timeline line */}
-            <div
+            {activities.length > 0 && <div
               className="absolute left-[19px] top-0 bottom-0 w-0.5 pointer-events-none"
               style={{
                 background:
                   'linear-gradient(180deg, #E2E8F0 0%, #E2E8F0 50%, rgba(226,232,240,0) 100%)',
               }}
-            />
+            />}
             {activities.length > 0 ? (
-              activities.map((activity: any) => (
+              activities.map((activity: any, activityIndex: number) => (
                 <div
-                  key={activity.id}
-                  onClick={() => openCycleDetails(activity.rawCycle)}
-                  className="relative flex items-center gap-4 cursor-pointer"
+                  key={activity.activityReference || activity.reference || activity.id || `${activity.activityType}-${activity.occurredAt}-${activityIndex}`}
+                  className="relative flex items-start gap-4"
                 >
                   <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center bg-white shrink-0"
+                    className="z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white"
                     style={{
-                      border: `2px solid ${activity.status === 'ACTIVE' ? '#00875A' : '#E2E8F0'}`,
+                      border: `2px solid ${activity.status === 'SUCCESSFUL' || activity.status === 'EXECUTED' ? '#00875A' : '#E2E8F0'}`,
                     }}
                   >
                     <CheckCircle
                       className="w-3 h-3"
-                      style={{ color: activity.status === 'ACTIVE' ? '#00875A' : '#94A3B8' }}
+                      style={{ color: activity.status === 'SUCCESSFUL' || activity.status === 'EXECUTED' ? '#00875A' : '#64748B' }}
                     />
                   </div>
-                  <div>
-                    <p className="text-[14px] font-bold text-[#0F172A]">
-                      {activity.beneficiary}
-                    </p>
-                    <p className="text-[12px] text-[#64748B]">{timeAgo(activity.date)}</p>
+                  <div className="min-w-0 flex-1 rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[14px] font-bold text-[#0F172A]">
+                          {activity.title || activity.summary || readableActivityType(activity.activityType)}
+                        </p>
+                        {(activity.description || activity.message) && <p className="mt-1 text-xs leading-5 text-slate-600">{activity.description || activity.message}</p>}
+                      </div>
+                      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">{readableActivityType(activity.category)}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#64748B]">
+                      <span>{timeAgo(activity.occurredAt || activity.createdAt)}</span>
+                      {(activity.actorUsername || activity.actor?.username || activity.actorUser?.username) && <span>By {activity.actorUsername || activity.actor?.username || activity.actorUser?.username}</span>}
+                      {Number(activity.amountSats) > 0 && (
+                        <SatsAmount sats={Number(activity.amountSats)} exchangeRate={exchangeRate} loadingRate={loadingRate} primaryClassName="text-[11px] font-semibold text-slate-700" detailClassName="text-[10px] text-slate-500" />
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
+            ) : activitiesLoading ? (
+              <div className="space-y-3 pl-14">{[1, 2, 3].map(item => <div key={item} className="h-20 animate-pulse rounded-xl bg-slate-100" />)}</div>
             ) : (
-              <p className="text-[14px] text-[#64748B] pl-14">No recent activity.</p>
+              !activitiesError && <p className="rounded-xl bg-slate-50 p-4 text-center text-[14px] text-[#64748B]">No activity found for this category.</p>
             )}
           </div>
+          {activityPage + 1 < activityTotalPages && (
+            <button type="button" onClick={() => setActivityPage(page => page + 1)} disabled={activitiesLoading} className="w-full rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">
+              {activitiesLoading ? 'Loading…' : 'Load more activity'}
+            </button>
+          )}
         </div>
 
       </main>
@@ -918,6 +1325,37 @@ export default function ChamasContribution() {
                     <div className="h-px bg-gray-200 flex-1" />
                   </div>
 
+                  {rotationalPaymentModal.cycle.obligationReference && (
+                    <div>
+                      <p className="mb-2 text-sm font-semibold text-gray-700">How would you like to pay?</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setObligationPaymentMode('full');
+                            setObligationPaymentAmount(String(modalPaymentSats));
+                          }}
+                          className={`rounded-xl border p-3 text-left transition ${obligationPaymentMode === 'full' ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/15' : 'border-gray-200 hover:border-gray-300'}`}
+                        >
+                          <span className="block text-sm font-bold text-gray-900">Pay in full</span>
+                          <span className="mt-1 block text-xs text-gray-500">Clear the entire balance</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={modalPaymentSats <= 1}
+                          onClick={() => {
+                            setObligationPaymentMode('partial');
+                            setObligationPaymentAmount('');
+                          }}
+                          className={`rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${obligationPaymentMode === 'partial' ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-500/15' : 'border-gray-200 hover:border-gray-300'}`}
+                        >
+                          <span className="block text-sm font-bold text-gray-900">Pay partially</span>
+                          <span className="mt-1 block text-xs text-gray-500">Choose a smaller amount</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="bg-gray-900 text-white p-4 rounded-xl flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
@@ -930,7 +1368,7 @@ export default function ChamasContribution() {
                     </div>
                     <div className="text-right">
                       <SatsAmount
-                        sats={modalPaymentSats}
+                        sats={rotationalPaymentModal.cycle.obligationReference ? Number(obligationPaymentAmount || 0) : modalPaymentSats}
                         exchangeRate={exchangeRate}
                         loadingRate={loadingRate}
                         align="right"
@@ -940,19 +1378,22 @@ export default function ChamasContribution() {
                     </div>
                   </div>
 
-                  {rotationalPaymentModal.cycle.obligationReference && (
+                  {rotationalPaymentModal.cycle.obligationReference && obligationPaymentMode === 'partial' && (
                     <div>
-                      <label htmlFor="obligation-payment-amount" className="mb-2 block text-sm font-semibold text-gray-700">Amount to pay (sats)</label>
+                      <label htmlFor="obligation-payment-amount" className="mb-2 block text-sm font-semibold text-gray-700">Partial payment amount (sats)</label>
                       <input
                         id="obligation-payment-amount"
                         type="number"
                         min="1"
-                        max={modalPaymentSats}
+                        max={Math.max(modalPaymentSats - 1, 1)}
                         value={obligationPaymentAmount}
                         onChange={(event) => setObligationPaymentAmount(event.target.value.replace(/\D/g, ''))}
                         className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                       />
-                      <p className="mt-1 text-xs text-gray-500">You can pay partially, up to {modalPaymentSats.toLocaleString()} sats outstanding.</p>
+                      <div className="mt-2 flex items-center justify-between gap-3 text-xs text-gray-500">
+                        <span>Outstanding: {modalPaymentSats.toLocaleString()} sats</span>
+                        <span>Remaining: {Math.max(modalPaymentSats - Number(obligationPaymentAmount || 0), 0).toLocaleString()} sats</span>
+                      </div>
                     </div>
                   )}
 
@@ -965,13 +1406,13 @@ export default function ChamasContribution() {
                   
                   <button
                     onClick={handleConfirmRotationalPayment}
-                    disabled={rotationalPaymentModal.loading}
+                    disabled={rotationalPaymentModal.loading || Boolean(rotationalPaymentModal.cycle.obligationReference && obligationPaymentMode === 'partial' && !obligationPaymentAmount)}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {rotationalPaymentModal.loading ? (
                       <><Loader2 className="animate-spin" /> Processing...</>
                     ) : (
-                      <><Zap size={20} fill="currentColor" /> Confirm Payment</>
+                      <><Zap size={20} fill="currentColor" /> {rotationalPaymentModal.cycle.obligationReference ? (obligationPaymentMode === 'full' ? 'Pay Full Balance' : 'Make Partial Payment') : 'Confirm Payment'}</>
                     )}
                   </button>
 
