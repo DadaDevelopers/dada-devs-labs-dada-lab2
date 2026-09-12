@@ -5,6 +5,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+type LoginErrorResponse = {
+  error?: string;
+  message?: string;
+};
+
+const ACCOUNT_NOT_FOUND_MESSAGE =
+  "We couldn't find an account matching those details. Double-check your phone number and PIN, or create a new account.";
+
 export default function LoginPage() {
   const router = useRouter();
 
@@ -36,10 +44,20 @@ export default function LoginPage() {
         }
       );
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        setError(data.message || 'Invalid phone number or PIN.');
+        const loginError = data as LoginErrorResponse | null;
+        const backendMessage = loginError?.message || '';
+        const userWasNotFound =
+          backendMessage.includes('User.getUsername()') &&
+          backendMessage.includes('"user" is null');
+
+        setError(
+          userWasNotFound
+            ? ACCOUNT_NOT_FOUND_MESSAGE
+            : backendMessage || 'The phone number or PIN is incorrect. Please double-check and try again.'
+        );
         return;
       }
 

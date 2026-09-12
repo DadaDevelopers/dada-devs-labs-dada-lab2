@@ -14,7 +14,8 @@ import {
   Users,
   Hash,
   X,
-  Zap
+  Zap,
+  Clock3
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import Link from 'next/link';
@@ -72,11 +73,29 @@ interface ApiResponse {
   totalElements: number;
 }
 
+interface ContributionObligation {
+  obligationReference: string;
+  status: 'PENDING' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'WAIVED' | 'SKIPPED' | string;
+  contributionType?: 'POOLING' | 'MERRY_GO_ROUND' | string;
+  amountSats?: number;
+  contributionAmount?: number;
+  outstandingAmountSats?: number;
+  totalPaidSats?: number;
+  dueAt?: string;
+  dueDate?: string;
+  endAt?: string;
+  cycle?: { endAt?: string };
+  chama: ChamaInfo;
+}
+
 export default function ChamasContribution() {
   const [cycles, setCycles] = useState<ContributionCycle[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [obligations, setObligations] = useState<ContributionObligation[]>([]);
+  const [loadingObligations, setLoadingObligations] = useState(true);
+  const [obligationsError, setObligationsError] = useState('');
 
   // Wallets & Payment State
   const [userWallets, setUserWallets] = useState<Wallet[]>([]);
@@ -202,6 +221,68 @@ export default function ChamasContribution() {
     fetchCycles(currentPage);
   }, [currentPage]);
 
+  useEffect(() => {
+    const fetchObligations = async () => {
+      try {
+        setLoadingObligations(true);
+        setObligationsError('');
+        const token = localStorage.getItem('token');
+        const msisdn = localStorage.getItem('msisdn');
+        if (!token || !msisdn) throw new Error('Not authenticated');
+
+        const chamasResponse = await fetch(
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${msisdn}/status/ACTIVE`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!chamasResponse.ok) throw new Error('Unable to load your Chamas');
+        const chamasData = await chamasResponse.json();
+        const activeChamas: ChamaInfo[] = Array.isArray(chamasData) ? chamasData : chamasData.content || [];
+
+        const results = await Promise.all(activeChamas.map(async (chama) => {
+          const response = await fetch(
+            `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chama.chamaReference}/contribution-obligations?mine=true`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (!response.ok) throw new Error(`Unable to load obligations for ${chama.name}`);
+          const data = await response.json();
+          const items = Array.isArray(data) ? data : data.content || [];
+          return items.map((item: Omit<ContributionObligation, 'chama'> & { obligation?: Omit<ContributionObligation, 'chama'>; contributionObligationReference?: string; reference?: string; id?: string }) => {
+            const obligation = item.obligation || item;
+            return {
+              ...obligation,
+              ...item,
+              obligationReference:
+                obligation.obligationReference ||
+                item.contributionObligationReference ||
+                item.reference ||
+                item.id,
+              chama,
+            } as ContributionObligation;
+          });
+        }));
+
+        const actionable = results.flat().filter(obligation =>
+          ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'].includes(obligation.status)
+        );
+        actionable.sort((a, b) => {
+          if (a.status === 'OVERDUE' && b.status !== 'OVERDUE') return -1;
+          if (b.status === 'OVERDUE' && a.status !== 'OVERDUE') return 1;
+          const aDate = a.dueAt || a.dueDate || a.endAt || a.cycle?.endAt;
+          const bDate = b.dueAt || b.dueDate || b.endAt || b.cycle?.endAt;
+          return new Date(aDate || 8640000000000000).getTime() - new Date(bDate || 8640000000000000).getTime();
+        });
+        setObligations(actionable);
+      } catch (obligationError) {
+        console.error('Failed to fetch obligations:', obligationError);
+        setObligationsError('We could not load your contribution obligations.');
+      } finally {
+        setLoadingObligations(false);
+      }
+    };
+
+    fetchObligations();
+  }, []);
+
   // --- Payment Logic ---
   const handlePayNow = (cycle: ContributionCycle) => {
     setPaymentModal({
@@ -261,7 +342,15 @@ export default function ChamasContribution() {
   };
 
   // --- Derived Data ---
-  const totalOwedSats = cycles.reduce((sum, cycle) => sum + cycle.contributionAmount, 0);
+  const obligationAmount = (obligation: ContributionObligation) =>
+    Number(obligation.amountSats ?? obligation.contributionAmount ?? 0);
+  const outstandingAmount = (obligation: ContributionObligation) =>
+    Number(obligation.outstandingAmountSats ?? obligationAmount(obligation));
+  const paidAmount = (obligation: ContributionObligation) =>
+    Number(obligation.totalPaidSats ?? Math.max(obligationAmount(obligation) - outstandingAmount(obligation), 0));
+  const obligationDueDate = (obligation: ContributionObligation) =>
+    obligation.dueAt || obligation.dueDate || obligation.endAt || obligation.cycle?.endAt;
+  const totalOwedSats = obligations.reduce((sum, obligation) => sum + outstandingAmount(obligation), 0);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -280,7 +369,7 @@ export default function ChamasContribution() {
         </div>
 
         {/* Global Summary Stats */}
-        {!loading && cycles.length > 0 && (
+        {!loadingObligations && obligations.length > 0 && (
           <div className="grid grid-cols-2 gap-4 mb-8">
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
               <div className="flex items-center gap-3 mb-2">
@@ -302,12 +391,111 @@ export default function ChamasContribution() {
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <AlertCircle className="w-5 h-5 text-blue-600" />
                 </div>
-                <span className="text-sm text-gray-600 font-medium">Pending Cycles</span>
+                <span className="text-sm text-gray-600 font-medium">Payments Due</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{cycles.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{obligations.length}</p>
             </div>
           </div>
         )}
+
+        {/* Actionable member obligations */}
+        <section className="mb-10">
+          <div className="mb-4">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">Needs your attention</p>
+            <h2 className="mt-1 text-xl font-bold text-gray-900">Contribution obligations</h2>
+            <p className="mt-1 text-sm text-gray-500">Your outstanding payments, ordered by urgency.</p>
+          </div>
+
+          {loadingObligations ? (
+            <div className="space-y-3">
+              {[1, 2].map(item => <div key={item} className="h-40 animate-pulse rounded-2xl border border-gray-200 bg-white" />)}
+            </div>
+          ) : obligationsError ? (
+            <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <p>{obligationsError}</p>
+            </div>
+          ) : obligations.length === 0 ? (
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-6 text-center">
+              <CheckCircle className="mx-auto h-10 w-10 text-emerald-600" />
+              <h3 className="mt-3 font-bold text-emerald-950">You’re all caught up</h3>
+              <p className="mt-1 text-sm text-emerald-800">You have no outstanding Chama contributions.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {obligations.map((obligation, obligationIndex) => {
+                const amount = obligationAmount(obligation);
+                const outstanding = outstandingAmount(obligation);
+                const paid = paidAmount(obligation);
+                const progress = amount > 0 ? Math.min((paid / amount) * 100, 100) : 0;
+                const dueDate = obligationDueDate(obligation);
+                const overdue = obligation.status === 'OVERDUE';
+                const partial = obligation.status === 'PARTIALLY_PAID';
+                const statusLabel = overdue ? 'Overdue' : partial ? 'Partially paid' : 'Payment due';
+
+                return (
+                  <article key={obligation.obligationReference || `${obligation.chama.chamaReference}-${obligationIndex}`} className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${overdue ? 'border-red-200' : partial ? 'border-amber-200' : 'border-blue-200'}`}>
+                    <div className="p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-100">
+                            {obligation.chama.iconUrl ? (
+                              <Image src={obligation.chama.iconUrl} alt="" width={44} height={44} className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="font-bold text-emerald-700">{obligation.chama.name?.charAt(0) || 'C'}</span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="truncate font-bold text-gray-900">{obligation.chama.name}</h3>
+                            <p className="text-xs text-gray-500">{obligation.contributionType === 'POOLING' ? 'Pooled savings' : obligation.contributionType === 'MERRY_GO_ROUND' ? 'Merry-go-round' : 'Chama contribution'}</p>
+                          </div>
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${overdue ? 'bg-red-100 text-red-700' : partial ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
+
+                      <div className="mt-5 flex items-end justify-between gap-4">
+                        <div>
+                          <p className="text-xs text-gray-500">Outstanding</p>
+                          <SatsAmount sats={outstanding} exchangeRate={exchangeRate} loadingRate={loadingRate} primaryClassName="mt-1 text-xl font-bold text-gray-900" detailClassName="text-xs text-gray-500" />
+                        </div>
+                        <div className={`flex items-center gap-1.5 text-xs font-semibold ${overdue ? 'text-red-600' : 'text-gray-500'}`}>
+                          <Clock3 className="h-4 w-4" />
+                          <span>{dueDate ? `${overdue ? 'Was due' : 'Due'} ${formatDate(dueDate)}` : 'Due date pending'}</span>
+                        </div>
+                      </div>
+
+                      {partial && (
+                        <div className="mt-4">
+                          <div className="mb-1.5 flex justify-between text-xs text-gray-500"><span>{progress.toFixed(0)}% paid</span><span>{paid.toLocaleString()} of {amount.toLocaleString()} sats</span></div>
+                          <div className="h-2 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-amber-500" style={{ width: `${progress}%` }} /></div>
+                        </div>
+                      )}
+                    </div>
+                    <div className={`flex items-center justify-between gap-3 border-t px-5 py-3 ${overdue ? 'border-red-100 bg-red-50/60' : partial ? 'border-amber-100 bg-amber-50/60' : 'border-blue-100 bg-blue-50/60'}`}>
+                      <span className="text-xs text-gray-600">{partial ? 'Partial payments are allowed' : 'Pay from any active wallet'}</span>
+                      {obligation.obligationReference ? (
+                        <Link href={`/userdashboard/contribute/${obligation.chama.chamaReference}?obligation=${encodeURIComponent(obligation.obligationReference)}`} className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700">
+                          Pay now
+                        </Link>
+                      ) : (
+                        <Link href={`/userdashboard/contribute/${obligation.chama.chamaReference}`} className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700">
+                          View Chama
+                        </Link>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <div className="mb-4 border-t border-gray-200 pt-8">
+          <h2 className="text-xl font-bold text-gray-900">Your Chamas</h2>
+          <p className="mt-1 text-sm text-gray-500">View active contribution cycles and group details.</p>
+        </div>
 
         {/* Cycles List - Grouped by Chama */}
         <div className="space-y-8">

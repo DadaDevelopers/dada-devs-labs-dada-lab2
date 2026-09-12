@@ -68,6 +68,7 @@ type TransactionsResponse = {
 type ApiErrorResponse = {
   error?: string;
   message?: string;
+  reason?: string;
   status?: number;
   timestamp?: string;
 };
@@ -78,6 +79,8 @@ type UserProfile = {
   email?: string;
   kyc?: Record<string, unknown> & { email?: string };
 };
+
+const MIN_WITHDRAWAL_SATS = 151;
 
 const TOUR_STEPS: TourStep[] = [
   {
@@ -549,14 +552,30 @@ export default function Dashboard() {
   const extractOnRampError = (data: ApiErrorResponse | null, fallback: string) => {
     if (!data) return fallback;
 
-    if (typeof data.message === 'string') {
+    const backendError = typeof data.error === 'string' ? data.error : '';
+    const errorDetails = `${backendError} ${data.message || ''}`;
+    const exclusiveMinimumMilliSats = errorDetails.match(
+      /amountInMilliSats needs to be more than (\d+)/i
+    )?.[1];
+    const inclusiveMinimumMilliSats = errorDetails.match(
+      /amount below minimum\.\s*Min\s+(\d+)\s*msat/i
+    )?.[1];
+
+    if (exclusiveMinimumMilliSats || inclusiveMinimumMilliSats) {
+      const minimumSats = exclusiveMinimumMilliSats
+        ? Math.floor(Number(exclusiveMinimumMilliSats) / 1000) + 1
+        : Math.ceil(Number(inclusiveMinimumMilliSats) / 1000);
+      return `The minimum withdrawal is ${minimumSats.toLocaleString()} sats.`;
+    }
+
+    if (typeof data.message === 'string' && data.message.toLowerCase() !== 'server error') {
       const jsonStart = data.message.indexOf('{');
       const jsonEnd = data.message.lastIndexOf('}');
 
       if (jsonStart !== -1 && jsonEnd !== -1) {
         try {
           const nested = JSON.parse(data.message.slice(jsonStart, jsonEnd + 1)) as ApiErrorResponse;
-          return nested.message || data.message;
+          return nested.reason || nested.message || data.message;
         } catch {
           return data.message;
         }
@@ -565,7 +584,7 @@ export default function Dashboard() {
       return data.message;
     }
 
-    return data.error || fallback;
+    return backendError || data.message || fallback;
   };
 
   const handleOnRampSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -655,8 +674,13 @@ export default function Dashboard() {
       return;
     }
 
-    if (!Number.isFinite(amount) || amount < 1) {
-      setWithdrawError('Amount must be at least 1 sat.');
+    if (!Number.isFinite(amount) || amount < MIN_WITHDRAWAL_SATS) {
+      setWithdrawError(`The minimum withdrawal is ${MIN_WITHDRAWAL_SATS} sats.`);
+      return;
+    }
+
+    if (!Number.isInteger(amount)) {
+      setWithdrawError('Enter the withdrawal amount as a whole number of sats.');
       return;
     }
 
@@ -963,7 +987,7 @@ export default function Dashboard() {
                   <div className="flex flex-col items-center gap-2 cursor-pointer">
                     <div className="w-14 h-14 md:w-16 md:h-16 rounded-full overflow-hidden shadow-sm hover:scale-105 transition">
                       <img
-                        src={chama.iconUrl || '/placeholder.png'}
+                        src={chama.iconUrl || '/Ellipse 1.svg'}
                         alt={chama.name}
                         width={64}
                         height={64}
@@ -1514,13 +1538,23 @@ export default function Dashboard() {
                 <input
                   id="withdrawAmount"
                   type="number"
-                  min="1"
+                  min={MIN_WITHDRAWAL_SATS}
+                  step="1"
                   value={withdrawForm.amountSats}
                   onChange={(e) => setWithdrawForm((prev) => ({ ...prev, amountSats: e.target.value }))}
                   disabled={withdrawSucceeded}
-                  placeholder="182"
+                  placeholder={String(MIN_WITHDRAWAL_SATS)}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:bg-gray-50 disabled:text-gray-500"
                 />
+                <p className="mt-1.5 text-xs text-gray-500">
+                  Minimum withdrawal: {MIN_WITHDRAWAL_SATS.toLocaleString()} sats
+                  {exchangeRate
+                    ? ` (approximately KES ${convertSatsToKes(MIN_WITHDRAWAL_SATS).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })})`
+                    : ''}.
+                </p>
                 {Number(withdrawForm.amountSats) > 0 && (
                   <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2">
                     <SatsAmount
