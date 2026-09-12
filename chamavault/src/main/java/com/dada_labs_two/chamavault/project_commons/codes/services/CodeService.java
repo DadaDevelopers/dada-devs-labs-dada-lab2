@@ -44,7 +44,7 @@ public class CodeService {
         return codeRepository.save(Code.builder()
                 .code(code)
                 .name(codesDTO.getName())
-                .active(codesDTO.isActive())
+                .active(!Boolean.FALSE.equals(codesDTO.getActive()))
                 .description(codesDTO.getDescription())
                 .expirationDate(expiryDate)
                 .owner(user)

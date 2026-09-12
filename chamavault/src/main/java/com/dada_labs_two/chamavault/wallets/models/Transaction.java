@@ -56,7 +56,8 @@ public class Transaction {
     private Long networkFeeSats = 0L;
     private UUID feeRuleReference;
 
-    // LNbits payment_hash or internal transfer id
+    // Unique ledger-entry reference. Paired entries use <paymentHash>-DEBIT/-CREDIT,
+    // while metadata.paymentHash keeps the common Lightning correlation value.
     @Column(unique = true)
     private String externalRef;
 
