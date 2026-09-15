@@ -26,4 +26,9 @@ public class MemberContributionObligationController {
             @AuthenticationPrincipal User user, @Valid @RequestBody PayObligationRequest request) {
         return ResponseEntity.ok(service.pay(chamaId, obligationId, user, request));
     }
+    @GetMapping("/credits/mine")
+    public ResponseEntity<Page<ContributionCreditDTO>> credits(@PathVariable UUID chamaId,
+            @AuthenticationPrincipal User user, Pageable page) {
+        return ResponseEntity.ok(service.listMyCredits(chamaId, user, page));
+    }
 }
