@@ -626,12 +626,12 @@ export default function ChamasContribution() {
 
                           {/* Card Footer */}
                           <div className="p-4 bg-gray-50 rounded-b-2xl border-t border-gray-100 flex justify-end">
-                             <button 
-                               onClick={() => handlePayNow(cycle)}
-                               className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm hover:shadow flex items-center gap-2"
+                             <Link
+                               href={`/userdashboard/contribute/${cycle.chama.chamaReference}?pay=1`}
+                               className="interactive-action bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm hover:shadow flex items-center gap-2"
                              >
                                Pay Now
-                             </button>
+                             </Link>
                           </div>
                         </div>
                       );
