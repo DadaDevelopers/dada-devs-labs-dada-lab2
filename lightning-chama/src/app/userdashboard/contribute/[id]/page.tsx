@@ -111,7 +111,7 @@ export default function ChamasContribution() {
     error: ''
   });
   const [obligationPaymentAmount, setObligationPaymentAmount] = useState('');
-  const [obligationPaymentMode, setObligationPaymentMode] = useState<'full' | 'partial'>('full');
+  const [obligationPaymentMode, setObligationPaymentMode] = useState<'full' | 'partial' | 'ahead'>('full');
 
   const { exchangeRate, loadingRate } = useBitcoinKesRate();
 
@@ -316,6 +316,7 @@ export default function ChamasContribution() {
   const modalPaymentSats = rotationalPaymentModal.cycle?.outstandingAmountSats
     ?? rotationalPaymentModal.cycle?.amountSats
     ?? contributionSats;
+  const selectedObligationIsPooling = String(rotationalPaymentModal.cycle?.contributionType || '').toUpperCase() === 'POOLING';
   
   const progress = expectedSats > 0 ? (currentSats / expectedSats) * 100 : 0;
 
@@ -472,11 +473,22 @@ export default function ChamasContribution() {
     try {
       if (rotationalPaymentModal.cycle.obligationReference) {
         const amountSats = obligationPaymentMode === 'full' ? modalPaymentSats : Number(obligationPaymentAmount);
-        if (!Number.isInteger(amountSats) || amountSats <= 0 || amountSats > modalPaymentSats) {
-          throw new Error(`Enter an amount between 1 and ${modalPaymentSats.toLocaleString()} sats.`);
+        if (!Number.isInteger(amountSats) || amountSats <= 0) {
+          throw new Error('Enter a valid whole number of sats.');
         }
         if (obligationPaymentMode === 'partial' && amountSats >= modalPaymentSats) {
           throw new Error(`A partial payment must be less than ${modalPaymentSats.toLocaleString()} sats. Choose “Pay in full” to clear the balance.`);
+        }
+        if (obligationPaymentMode !== 'ahead' && amountSats > modalPaymentSats) {
+          throw new Error(`This payment cannot exceed ${modalPaymentSats.toLocaleString()} sats.`);
+        }
+        if (obligationPaymentMode === 'ahead') {
+          if (!selectedObligationIsPooling) {
+            throw new Error('Pay ahead is only available for pooled savings contributions.');
+          }
+          if (amountSats <= modalPaymentSats) {
+            throw new Error(`To pay ahead, enter more than ${modalPaymentSats.toLocaleString()} sats.`);
+          }
         }
         const response = await fetch(
           `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chamaId}/contribution-obligations/${rotationalPaymentModal.cycle.obligationReference}/payments`,
@@ -504,7 +516,10 @@ export default function ChamasContribution() {
           setObligations(normalizeObligations(obligationsData));
         }
         setRotationalPaymentModal({ isOpen: false, cycle: null, selectedWallet: null, loading: false, error: '' });
-        alert('Contribution paid successfully.');
+        const carriedForwardSats = Number(data.carriedForwardSats || 0);
+        alert(carriedForwardSats > 0
+          ? `Payment successful. ${carriedForwardSats.toLocaleString()} sats was saved for future pooling contributions.`
+          : 'Contribution paid successfully.');
         return;
       }
 
@@ -1328,7 +1343,7 @@ export default function ChamasContribution() {
                   {rotationalPaymentModal.cycle.obligationReference && (
                     <div>
                       <p className="mb-2 text-sm font-semibold text-gray-700">How would you like to pay?</p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className={`grid gap-3 ${selectedObligationIsPooling ? 'grid-cols-3' : 'grid-cols-2'}`}>
                         <button
                           type="button"
                           onClick={() => {
@@ -1352,6 +1367,19 @@ export default function ChamasContribution() {
                           <span className="block text-sm font-bold text-gray-900">Pay partially</span>
                           <span className="mt-1 block text-xs text-gray-500">Choose a smaller amount</span>
                         </button>
+                        {selectedObligationIsPooling && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setObligationPaymentMode('ahead');
+                              setObligationPaymentAmount('');
+                            }}
+                            className={`rounded-xl border p-3 text-left transition ${obligationPaymentMode === 'ahead' ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/15' : 'border-gray-200 hover:border-gray-300'}`}
+                          >
+                            <span className="block text-sm font-bold text-gray-900">Pay ahead</span>
+                            <span className="mt-1 block text-xs text-gray-500">Save extra for later</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1378,22 +1406,33 @@ export default function ChamasContribution() {
                     </div>
                   </div>
 
-                  {rotationalPaymentModal.cycle.obligationReference && obligationPaymentMode === 'partial' && (
+                  {rotationalPaymentModal.cycle.obligationReference && obligationPaymentMode !== 'full' && (
                     <div>
-                      <label htmlFor="obligation-payment-amount" className="mb-2 block text-sm font-semibold text-gray-700">Partial payment amount (sats)</label>
+                      <label htmlFor="obligation-payment-amount" className="mb-2 block text-sm font-semibold text-gray-700">
+                        {obligationPaymentMode === 'ahead' ? 'Total amount to pay (sats)' : 'Partial payment amount (sats)'}
+                      </label>
                       <input
                         id="obligation-payment-amount"
                         type="number"
-                        min="1"
-                        max={Math.max(modalPaymentSats - 1, 1)}
+                        min={obligationPaymentMode === 'ahead' ? modalPaymentSats + 1 : 1}
+                        max={obligationPaymentMode === 'partial' ? Math.max(modalPaymentSats - 1, 1) : undefined}
                         value={obligationPaymentAmount}
                         onChange={(event) => setObligationPaymentAmount(event.target.value.replace(/\D/g, ''))}
                         className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                       />
-                      <div className="mt-2 flex items-center justify-between gap-3 text-xs text-gray-500">
-                        <span>Outstanding: {modalPaymentSats.toLocaleString()} sats</span>
-                        <span>Remaining: {Math.max(modalPaymentSats - Number(obligationPaymentAmount || 0), 0).toLocaleString()} sats</span>
-                      </div>
+                      {obligationPaymentMode === 'ahead' ? (
+                        <div className="mt-3 space-y-2 rounded-xl bg-blue-50 p-3 text-xs text-blue-900">
+                          <div className="flex justify-between gap-3"><span>Paying now</span><strong>{Number(obligationPaymentAmount || 0).toLocaleString()} sats</strong></div>
+                          <div className="flex justify-between gap-3"><span>Due today</span><strong>{modalPaymentSats.toLocaleString()} sats</strong></div>
+                          <div className="flex justify-between gap-3 border-t border-blue-200 pt-2"><span>Saved for later</span><strong>{Math.max(Number(obligationPaymentAmount || 0) - modalPaymentSats, 0).toLocaleString()} sats</strong></div>
+                          <p className="pt-1 text-[11px] text-blue-700">The platform fee applies to the complete payment.</p>
+                        </div>
+                      ) : (
+                        <div className="mt-2 flex items-center justify-between gap-3 text-xs text-gray-500">
+                          <span>Outstanding: {modalPaymentSats.toLocaleString()} sats</span>
+                          <span>Remaining: {Math.max(modalPaymentSats - Number(obligationPaymentAmount || 0), 0).toLocaleString()} sats</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1406,13 +1445,13 @@ export default function ChamasContribution() {
                   
                   <button
                     onClick={handleConfirmRotationalPayment}
-                    disabled={rotationalPaymentModal.loading || Boolean(rotationalPaymentModal.cycle.obligationReference && obligationPaymentMode === 'partial' && !obligationPaymentAmount)}
+                    disabled={rotationalPaymentModal.loading || Boolean(rotationalPaymentModal.cycle.obligationReference && obligationPaymentMode !== 'full' && !obligationPaymentAmount)}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {rotationalPaymentModal.loading ? (
                       <><Loader2 className="animate-spin" /> Processing...</>
                     ) : (
-                      <><Zap size={20} fill="currentColor" /> {rotationalPaymentModal.cycle.obligationReference ? (obligationPaymentMode === 'full' ? 'Pay Full Balance' : 'Make Partial Payment') : 'Confirm Payment'}</>
+                      <><Zap size={20} fill="currentColor" /> {rotationalPaymentModal.cycle.obligationReference ? (obligationPaymentMode === 'full' ? 'Pay in full' : obligationPaymentMode === 'partial' ? 'Pay partially' : 'Pay ahead') : 'Confirm Payment'}</>
                     )}
                   </button>
 
