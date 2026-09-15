@@ -316,7 +316,16 @@ export default function ChamasContribution() {
   const modalPaymentSats = rotationalPaymentModal.cycle?.outstandingAmountSats
     ?? rotationalPaymentModal.cycle?.amountSats
     ?? contributionSats;
-  const selectedObligationIsPooling = String(rotationalPaymentModal.cycle?.contributionType || '').toUpperCase() === 'POOLING';
+  const obligationContributionType = (obligation: any) => {
+    const chamaPurpose = String(chama?.purpose || '').toUpperCase();
+    return String(
+      obligation?.contributionType ||
+      obligation?.cycle?.contributionType ||
+      obligation?.cycle?.type ||
+      (chamaPurpose !== 'BOTH' ? chamaPurpose : '')
+    ).toUpperCase();
+  };
+  const selectedObligationIsPooling = obligationContributionType(rotationalPaymentModal.cycle) === 'POOLING';
   
   const progress = expectedSats > 0 ? (currentSats / expectedSats) * 100 : 0;
 
@@ -941,7 +950,7 @@ export default function ChamasContribution() {
           disabled={!payableObligation}
           className="w-full h-14 rounded-xl flex items-center justify-center gap-2 font-bold text-[16px] text-white disabled:opacity-50 transition-opacity"
           style={{
-            background: '#0F172A',
+            background: '#F7931A',
             boxShadow: '0px 4px 6px -1px rgba(0,0,0,0.1), 0px 2px 4px -2px rgba(0,0,0,0.1)',
           }}
         >
@@ -960,11 +969,12 @@ export default function ChamasContribution() {
           ) : obligations.map((obligation: any) => {
             const canPay = ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'].includes(obligation.status);
             const amount = obligation.outstandingAmountSats ?? obligation.amountSats ?? obligation.contributionAmount ?? 0;
+            const contributionType = obligationContributionType(obligation);
             return (
               <div key={obligation.obligationReference} className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-gray-900">{obligation.contributionType === 'POOLING' ? 'Pooling' : 'Merry-go-round'}</span>
+                    <span className="text-sm font-bold text-gray-900">{contributionType === 'POOLING' ? 'Pooling' : contributionType === 'MERRY_GO_ROUND' ? 'Merry-go-round' : 'Contribution'}</span>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${obligation.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : obligation.status === 'OVERDUE' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{obligation.status}</span>
                   </div>
                   <SatsAmount sats={amount} exchangeRate={exchangeRate} loadingRate={loadingRate} primaryClassName="mt-1 text-sm font-semibold text-gray-700" detailClassName="text-xs text-gray-400" />
