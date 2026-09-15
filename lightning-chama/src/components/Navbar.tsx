@@ -25,7 +25,8 @@ export function Navbar({ isAuthenticated = false, userName = '' }: NavbarProps) 
     { label: 'Home', href: '/landing-page' },
     { label: 'How It Works', href: '#how-it-works' },
     { label: 'Why Bitcoin', href: '#why-bitcoin' },
-    { label: 'Login', href: '/landing-page/login' },
+    { label: 'Create account', href: '/landing-page/create-account' },
+    { label: 'Sign in', href: '/landing-page/login' },
     { label: 'FAQs', href: '/faqs' },
   ];
 

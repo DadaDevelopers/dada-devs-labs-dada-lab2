@@ -106,10 +106,10 @@ export default function LoginPage() {
         {/* Headings */}
         <div className="text-center mb-8">
           <h1 className="text-[22px] font-semibold text-gray-900">
-            Welcome Back
+            Sign in to your account
           </h1>
           <p className="text-black mt-1 text-base">
-            Login to Continue
+            Already registered? Enter your details below.
           </p>
         </div>
 
@@ -167,17 +167,17 @@ export default function LoginPage() {
                      py-3 text-white font-semibold transition
                      disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {loading ? 'Logging in...' : 'Login'}
+          {loading ? 'Signing in...' : 'Sign in'}
         </button>
 
         {/* Register */}
         <p className="text-center text-sm text-gray-900 mt-6">
-          New User?{' '}
+          New to ChamaVault?{' '}
           <Link
             href="/landing-page/create-account"
             className="text-emerald-600 hover:text-emerald-700 font-medium"
           >
-            Register
+            Create an account
           </Link>
         </p>
 
