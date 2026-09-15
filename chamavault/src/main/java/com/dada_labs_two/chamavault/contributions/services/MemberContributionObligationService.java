@@ -31,13 +31,16 @@ public class MemberContributionObligationService {
     private final LightningWalletService lightningWalletService;
     private final FeeService feeService;
     private final ChamaActivityService activityService;
+    private final MemberContributionCreditRepository creditRepository;
+    private final ContributionCreditAllocationRepository allocationRepository;
 
     @Transactional
     public void createFor(PoolingCycle cycle, List<ChamaMember> members) {
         for (ChamaMember member : members) {
             if (repository.existsByMember_UserReferenceAndPoolingCycle_Reference(member.getUser().getUserReference(), cycle.getReference())) continue;
-            repository.save(base(member, ContributionType.POOLING, cycle.getContributionAmount(), cycle.getEndAt())
-                    .poolingCycle(cycle).build());
+            MemberContributionObligation obligation = repository.save(base(member, ContributionType.POOLING,
+                    cycle.getContributionAmount(), cycle.getEndAt()).poolingCycle(cycle).build());
+            applyAvailablePoolingCredit(obligation);
         }
     }
 
@@ -76,7 +79,9 @@ public class MemberContributionObligationService {
         if (!obligation.getMember().getUserReference().equals(user.getUserReference())) throw new SecurityException("Members may only pay their own obligations");
         if (EnumSet.of(ObligationStatus.PAID, ObligationStatus.WAIVED, ObligationStatus.SKIPPED).contains(obligation.getStatus()))
             throw new IllegalStateException("This obligation cannot receive payments");
-        if (request.amountSats() > obligation.outstandingAmountSats()) throw new IllegalArgumentException("Payment exceeds outstanding obligation amount");
+        long outstandingBeforePayment = obligation.outstandingAmountSats();
+        if (obligation.getType() == ContributionType.MERRY_GO_ROUND && request.amountSats() > outstandingBeforePayment)
+            throw new IllegalArgumentException("Merry-go-round overpayments are not supported because the funds belong to the current beneficiary");
 
         Wallet destination = obligation.getType() == ContributionType.POOLING
                 ? obligation.getPoolingCycle().getWallet() : obligation.getContributionCycle().getWallet();
@@ -94,24 +99,48 @@ public class MemberContributionObligationService {
         String lightningReference = lightningWalletService.payInvoice(funding.getLightning().get("adminkey"), invoice);
         String feeReference = feeService.collect(funding, fee);
 
-        long newPaid = Math.addExact(obligation.getAmountPaidSats(), request.amountSats());
+        long amountApplied = Math.min(request.amountSats(), outstandingBeforePayment);
+        long overpayment = request.amountSats() - amountApplied;
+        long newPaid = Math.addExact(obligation.getAmountPaidSats(), amountApplied);
         obligation.setAmountPaidSats(newPaid);
         obligation.setStatus(newPaid == obligation.getAmountDueSats() ? ObligationStatus.PAID : ObligationStatus.PARTIALLY_PAID);
         destination.setBalanceSats(Math.addExact(Optional.ofNullable(destination.getBalanceSats()).orElse(0L), request.amountSats()));
         long collected; long expected;
         if (obligation.getType() == ContributionType.POOLING) {
             PoolingCycle c = obligation.getPoolingCycle();
-            c.setCurrentTotalContributionAmount(Math.addExact(c.getCurrentTotalContributionAmount(), request.amountSats()));
+            c.setCurrentTotalContributionAmount(Math.addExact(c.getCurrentTotalContributionAmount(), amountApplied));
             collected = c.getCurrentTotalContributionAmount(); expected = c.getExpectedTotalContributionAmount();
         } else {
             ContributionCycle c = obligation.getContributionCycle();
-            c.setCurrentTotalContributionAmount(Math.addExact(c.getCurrentTotalContributionAmount(), request.amountSats()));
+            c.setCurrentTotalContributionAmount(Math.addExact(c.getCurrentTotalContributionAmount(), amountApplied));
             if (!c.getContributorWallets().contains(funding)) c.getContributorWallets().add(funding);
             collected = c.getCurrentTotalContributionAmount(); expected = c.getExpectedTotalContributionAmount();
         }
         ObligationPayment payment = paymentRepository.save(ObligationPayment.builder().obligation(obligation)
                 .amountSats(request.amountSats()).platformFeeSats(fee.platformFeeSats()).feeRuleReference(fee.feeRuleReference())
                 .paymentReference(lightningReference).feePaymentReference(feeReference).build());
+        if (overpayment > 0) {
+            long currentCycleAmount = obligation.getAmountDueSats();
+            long estimatedFullCycles = overpayment / currentCycleAmount;
+            long estimatedRemainder = overpayment % currentCycleAmount;
+            MemberContributionCredit credit = creditRepository.save(MemberContributionCredit.builder()
+                    .chama(obligation.getChama()).member(user).contributionType(ContributionType.POOLING)
+                    .originalAmountSats(overpayment).remainingAmountSats(overpayment).sourcePayment(payment)
+                    .status(ContributionCreditStatus.AVAILABLE).build());
+            activityService.record(obligation.getChama(), user, ChamaActivityType.CONTRIBUTION_OVERPAYMENT_CREDITED,
+                    ActivityCategory.CONTRIBUTION, "Future pooling contributions prepaid",
+                    user.getUsername() + " overpaid by " + overpayment + " sats. At the current " + currentCycleAmount
+                            + "-sat contribution rate, this can fully cover " + estimatedFullCycles
+                            + " future cycle(s)" + (estimatedRemainder > 0 ? " with " + estimatedRemainder + " sats remaining" : "")
+                            + ". The estimate may change if contribution rules change.", "CONTRIBUTION_CREDIT",
+                    credit.getReference().toString(), overpayment, destination.getWalletReference(), null, null,
+                    "CONTRIBUTION_CREDIT_CREATED:" + credit.getReference(),
+                    Map.of("sourcePaymentReference", payment.getReference().toString(),
+                            "remainingAmountSats", String.valueOf(overpayment),
+                            "currentContributionAmountSats", String.valueOf(currentCycleAmount),
+                            "estimatedFullFutureCyclesCovered", String.valueOf(estimatedFullCycles),
+                            "estimatedRemainderSats", String.valueOf(estimatedRemainder)));
+        }
         ChamaActivityType activityType = obligation.getType() == ContributionType.POOLING
                 ? (obligation.getStatus() == ObligationStatus.PAID ? ChamaActivityType.POOLING_CONTRIBUTION_PAID
                     : ChamaActivityType.POOLING_CONTRIBUTION_PARTIALLY_PAID)
@@ -119,12 +148,15 @@ public class MemberContributionObligationService {
                     : ChamaActivityType.ROTATION_CONTRIBUTION_PARTIALLY_PAID);
         activityService.record(obligation.getChama(), user, activityType, ActivityCategory.CONTRIBUTION,
                 obligation.getType() == ContributionType.POOLING ? "Pooling contribution received" : "Rotation contribution received",
-                user.getUsername() + " contributed " + request.amountSats() + " sats",
+                user.getUsername() + " paid " + request.amountSats() + " sats; " + amountApplied
+                        + " sats settled the current obligation" + (overpayment > 0
+                        ? " and " + overpayment + " sats was carried forward" : ""),
                 "CONTRIBUTION_OBLIGATION", obligation.getReference().toString(), request.amountSats(),
                 destination.getWalletReference(), null, null, "OBLIGATION_PAYMENT:" + payment.getReference(),
                 Map.of("obligationPaymentReference", payment.getReference().toString(), "paymentHash", lightningReference,
                         "cycleCollectedSats", String.valueOf(collected), "cycleExpectedSats", String.valueOf(expected),
-                        "obligationStatus", obligation.getStatus().name()));
+                        "obligationStatus", obligation.getStatus().name(), "amountAppliedSats", String.valueOf(amountApplied),
+                        "carriedForwardSats", String.valueOf(overpayment)));
         if (obligation.getType() == ContributionType.POOLING && destination.getTargetAmountSats() != null &&
                 destination.getBalanceSats() >= destination.getTargetAmountSats()) {
             activityService.record(obligation.getChama(), user, ChamaActivityType.POOLING_TARGET_REACHED,
@@ -135,7 +167,60 @@ public class MemberContributionObligationService {
                     Map.of("targetAmountSats", destination.getTargetAmountSats().toString()));
         }
         return new ObligationPaymentResponse(payment.getReference(), obligation.getReference(), request.amountSats(), newPaid,
-                obligation.outstandingAmountSats(), obligation.getStatus(), collected, expected, fee.platformFeeSats(), fee.totalSats(), lightningReference);
+                obligation.outstandingAmountSats(), obligation.getStatus(), collected, expected, fee.platformFeeSats(), fee.totalSats(), lightningReference, overpayment);
+    }
+
+    public Page<ContributionCreditDTO> listMyCredits(UUID chamaId, User user, Pageable page) {
+        assertMember(chamaId, user);
+        return creditRepository.findByChama_ChamaReferenceAndMember_UserReferenceOrderByCreatedAtDesc(
+                chamaId, user.getUserReference(), page).map(c -> new ContributionCreditDTO(c.getReference(),
+                c.getContributionType(), c.getOriginalAmountSats(), c.getRemainingAmountSats(), c.getStatus(),
+                c.getSourcePayment().getReference(), c.getCreatedAt()));
+    }
+
+    private void applyAvailablePoolingCredit(MemberContributionObligation obligation) {
+        List<MemberContributionCredit> credits = creditRepository.findAvailableForUpdate(
+                obligation.getChama().getChamaReference(), obligation.getMember().getUserReference(), ContributionType.POOLING,
+                List.of(ContributionCreditStatus.AVAILABLE, ContributionCreditStatus.PARTIALLY_USED));
+        long needed = obligation.outstandingAmountSats();
+        for (MemberContributionCredit credit : credits) {
+            if (needed == 0) break;
+            long applied = Math.min(needed, credit.getRemainingAmountSats());
+            credit.setRemainingAmountSats(credit.getRemainingAmountSats() - applied);
+            credit.setStatus(credit.getRemainingAmountSats() == 0
+                    ? ContributionCreditStatus.EXHAUSTED : ContributionCreditStatus.PARTIALLY_USED);
+            creditRepository.save(credit);
+            ContributionCreditAllocation allocation = allocationRepository.save(ContributionCreditAllocation.builder()
+                    .credit(credit).obligation(obligation).amountSats(applied).build());
+            obligation.setAmountPaidSats(Math.addExact(obligation.getAmountPaidSats(), applied));
+            needed -= applied;
+            boolean paymentRequired = needed > 0;
+            activityService.record(obligation.getChama(), obligation.getMember(), ChamaActivityType.CONTRIBUTION_CREDIT_APPLIED,
+                    ActivityCategory.CONTRIBUTION, "Prepaid contribution credit applied",
+                    applied + " sats of carried-forward credit was applied to this pooling cycle. "
+                            + (paymentRequired ? obligation.getMember().getUsername() + " still needs to contribute " + needed + " sats."
+                            : obligation.getMember().getUsername() + " does not need to make another payment for this cycle."),
+                    "CONTRIBUTION_OBLIGATION", obligation.getReference().toString(), applied,
+                    obligation.getPoolingCycle().getWallet().getWalletReference(), null, null,
+                    "CONTRIBUTION_CREDIT_ALLOCATION:" + allocation.getReference(),
+                    Map.of("creditReference", credit.getReference().toString(),
+                            "allocationReference", allocation.getReference().toString(),
+                            "poolingCycleReference", obligation.getPoolingCycle().getReference().toString(),
+                            "obligationAmountSats", obligation.getAmountDueSats().toString(),
+                            "outstandingAmountSats", String.valueOf(needed),
+                            "paymentRequiredForCycle", String.valueOf(paymentRequired)));
+            if (credit.getStatus() == ContributionCreditStatus.EXHAUSTED)
+                activityService.record(obligation.getChama(), obligation.getMember(), ChamaActivityType.CONTRIBUTION_CREDIT_EXHAUSTED,
+                        ActivityCategory.CONTRIBUTION, "Contribution credit fully used", "Carried-forward pooling credit was fully used",
+                        "CONTRIBUTION_CREDIT", credit.getReference().toString(), 0L, null, null, null,
+                        "CONTRIBUTION_CREDIT_EXHAUSTED:" + credit.getReference(), Map.of());
+        }
+        obligation.setStatus(needed == 0 ? ObligationStatus.PAID
+                : obligation.getAmountPaidSats() > 0 ? ObligationStatus.PARTIALLY_PAID : ObligationStatus.PENDING);
+        if (obligation.getAmountPaidSats() > 0) {
+            PoolingCycle cycle = obligation.getPoolingCycle();
+            cycle.setCurrentTotalContributionAmount(Math.addExact(cycle.getCurrentTotalContributionAmount(), obligation.getAmountPaidSats()));
+        }
     }
 
     private void assertMember(UUID chamaId, User user) {
