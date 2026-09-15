@@ -13,6 +13,13 @@ type LoginErrorResponse = {
 const ACCOUNT_NOT_FOUND_MESSAGE =
   "We couldn't find an account matching those details. Double-check your phone number and PIN, or create a new account.";
 
+const normalizePhoneNumber = (value: string) => {
+  const digits = value.replace(/\D/g, '');
+  if (digits.startsWith('0') && digits.length === 10) return `254${digits.slice(1)}`;
+  if ((digits.startsWith('7') || digits.startsWith('1')) && digits.length === 9) return `254${digits}`;
+  return digits;
+};
+
 export default function LoginPage() {
   const router = useRouter();
 
@@ -29,6 +36,22 @@ export default function LoginPage() {
       return;
     }
 
+    if (phone.includes('@') || /[a-z]/i.test(phone)) {
+      setError('Please enter your phone number, not an email address.');
+      return;
+    }
+
+    if (!/^[+\d\s()-]+$/.test(phone)) {
+      setError('Enter a valid phone number using numbers only.');
+      return;
+    }
+
+    const normalizedPhone = normalizePhoneNumber(phone);
+    if (normalizedPhone.length < 9 || normalizedPhone.length > 15) {
+      setError('Enter a valid phone number, for example 0712 345 678 or +254 712 345 678.');
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -38,7 +61,7 @@ export default function LoginPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            msisdn: phone.replace(/\s+/g, ''),
+            msisdn: normalizedPhone,
             password,
           }),
         }
@@ -120,6 +143,8 @@ export default function LoginPage() {
           </label>
           <input
             type="tel"
+            inputMode="tel"
+            autoComplete="tel"
             placeholder="254700000007"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -127,6 +152,7 @@ export default function LoginPage() {
                        text-base text-gray-900 placeholder:text-gray-400
                        focus:outline-none focus:ring-2 focus:ring-emerald-600"
           />
+          <p className="mt-1.5 text-xs text-gray-500">Use the phone number registered to your account—not your email address.</p>
         </div>
 
         {/* PIN / Password */}
