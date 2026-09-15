@@ -1,7 +1,11 @@
 "use client";
 import Link from "next/link";
+import { ArrowRight, LogIn, UserPlus } from "lucide-react";
+import { useState } from "react";
 
 export function HeroSection() {
+  const [selectedPath, setSelectedPath] = useState<'create' | 'signin' | null>(null);
+
   return (
     <section
       className="pt-16 px-8 pb-16"
@@ -28,26 +32,47 @@ export function HeroSection() {
           together with modern fintech tools.
         </p>
 
-        {/* Buttons */}
-        <div className="flex flex-col w-full gap-4">
-          {/* Get Started */}
-          <Link href="/landing-page/create-account" className="w-full">
-            <button
-              className="w-full py-4 bg-[#059669] text-white font-bold text-base rounded-2xl cursor-pointer hover:bg-emerald-700 transition-colors"
-              style={{
-                boxShadow: "0px 10px 15px -3px #A7F3D0, 0px 4px 6px -4px #A7F3D0",
-              }}
+        {/* Clear paths for new and returning users */}
+        <div className="grid w-full gap-3 sm:grid-cols-2">
+          <div
+            onMouseEnter={() => setSelectedPath('create')}
+            onFocusCapture={() => setSelectedPath('create')}
+            onPointerDown={() => setSelectedPath('create')}
+            className={`group flex flex-col rounded-2xl border-2 bg-white p-4 transition-all duration-200 hover:-translate-y-1 ${selectedPath === 'create' ? 'border-emerald-500 shadow-[0_16px_30px_-14px_rgba(5,150,105,0.55)]' : 'border-transparent shadow-sm'}`}
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+              <UserPlus className="h-5 w-5" />
+            </div>
+            <p className="mt-4 text-xs font-bold uppercase tracking-wider text-emerald-700">New to ChamaVault?</p>
+            <h2 className="mt-1 text-lg font-bold text-slate-900">Create an account</h2>
+            <p className="mt-1 min-h-10 text-sm leading-5 text-slate-600">Register and set up your ChamaVault profile.</p>
+            <Link
+              href="/landing-page/create-account"
+              className={`interactive-action mt-4 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-bold transition-all duration-200 active:scale-[0.97] ${selectedPath === 'create' ? 'border-emerald-600 bg-emerald-600 text-white shadow-md hover:bg-emerald-700' : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'}`}
             >
-              Get Started
-            </button>
-          </Link>
+              Create account <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
 
-          {/* Member Login */}
-          <Link href="/landing-page/login" className="w-full">
-            <button className="w-full py-4 bg-white text-[#334155] font-semibold text-base rounded-2xl border border-[#E2E8F0] cursor-pointer hover:bg-slate-50 transition-colors shadow-sm">
-              Member Login
-            </button>
-          </Link>
+          <div
+            onMouseEnter={() => setSelectedPath('signin')}
+            onFocusCapture={() => setSelectedPath('signin')}
+            onPointerDown={() => setSelectedPath('signin')}
+            className={`group flex flex-col rounded-2xl border-2 bg-white p-4 transition-all duration-200 hover:-translate-y-1 ${selectedPath === 'signin' ? 'border-emerald-500 shadow-[0_16px_30px_-14px_rgba(5,150,105,0.45)]' : 'border-transparent shadow-sm'}`}
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition-colors duration-200 group-hover:bg-emerald-100 group-hover:text-emerald-700">
+              <LogIn className="h-5 w-5" />
+            </div>
+            <p className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">Already registered?</p>
+            <h2 className="mt-1 text-lg font-bold text-slate-900">Sign in</h2>
+            <p className="mt-1 min-h-10 text-sm leading-5 text-slate-600">Access your existing account and dashboard.</p>
+            <Link
+              href="/landing-page/login"
+              className={`interactive-action mt-4 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-bold transition-all duration-200 active:scale-[0.97] ${selectedPath === 'signin' ? 'border-emerald-600 bg-emerald-600 text-white shadow-md hover:bg-emerald-700' : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'}`}
+            >
+              Sign in <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+            </Link>
+          </div>
         </div>
 
         {/* Bitcoin Link */}

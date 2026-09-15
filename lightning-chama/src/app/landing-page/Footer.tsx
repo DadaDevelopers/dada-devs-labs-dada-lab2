@@ -1,7 +1,8 @@
 "use client";
 
 const quickLinks = [
-  { label: "Join ChamaVault", href: "/landing-page/create-account" },
+  { label: "Create an account", href: "/landing-page/create-account" },
+  { label: "Sign in", href: "/landing-page/login" },
   { label: "Privacy Policy", href: "/terms" },
   { label: "Terms of Service", href: "/terms" },
   { label: "Help Center", href: "/landing-page" },
