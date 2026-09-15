@@ -44,6 +44,52 @@ body {
   line-height: 1.6;
 }
 
+/* Consistent tactile feedback for interactive controls. */
+button,
+.interactive-action {
+  -webkit-tap-highlight-color: transparent;
+  transition-property: transform, box-shadow, background-color, border-color, color, opacity, filter;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled):not(.no-button-motion):not([aria-label="Close navigation menu"]):hover,
+  .interactive-action:not([aria-disabled="true"]):hover {
+    transform: translateY(-1px);
+    filter: brightness(1.015);
+  }
+}
+
+button:not(:disabled):not(.no-button-motion):not([aria-label="Close navigation menu"]):active,
+.interactive-action:not([aria-disabled="true"]):active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 80ms;
+}
+
+button:focus-visible,
+.interactive-action:focus-visible {
+  outline: 3px solid rgba(5, 150, 105, 0.3);
+  outline-offset: 3px;
+}
+
+button:disabled,
+.interactive-action[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  .interactive-action {
+    transition-duration: 0.01ms;
+  }
+
+  button:not(:disabled):active,
+  .interactive-action:not([aria-disabled="true"]):active {
+    transform: none;
+  }
+}
+
 /* HEADINGS (Separate classes)*/
 .text-heading {
   font-family: var(--font-heading);

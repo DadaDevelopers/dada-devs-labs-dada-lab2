@@ -144,12 +144,12 @@ export default function CreateAccount() {
 
         {/* Login Link */}
         <p className="text-sm text-black mt-4">
-          Already have an account?{' '}
+          Already registered?{' '}
           <Link
             href="/landing-page/login"
             className="text-[#059669] font-medium hover:underline"
           >
-            Login
+            Sign in
           </Link>
         </p>
       </div>

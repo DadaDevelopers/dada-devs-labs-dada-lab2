@@ -8,17 +8,24 @@ export default function FinalCTA() {
         Ready to grow together?
       </h2>
 
-      <Link href="/landing-page/create-account">
-        <button
-          className="px-10 py-4 bg-[#059669] text-white font-bold text-base rounded-xl hover:bg-emerald-700 transition-colors"
-          style={{
-            boxShadow:
-              "0px 10px 15px -3px rgba(0,0,0,0.1), 0px 4px 6px -4px rgba(0,0,0,0.1)",
-          }}
-        >
-          Create Your Account
-        </button>
+      <p className="-mt-3 text-center text-sm text-emerald-900/70">
+        New here? Create your account in a few simple steps.
+      </p>
+
+      <Link
+        href="/landing-page/create-account"
+        className="interactive-action rounded-xl bg-[#059669] px-10 py-4 text-base font-bold text-white transition-colors hover:bg-emerald-700"
+        style={{ boxShadow: "0px 10px 15px -3px rgba(0,0,0,0.1), 0px 4px 6px -4px rgba(0,0,0,0.1)" }}
+      >
+        Create account
       </Link>
+
+      <p className="-mt-3 text-sm text-emerald-950/70">
+        Already registered?{' '}
+        <Link href="/landing-page/login" className="font-bold text-emerald-700 underline underline-offset-4 hover:text-emerald-900">
+          Sign in
+        </Link>
+      </p>
     </section>
   );
 }
