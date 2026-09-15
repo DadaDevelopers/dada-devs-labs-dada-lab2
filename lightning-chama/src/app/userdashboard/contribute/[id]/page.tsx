@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, User, CheckCircle, XCircle, Wallet, AlertCircle, X, Loader2, ChevronDown, ChevronUp, Zap, Bell, MoreVertical, Lock, Users, CalendarDays, ShieldCheck, RefreshCw } from 'lucide-react';
+import { ArrowLeft, User, CheckCircle, XCircle, Wallet, AlertCircle, X, Loader2, ChevronDown, ChevronUp, Zap, Bell, MoreVertical, Lock, Users, CalendarDays, ShieldCheck, RefreshCw, Pencil } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import SatsAmount from '@/components/SatsAmount';
 import { useBitcoinKesRate } from '@/hooks/useBitcoinKesRate';
@@ -112,6 +112,11 @@ export default function ChamasContribution() {
   });
   const [obligationPaymentAmount, setObligationPaymentAmount] = useState('');
   const [obligationPaymentMode, setObligationPaymentMode] = useState<'full' | 'partial' | 'ahead'>('full');
+  const [paymentSource, setPaymentSource] = useState<'wallet' | 'mpesa' | null>(null);
+  const [mpesaPhone, setMpesaPhone] = useState('');
+  const [mpesaStatus, setMpesaStatus] = useState('');
+  const [mpesaTopup, setMpesaTopup] = useState<{ requested: boolean; startingBalance: number; amountSats: number }>({ requested: false, startingBalance: 0, amountSats: 0 });
+  const [mpesaConfirmationDelayed, setMpesaConfirmationDelayed] = useState(false);
 
   const { exchangeRate, loadingRate } = useBitcoinKesRate();
 
@@ -426,11 +431,11 @@ export default function ChamasContribution() {
   // --- ROTATIONAL PAYMENT HANDLERS ---
   const handleInitiatePayment = (cycle: any) => {
     if (!cycle) return;
-    // Check if user has wallets
-    if (userWallets.length === 0) {
-        alert("You have no wallets to pay from. Please create a wallet first.");
-        return;
-    }
+    setPaymentSource(null);
+    setMpesaPhone(localStorage.getItem('msisdn') || '');
+    setMpesaStatus('');
+    setMpesaTopup({ requested: false, startingBalance: 0, amountSats: 0 });
+    setMpesaConfirmationDelayed(false);
     setObligationPaymentMode('full');
     setObligationPaymentAmount(String(cycle.outstandingAmountSats ?? cycle.amountSats ?? cycle.contributionAmount ?? ''));
     setRotationalPaymentModal({
@@ -444,18 +449,23 @@ export default function ChamasContribution() {
 
   useEffect(() => {
     if (linkedObligationHandled || loadingWallets || obligations.length === 0) return;
-    const obligationReference = new URLSearchParams(window.location.search).get('obligation');
-    if (!obligationReference) return;
+    const searchParams = new URLSearchParams(window.location.search);
+    const obligationReference = searchParams.get('obligation');
+    const paymentRequested = searchParams.get('pay') === '1';
+    if (!obligationReference && !paymentRequested) return;
 
-    const obligation = obligations.find(item => item.obligationReference === obligationReference);
+    const obligation = obligationReference
+      ? obligations.find(item => item.obligationReference === obligationReference)
+      : obligations.find(item => ['PENDING', 'PARTIALLY_PAID', 'OVERDUE'].includes(item.status));
     if (!obligation) return;
 
     setLinkedObligationHandled(true);
     setObligationsExpanded(true);
-    if (userWallets.length === 0) {
-      alert('You have no wallets to pay from. Please create a wallet first.');
-      return;
-    }
+    setPaymentSource(null);
+    setMpesaPhone(localStorage.getItem('msisdn') || '');
+    setMpesaStatus('');
+    setMpesaTopup({ requested: false, startingBalance: 0, amountSats: 0 });
+    setMpesaConfirmationDelayed(false);
     setObligationPaymentMode('full');
     setObligationPaymentAmount(String(obligation.outstandingAmountSats ?? obligation.amountSats ?? obligation.contributionAmount ?? ''));
     setRotationalPaymentModal({
@@ -471,7 +481,53 @@ export default function ChamasContribution() {
     setRotationalPaymentModal(prev => ({ ...prev, selectedWallet: wallet }));
   };
 
-  const handleConfirmRotationalPayment = async () => {
+  const prepareMpesaPayment = async () => {
+    const token = localStorage.getItem('token');
+    const msisdn = localStorage.getItem('msisdn');
+    const ownerReference = localStorage.getItem('userReference');
+    if (!token || !msisdn || !ownerReference) return;
+
+    try {
+      setPaymentSource('mpesa');
+      setMpesaStatus('Preparing your M-Pesa payment wallet…');
+      setRotationalPaymentModal(prev => ({ ...prev, loading: true, error: '' }));
+      let cashInWallet = userWallets.find((wallet: any) =>
+        String(wallet.walletPurpose || '').toUpperCase() === 'CASH-IN' ||
+        String(formatWalletName(wallet.lightning?.name) || '').toUpperCase() === 'CASH-IN'
+      );
+
+      if (!cashInWallet) {
+        const createResponse = await fetch(
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/user?msisdn=${encodeURIComponent(msisdn)}&walletName=${encodeURIComponent('CASH-IN')}&walletPurpose=${encodeURIComponent('CASH-IN')}`,
+          { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+        );
+        const createData = await createResponse.json().catch(() => null);
+        if (!createResponse.ok) throw new Error(createData?.message || 'Unable to prepare your M-Pesa wallet.');
+
+        const walletsResponse = await fetch(
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerReference}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const walletsData = await walletsResponse.json().catch(() => null);
+        if (!walletsResponse.ok) throw new Error('Your CASH-IN wallet was created, but could not be loaded.');
+        const refreshedWallets = walletsData?.content || [];
+        setUserWallets(refreshedWallets);
+        cashInWallet = refreshedWallets.find((wallet: any) =>
+          String(wallet.walletPurpose || '').toUpperCase() === 'CASH-IN' ||
+          String(formatWalletName(wallet.lightning?.name) || '').toUpperCase() === 'CASH-IN'
+        ) || refreshedWallets.find((wallet: any) => wallet.walletReference === createData?.walletReference);
+      }
+
+      if (!cashInWallet) throw new Error('Unable to find the CASH-IN wallet. Please try again.');
+      setRotationalPaymentModal(prev => ({ ...prev, selectedWallet: cashInWallet, loading: false }));
+      setMpesaStatus('');
+    } catch (mpesaError) {
+      setMpesaStatus('');
+      setRotationalPaymentModal(prev => ({ ...prev, loading: false, error: mpesaError instanceof Error ? mpesaError.message : 'Unable to prepare M-Pesa payment.' }));
+    }
+  };
+
+  const handleConfirmRotationalPayment = async (forceNewMpesaPrompt = false) => {
     if (!rotationalPaymentModal.cycle || !rotationalPaymentModal.selectedWallet) return;
 
     const token = localStorage.getItem('token');
@@ -499,6 +555,91 @@ export default function ChamasContribution() {
             throw new Error(`To pay ahead, enter more than ${modalPaymentSats.toLocaleString()} sats.`);
           }
         }
+
+        if (paymentSource === 'mpesa') {
+          if (!mpesaPhone.trim() || mpesaPhone.includes('@') || /[a-z]/i.test(mpesaPhone)) {
+            throw new Error('Enter a valid M-Pesa phone number.');
+          }
+          const ownerReference = localStorage.getItem('userReference');
+          if (!ownerReference) throw new Error('User details are missing. Please sign in again.');
+
+          let startingBalance = mpesaTopup.startingBalance;
+          let topupAmount = mpesaTopup.amountSats;
+          let paymentConfirmed = false;
+
+          if (forceNewMpesaPrompt && mpesaTopup.requested) {
+            setMpesaStatus('Checking the previous payment before sending another prompt…');
+            const latestWalletsResponse = await fetch(
+              `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerReference}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (latestWalletsResponse.ok) {
+              const latestWalletsData = await latestWalletsResponse.json();
+              const latestCashWallet = (latestWalletsData.content || []).find((wallet: any) =>
+                wallet.walletReference === rotationalPaymentModal.selectedWallet.walletReference
+              );
+              const latestBalance = Number(latestCashWallet?.balanceSats || 0);
+              if (latestBalance >= mpesaTopup.startingBalance + mpesaTopup.amountSats) {
+                paymentConfirmed = true;
+                setUserWallets(latestWalletsData.content || []);
+              } else {
+                startingBalance = latestBalance;
+              }
+            }
+          }
+
+          if (!mpesaTopup.requested || (forceNewMpesaPrompt && !paymentConfirmed)) {
+            if (!forceNewMpesaPrompt) startingBalance = Number(rotationalPaymentModal.selectedWallet.balanceSats || 0);
+            topupAmount = amountSats;
+            setMpesaConfirmationDelayed(false);
+            setMpesaStatus('Check your phone and approve the M-Pesa prompt.');
+            const topupResponse = await fetch(
+              'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/api/v1/payments/collections/fund-wallet/mpesa',
+              {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  phoneNumber: mpesaPhone.replace(/\D/g, ''),
+                  walletId: rotationalPaymentModal.selectedWallet.walletReference,
+                  amountSats,
+                }),
+              }
+            );
+            const topupData = await topupResponse.json().catch(() => null);
+            if (!topupResponse.ok || topupData?.data?.status === 'FAILED') {
+              throw new Error(topupData?.data?.message || topupData?.message || 'Unable to start the M-Pesa payment.');
+            }
+            setMpesaTopup({ requested: true, startingBalance, amountSats: topupAmount });
+          }
+
+          if (!paymentConfirmed) setMpesaStatus('Waiting for your M-Pesa payment to arrive…');
+          for (let attempt = 0; attempt < 20 && !paymentConfirmed; attempt += 1) {
+            const walletsResponse = await fetch(
+              `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerReference}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (walletsResponse.ok) {
+              const walletsData = await walletsResponse.json();
+              const cashWallet = (walletsData.content || []).find((wallet: any) =>
+                wallet.walletReference === rotationalPaymentModal.selectedWallet.walletReference
+              );
+              if (Number(cashWallet?.balanceSats || 0) >= startingBalance + topupAmount) {
+                paymentConfirmed = true;
+                setUserWallets(walletsData.content || []);
+                break;
+              }
+            }
+            await new Promise(resolve => window.setTimeout(resolve, 3000));
+          }
+          if (!paymentConfirmed) {
+            setMpesaStatus('');
+            setMpesaConfirmationDelayed(true);
+            throw new Error('M-Pesa confirmation is taking longer than expected.');
+          }
+          setMpesaConfirmationDelayed(false);
+          setMpesaStatus('Payment received. Sending your contribution…');
+        }
+
         const response = await fetch(
           `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chamaId}/contribution-obligations/${rotationalPaymentModal.cycle.obligationReference}/payments`,
           {
@@ -525,6 +666,9 @@ export default function ChamasContribution() {
           setObligations(normalizeObligations(obligationsData));
         }
         setRotationalPaymentModal({ isOpen: false, cycle: null, selectedWallet: null, loading: false, error: '' });
+        setMpesaStatus('');
+        setMpesaTopup({ requested: false, startingBalance: 0, amountSats: 0 });
+        setMpesaConfirmationDelayed(false);
         const carriedForwardSats = Number(data.carriedForwardSats || 0);
         alert(carriedForwardSats > 0
           ? `Payment successful. ${carriedForwardSats.toLocaleString()} sats was saved for future pooling contributions.`
@@ -1282,7 +1426,7 @@ export default function ChamasContribution() {
             {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50">
               <h3 className="font-bold text-gray-900">
-                {rotationalPaymentModal.selectedWallet ? "Confirm Payment" : "Select Wallet"}
+                {!paymentSource ? 'Choose how to pay' : rotationalPaymentModal.selectedWallet ? 'Confirm Payment' : 'Select Wallet'}
               </h3>
               <button onClick={() => setRotationalPaymentModal({ isOpen: false, cycle: null, selectedWallet: null, loading: false, error: '' })} className="text-gray-400 hover:text-gray-600">
                 <X size={24} />
@@ -1292,7 +1436,46 @@ export default function ChamasContribution() {
             <div className="p-4 overflow-y-auto flex-1">
               
               {/* VIEW 1: SELECT WALLET */}
-              {!rotationalPaymentModal.selectedWallet ? (
+              {!paymentSource ? (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentSource('wallet')}
+                    className="flex w-full items-center gap-4 rounded-2xl border-2 border-gray-100 bg-white p-4 text-left transition hover:border-emerald-500 hover:bg-emerald-50"
+                  >
+                    <span className="flex h-10 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white px-1 ring-1 ring-emerald-100">
+                      <img
+                        src="/lipa-na-wallet.png"
+                        alt="Lipa na Wallet"
+                        className="w-full object-contain"
+                      />
+                    </span>
+                    <span><strong className="block text-gray-900">Pay from wallet</strong><span className="mt-1 block text-xs text-gray-500">Use funds already in your ChamaVault wallet</span></span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={prepareMpesaPayment}
+                    className="flex w-full items-center gap-4 rounded-2xl border-2 border-gray-100 bg-white p-4 text-left transition hover:border-emerald-500 hover:bg-emerald-50"
+                  >
+                    <span className="flex h-10 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white px-1 ring-1 ring-green-100">
+                      <img
+                        src="/lipa-na-mpesa-logo.png"
+                        alt="Lipa na M-Pesa"
+                        className="w-full scale-y-[2.1] object-contain"
+                      />
+                    </span>
+                    <span><strong className="block text-gray-900">Pay from M-Pesa</strong><span className="mt-1 block text-xs text-gray-500">Add funds and contribute in one guided flow</span></span>
+                  </button>
+                  {rotationalPaymentModal.loading && <p className="flex items-center justify-center gap-2 py-2 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" />{mpesaStatus}</p>}
+                  {rotationalPaymentModal.error && <p className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{rotationalPaymentModal.error}</p>}
+                </div>
+              ) : paymentSource === 'mpesa' && rotationalPaymentModal.loading && !rotationalPaymentModal.selectedWallet ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+                  <Loader2 className="h-9 w-9 animate-spin text-emerald-600" />
+                  <p className="font-semibold text-gray-900">Preparing M-Pesa payment</p>
+                  <p className="text-sm text-gray-500">{mpesaStatus}</p>
+                </div>
+              ) : !rotationalPaymentModal.selectedWallet ? (
                 <div className="space-y-3">
                   {userWallets.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">No wallets available</div>
@@ -1331,6 +1514,35 @@ export default function ChamasContribution() {
               ) : (
                 /* VIEW 2: CONFIRM PAYMENT */
                 <div className="flex flex-col gap-4 animate-fadeIn">
+                  {paymentSource === 'mpesa' && (
+                    <div>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <label htmlFor="mpesa-contribution-phone" className="block text-sm font-semibold text-gray-700">M-Pesa phone number</label>
+                        <label htmlFor="mpesa-contribution-phone" className={`flex items-center gap-1 text-xs font-bold ${rotationalPaymentModal.loading ? 'text-gray-400' : 'cursor-text text-emerald-700'}`}>
+                          <Pencil className="h-3.5 w-3.5" />
+                          {rotationalPaymentModal.loading ? 'Processing' : 'Edit'}
+                        </label>
+                      </div>
+                      <input
+                        id="mpesa-contribution-phone"
+                        type="tel"
+                        inputMode="tel"
+                        value={mpesaPhone}
+                        disabled={rotationalPaymentModal.loading}
+                        onChange={event => {
+                          setMpesaPhone(event.target.value);
+                          setRotationalPaymentModal(prev => ({ ...prev, error: '' }));
+                        }}
+                        placeholder="254712345678"
+                        className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-gray-100"
+                      />
+                      <p className="mt-1.5 text-xs text-gray-500">
+                        {mpesaConfirmationDelayed
+                          ? 'You can change this number before requesting a new M-Pesa prompt.'
+                          : 'The M-Pesa prompt will be sent to this number. You can change it before paying.'}
+                      </p>
+                    </div>
+                  )}
                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                     <p className="text-xs text-gray-500 font-bold uppercase mb-1">Contributing to</p>
                     <div className="flex items-center gap-3">
@@ -1356,6 +1568,7 @@ export default function ChamasContribution() {
                       <div className={`grid gap-3 ${selectedObligationIsPooling ? 'grid-cols-3' : 'grid-cols-2'}`}>
                         <button
                           type="button"
+                          disabled={mpesaTopup.requested}
                           onClick={() => {
                             setObligationPaymentMode('full');
                             setObligationPaymentAmount(String(modalPaymentSats));
@@ -1367,7 +1580,7 @@ export default function ChamasContribution() {
                         </button>
                         <button
                           type="button"
-                          disabled={modalPaymentSats <= 1}
+                          disabled={modalPaymentSats <= 1 || mpesaTopup.requested}
                           onClick={() => {
                             setObligationPaymentMode('partial');
                             setObligationPaymentAmount('');
@@ -1380,6 +1593,7 @@ export default function ChamasContribution() {
                         {selectedObligationIsPooling && (
                           <button
                             type="button"
+                            disabled={mpesaTopup.requested}
                             onClick={() => {
                               setObligationPaymentMode('ahead');
                               setObligationPaymentAmount('');
@@ -1427,6 +1641,7 @@ export default function ChamasContribution() {
                         min={obligationPaymentMode === 'ahead' ? modalPaymentSats + 1 : 1}
                         max={obligationPaymentMode === 'partial' ? Math.max(modalPaymentSats - 1, 1) : undefined}
                         value={obligationPaymentAmount}
+                        disabled={mpesaTopup.requested}
                         onChange={(event) => setObligationPaymentAmount(event.target.value.replace(/\D/g, ''))}
                         className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                       />
@@ -1446,27 +1661,65 @@ export default function ChamasContribution() {
                     </div>
                   )}
 
-                  {rotationalPaymentModal.error && (
+                  {rotationalPaymentModal.error && !mpesaConfirmationDelayed && (
                     <div className="p-3 bg-red-50 text-red-600 rounded-xl text-sm flex items-start gap-2 border border-red-100">
                       <AlertCircle size={16} className="mt-0.5 shrink-0" />
                       <span>{rotationalPaymentModal.error}</span>
                     </div>
                   )}
-                  
-                  <button
-                    onClick={handleConfirmRotationalPayment}
-                    disabled={rotationalPaymentModal.loading || Boolean(rotationalPaymentModal.cycle.obligationReference && obligationPaymentMode !== 'full' && !obligationPaymentAmount)}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {rotationalPaymentModal.loading ? (
-                      <><Loader2 className="animate-spin" /> Processing...</>
-                    ) : (
-                      <><Zap size={20} fill="currentColor" /> {rotationalPaymentModal.cycle.obligationReference ? (obligationPaymentMode === 'full' ? 'Pay in full' : obligationPaymentMode === 'partial' ? 'Pay partially' : 'Pay ahead') : 'Confirm Payment'}</>
-                    )}
-                  </button>
 
-                  <button onClick={() => setRotationalPaymentModal(prev => ({ ...prev, selectedWallet: null }))} className="w-full text-center text-sm text-gray-500 hover:text-gray-900 font-medium py-2">
-                    Change Wallet
+                  {mpesaStatus && (
+                    <div className="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
+                      <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+                      <span>{mpesaStatus}</span>
+                    </div>
+                  )}
+
+                  {mpesaConfirmationDelayed ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+                        <div>
+                          <p className="font-bold text-amber-950">Still waiting for M-Pesa</p>
+                          <p className="mt-1 text-xs leading-5 text-amber-800">If you approved the payment, check again—it can take a few minutes to arrive. If no prompt appeared and no money was deducted, edit the number above if needed and request another prompt.</p>
+                        </div>
+                      </div>
+                      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                        <button type="button" onClick={() => handleConfirmRotationalPayment()} disabled={rotationalPaymentModal.loading} className="rounded-xl bg-emerald-600 px-3 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60">
+                          Check payment again
+                        </button>
+                        <button type="button" onClick={() => handleConfirmRotationalPayment(true)} disabled={rotationalPaymentModal.loading} className="rounded-xl border border-amber-400 bg-white px-3 py-3 text-sm font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-60">
+                          Send new M-Pesa prompt
+                        </button>
+                      </div>
+                      <p className="mt-2 text-[11px] leading-4 text-amber-700">Only request a new prompt if the first one did not appear and your account was not charged.</p>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleConfirmRotationalPayment()}
+                      disabled={rotationalPaymentModal.loading || Boolean(rotationalPaymentModal.cycle.obligationReference && obligationPaymentMode !== 'full' && !obligationPaymentAmount)}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {rotationalPaymentModal.loading ? (
+                        <><Loader2 className="animate-spin" /> {mpesaStatus || 'Processing...'}</>
+                      ) : (
+                        <><Zap size={20} fill="currentColor" /> {rotationalPaymentModal.cycle.obligationReference ? (obligationPaymentMode === 'full' ? 'Pay in full' : obligationPaymentMode === 'partial' ? 'Pay partially' : 'Pay ahead') : 'Confirm Payment'}</>
+                      )}
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      if (paymentSource === 'wallet') setRotationalPaymentModal(prev => ({ ...prev, selectedWallet: null }));
+                      else {
+                        setPaymentSource(null);
+                        setRotationalPaymentModal(prev => ({ ...prev, selectedWallet: null, error: '' }));
+                      }
+                    }}
+                    disabled={mpesaTopup.requested}
+                    className="w-full text-center text-sm text-gray-500 hover:text-gray-900 font-medium py-2 disabled:opacity-50"
+                  >
+                    {paymentSource === 'wallet' ? 'Change wallet' : 'Change payment method'}
                   </button>
                 </div>
               )}
