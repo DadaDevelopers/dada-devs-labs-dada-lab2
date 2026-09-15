@@ -44,6 +44,7 @@ interface ChamaInfo {
   maxMembers: number;
   currentRotationIndex: number;
   iconUrl?: string;
+  purpose?: string;
 }
 
 export interface ContributionCycle {
@@ -432,6 +433,7 @@ export default function ChamasContribution() {
                 const overdue = obligation.status === 'OVERDUE';
                 const partial = obligation.status === 'PARTIALLY_PAID';
                 const statusLabel = overdue ? 'Overdue' : partial ? 'Partially paid' : 'Payment due';
+                const contributionType = String(obligation.contributionType || obligation.chama.purpose || '').toUpperCase();
 
                 return (
                   <article key={obligation.obligationReference || `${obligation.chama.chamaReference}-${obligationIndex}`} className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${overdue ? 'border-red-200' : partial ? 'border-amber-200' : 'border-blue-200'}`}>
@@ -447,7 +449,7 @@ export default function ChamasContribution() {
                           </div>
                           <div className="min-w-0">
                             <h3 className="truncate font-bold text-gray-900">{obligation.chama.name}</h3>
-                            <p className="text-xs text-gray-500">{obligation.contributionType === 'POOLING' ? 'Pooled savings' : obligation.contributionType === 'MERRY_GO_ROUND' ? 'Merry-go-round' : 'Chama contribution'}</p>
+                            <p className="text-xs text-gray-500">{contributionType === 'POOLING' ? 'Pooled savings' : contributionType === 'MERRY_GO_ROUND' ? 'Merry-go-round' : 'Chama contribution'}</p>
                           </div>
                         </div>
                         <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${overdue ? 'bg-red-100 text-red-700' : partial ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>

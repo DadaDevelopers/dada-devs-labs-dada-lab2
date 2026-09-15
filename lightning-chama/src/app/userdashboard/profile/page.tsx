@@ -495,7 +495,7 @@ export default function ProfilePage() {
                   disabled={pinSaving || pinSuccess}
                   className="w-full h-12 rounded-xl font-bold text-base text-white flex items-center justify-center gap-2 transition-all mt-1"
                   style={{
-                    background: pinSuccess ? '#059669' : '#0F172A',
+                    background: pinSuccess ? '#059669' : '#F7931A',
                     opacity: pinSaving ? 0.75 : 1,
                   }}
                 >
@@ -586,7 +586,7 @@ export default function ProfilePage() {
                 onClick={handleSave}
                 disabled={saving || saveSuccess}
                 className="w-full h-12 rounded-xl font-bold text-base text-white flex items-center justify-center gap-2 transition-all"
-                style={{ background: saveSuccess ? '#059669' : '#0F172A', opacity: saving ? 0.75 : 1 }}
+                style={{ background: saveSuccess ? '#059669' : '#F7931A', opacity: saving ? 0.75 : 1 }}
               >
                 {saveSuccess ? (
                   <><Check className="w-4 h-4" /> Saved</>
