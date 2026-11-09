@@ -10,11 +10,16 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.UUID;
+import java.util.List;
+import java.util.Collection;
+import com.dada_labs_two.chamavault.payments.constants.TransactionStatus;
 
 public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
         JpaSpecificationExecutor<Transaction> {
     Page<Transaction> findByRotationIndex(Integer rotationIndex, Pageable pageable);
     boolean existsByExternalRef(String externalRef);
+    List<Transaction> findTop100ByStatusOrderByOccurredAtAsc(TransactionStatus status);
+    boolean existsByWalletAndStatusIn(Wallet wallet, Collection<TransactionStatus> statuses);
 
     @Query("""
     SELECT COALESCE(
@@ -29,6 +34,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
         ), 0)
     FROM Transaction t
     WHERE t.wallet = :wallet
+      AND (t.status IS NULL OR t.status = 'COMPLETED')
 """)
     Long sumBalanceByWallet(@Param("wallet") Wallet wallet);
 

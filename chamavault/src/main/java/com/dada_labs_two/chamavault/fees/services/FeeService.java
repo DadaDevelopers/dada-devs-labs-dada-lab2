@@ -7,8 +7,14 @@ import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
 import com.dada_labs_two.chamavault.users.models.User;
 import com.dada_labs_two.chamavault.wallets.constants.TransactionCategory;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
+import com.dada_labs_two.chamavault.wallets.models.Transaction;
+import com.dada_labs_two.chamavault.wallets.constants.TransactionSource;
+import com.dada_labs_two.chamavault.wallets.constants.TransactionType;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
+import com.dada_labs_two.chamavault.wallets.repositories.TransactionRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,8 +26,10 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class FeeService {
+    private static final Logger log = LoggerFactory.getLogger(FeeService.class);
     private final FeeRuleRepository repository;
     private final WalletRepository walletRepository;
+    private final TransactionRepository transactionRepository;
     private final LightningWalletService lightningWalletService;
 
     @Value("${fees.collection-wallet-id:}")
@@ -31,6 +39,7 @@ public class FeeService {
         if (amountSats <= 0) throw new IllegalArgumentException("amountSats must be positive");
 
         List<FeeRule> rules = repository.findEffective(category, ZonedDateTime.now());
+        log.info("Fee rules found of size {}", rules.size());
 
         if (rules.size() > 1) throw new IllegalStateException("Overlapping active fee rules for " + category);
 
@@ -49,14 +58,38 @@ public class FeeService {
     public String collect(Wallet payer, FeeQuote quote) {
         if (quote.platformFeeSats() == 0) return null;
 
+        payer.assertTransactionsAllowed();
+
+        log.info("Collecting fees of SATS:{} for category {}", quote.platformFeeSats(), quote.category());
+
         if (collectionWalletId == null || collectionWalletId.isBlank())
             throw new IllegalStateException("fees.collection-wallet-id is required when a non-zero fee is active");
 
-        Wallet collector = walletRepository.findById(UUID.fromString(collectionWalletId)).orElseThrow(
+        Wallet collector = walletRepository.findByIdForUpdate(UUID.fromString(collectionWalletId)).orElseThrow(
                 () -> new IllegalStateException("Fee collection wallet not found"));
+        collector.assertTransactionsAllowed();
 
         if (payer.getLightning() == null || payer.getLightning().get("adminkey") == null)
             throw new IllegalStateException("Payer wallet has no Lightning admin key");
+
+        if (lightningWalletService.isOmnibusWallet(payer.getLightning().get("adminkey"))) {
+            if (collector.getLightning() == null ||
+                    !lightningWalletService.isOmnibusWallet(collector.getLightning().get("inkey"))) {
+                throw new IllegalStateException("Blink fees.collection-wallet-id must reference a Blink virtual wallet");
+            }
+            String reference = "blink-fee:" + UUID.randomUUID();
+            transactionRepository.save(Transaction.builder()
+                    .wallet(collector)
+                    .type(TransactionType.CREDIT)
+                    .source(TransactionSource.INTERNAL)
+                    .amountSats(quote.platformFeeSats())
+                    .category(quote.category())
+                    .externalRef(reference)
+                    .memo("ChamaVault " + quote.category() + " fee")
+                    .occurredAt(ZonedDateTime.now())
+                    .build());
+            return reference;
+        }
 
         if (collector.getLightning() == null || collector.getLightning().get("inkey") == null)
             throw new IllegalStateException("Fee collection wallet has no Lightning invoice key");

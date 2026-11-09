@@ -4,19 +4,27 @@ import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.PaymentSta
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
 import com.dada_labs_two.chamavault.users.repository.InvoiceRepository;
 import com.dada_labs_two.chamavault.wallets.constants.InvoiceStatus;
+import com.dada_labs_two.chamavault.wallets.constants.TransactionCategory;
+import com.dada_labs_two.chamavault.wallets.constants.TransactionSource;
+import com.dada_labs_two.chamavault.wallets.constants.TransactionType;
+import com.dada_labs_two.chamavault.payments.constants.TransactionStatus;
 import com.dada_labs_two.chamavault.wallets.dtos.CreateInvoiceDto;
 import com.dada_labs_two.chamavault.wallets.dtos.InvoiceDto;
 import com.dada_labs_two.chamavault.wallets.dtos.InvoiceStatusDto;
 import com.dada_labs_two.chamavault.wallets.models.Invoice;
+import com.dada_labs_two.chamavault.wallets.models.Transaction;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
+import com.dada_labs_two.chamavault.wallets.repositories.TransactionRepository;
 import com.dada_labs_two.chamavault.wallets.services.Bolt11Utils;
 import com.dada_labs_two.chamavault.wallets.services.QrCodeService;
+import com.dada_labs_two.chamavault.wallets.services.OmnibusLedgerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.ZonedDateTime;
@@ -31,15 +39,19 @@ public class InvoiceController {
     private final InvoiceRepository invoiceRepository;
     private final LightningWalletService lightningWalletService;
     private final QrCodeService qrCodeService;
+    private final TransactionRepository transactionRepository;
+    private final OmnibusLedgerService omnibusLedgerService;
 
     @PostMapping("/{walletId}/invoice")
+    @Transactional
     public ResponseEntity<InvoiceDto> createInvoice(
             @PathVariable UUID walletId,
             @RequestBody CreateInvoiceDto request
     ) {
 
-        Wallet wallet = walletRepository.findById(walletId)
+        Wallet wallet = walletRepository.findByIdForUpdate(walletId)
                 .orElseThrow();
+        wallet.assertTransactionsAllowed();
 
         String bolt11 = lightningWalletService.createInvoice(
                 wallet.getLightning().get("inkey"),
@@ -92,14 +104,16 @@ public class InvoiceController {
                     PaymentStatus status = lightningWalletService.checkInvoicePaymentStatus(
                             invoice.getInvoicerCreator().getLightning().get("inkey"), paymentHash);
 
-                    if (status.paid())
+                    if (status.paid()) {
                         invoice.setStatus(InvoiceStatus.PAID);
-                    else if (ZonedDateTime.now().isAfter(invoice.getExpiresAt()))
+                        if (invoice.getPaidAt() == null) invoice.setPaidAt(ZonedDateTime.now());
+                        recordOmnibusCredit(invoice);
+                    } else if (ZonedDateTime.now().isAfter(invoice.getExpiresAt()))
                         invoice.setStatus(InvoiceStatus.EXPIRED);
                     else
                         invoice.setStatus(InvoiceStatus.PENDING);
 
-                    invoice.setFees(status.details().getFee());
+                    if (status.details() != null) invoice.setFees(Math.abs(status.details().getFee()));
 
                     invoice = invoiceRepository.save(invoice);
 
@@ -118,14 +132,16 @@ public class InvoiceController {
         PaymentStatus status = lightningWalletService.checkInvoicePaymentStatus(
                 invoiceCreator.getLightning().get("inkey"), paymentHash);
         
-        if (status.paid())
+        if (status.paid()) {
             invoice.setStatus(InvoiceStatus.PAID);
-        else if (ZonedDateTime.now().isAfter(invoice.getExpiresAt()))
+            if (invoice.getPaidAt() == null) invoice.setPaidAt(ZonedDateTime.now());
+            recordOmnibusCredit(invoice);
+        } else if (ZonedDateTime.now().isAfter(invoice.getExpiresAt()))
             invoice.setStatus(InvoiceStatus.EXPIRED);
         else
             invoice.setStatus(InvoiceStatus.PENDING);
 
-        invoice.setFees(status.details().getFee());
+        if (status.details() != null) invoice.setFees(Math.abs(status.details().getFee()));
 
         invoice = invoiceRepository.save(invoice);
 
@@ -165,5 +181,23 @@ public class InvoiceController {
         return invoices.map(invoice ->  toDto(invoice));
 
     }
-}
 
+    private void recordOmnibusCredit(Invoice invoice) {
+        Wallet wallet = invoice.getInvoicerCreator();
+        if (!omnibusLedgerService.isOmnibus(wallet) ||
+                transactionRepository.existsByExternalRef(invoice.getPaymentHash())) return;
+        transactionRepository.save(Transaction.builder()
+                .wallet(wallet)
+                .type(TransactionType.CREDIT)
+                .source(TransactionSource.LN_INVOICE)
+                .category(TransactionCategory.TOPUP)
+                .amountSats(invoice.getAmountSats())
+                .feeSats(0L)
+                .externalRef(invoice.getPaymentHash())
+                .status(TransactionStatus.COMPLETED)
+                .memo("Blink omnibus invoice received")
+                .occurredAt(ZonedDateTime.now())
+                .build());
+        omnibusLedgerService.refresh(wallet);
+    }
+}

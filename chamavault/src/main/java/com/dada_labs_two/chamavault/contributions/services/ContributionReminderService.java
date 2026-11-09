@@ -28,7 +28,7 @@ public class ContributionReminderService {
     private final GroupWalletContributionRepository groupContributionRepository;
     @Value("${chama.reminders.hours-before-due:24}") private long hoursBeforeDue;
 
-    @Scheduled(cron = "${chama.reminders.cron:0 0 8 * * *}")
+    @Scheduled(cron = "0 0 8 * * *")
     public void remindOutstandingContributors() {
         ZonedDateTime cutoff = ZonedDateTime.now().plusHours(hoursBeforeDue);
         for (ContributionCycle cycle : cycleRepository.findByStatus(ContributionCycleStatus.ACTIVE)) {

@@ -139,6 +139,13 @@ public class WalletService {
             return null;
         }
 
+        // Blink is an omnibus account. Its remote balance is platform backing,
+        // not the balance of this individual virtual wallet.
+        if (lightningWalletService.isOmnibusWallet(wallet.getLightning().get("inkey"))) {
+            wallet.setLastBalanceCheck(Instant.now());
+            return walletRepository.save(wallet);
+        }
+
         WalletDetails details =
                 lightningWalletService.getUserWallet(wallet.getLightning().get("inkey"));
 

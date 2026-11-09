@@ -83,11 +83,14 @@ public class MemberContributionObligationService {
         if (obligation.getType() == ContributionType.MERRY_GO_ROUND && request.amountSats() > outstandingBeforePayment)
             throw new IllegalArgumentException("Merry-go-round overpayments are not supported because the funds belong to the current beneficiary");
 
-        Wallet destination = obligation.getType() == ContributionType.POOLING
+        Wallet obligationDestination = obligation.getType() == ContributionType.POOLING
                 ? obligation.getPoolingCycle().getWallet() : obligation.getContributionCycle().getWallet();
-        Wallet funding = walletRepository.findById(request.fundingWalletReference())
+        Wallet destination = walletRepository.findByIdForUpdate(obligationDestination.getWalletReference()).orElseThrow();
+        Wallet funding = walletRepository.findByIdForUpdate(request.fundingWalletReference())
                 .filter(w -> user.getUserReference().equals(w.getOwnerReference()) && Boolean.TRUE.equals(w.getActive()))
                 .orElseThrow(() -> new SecurityException("Funding wallet is not owned by the contributor"));
+        destination.assertTransactionsAllowed();
+        funding.assertTransactionsAllowed();
         if (destination.getLightning() == null || destination.getLightning().get("inkey") == null ||
                 funding.getLightning() == null || funding.getLightning().get("adminkey") == null)
             throw new IllegalStateException("Both wallets must have Lightning credentials");
