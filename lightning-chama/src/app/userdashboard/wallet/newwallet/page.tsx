@@ -33,7 +33,7 @@ export default function NewWalletPage() {
       }
 
       // Construct the API URL with query parameters
-      const apiUrl = `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/user?msisdn=${msisdn}&walletName=${encodeURIComponent(walletName)}`;
+      const apiUrl = `/api/chamavault/wallets/user?msisdn=${msisdn}&walletName=${encodeURIComponent(walletName)}`;
 
       const response = await fetch(apiUrl, {
         method: "POST",

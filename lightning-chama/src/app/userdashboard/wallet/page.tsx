@@ -231,7 +231,7 @@ const WalletPage = () => {
         if (!token || !userReference) return;
 
         const walletRes = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${userReference}?provider=BLINK`,
+          `/api/chamavault/wallets/${userReference}`,
           { headers: { 'Authorization': `Bearer ${token}` } }
         );
         const walletData = await walletRes.json();
@@ -269,7 +269,7 @@ const WalletPage = () => {
       try {
         const token = localStorage.getItem('token');
         const invoiceRes = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/api/v1/wallets/user-invoices/${currentWallet.walletReference}`,
+          `/api/chamavault/api/v1/wallets/user-invoices/${currentWallet.walletReference}`,
           { headers: { 'Authorization': `Bearer ${token}` } }
         );
         const invoiceData = await invoiceRes.json();

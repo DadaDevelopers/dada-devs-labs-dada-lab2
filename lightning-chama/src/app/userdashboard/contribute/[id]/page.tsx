@@ -143,7 +143,7 @@ export default function ChamasContribution() {
           return;
         }
 
-        const detailsResponse = await fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${chamaId}`, {
+        const detailsResponse = await fetch(`/api/chamavault/chama/${chamaId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!detailsResponse.ok) throw new Error('Failed to fetch Chama details');
@@ -151,10 +151,10 @@ export default function ChamasContribution() {
         setChamaDetails(detailsData);
 
         const [activeChamasResponse, pendingChamasResponse] = await Promise.all([
-          fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${msisdn}/status/ACTIVE`, {
+          fetch(`/api/chamavault/chama/${msisdn}/status/ACTIVE`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${msisdn}/status/PENDING`, {
+          fetch(`/api/chamavault/chama/${msisdn}/status/PENDING`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -173,7 +173,7 @@ export default function ChamasContribution() {
         }
         setAccessState('member');
 
-        const cyclesResponse = await fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/contribution-cycles/chama/${chamaId}?size=5`, {
+        const cyclesResponse = await fetch(`/api/chamavault/contribution-cycles/chama/${chamaId}?size=5`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         
@@ -185,7 +185,7 @@ export default function ChamasContribution() {
         }
 
         const obligationsResponse = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chamaId}/contribution-obligations?mine=true`,
+          `/api/chamavault/chamas/${chamaId}/contribution-obligations?mine=true`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (obligationsResponse.ok) {
@@ -193,7 +193,7 @@ export default function ChamasContribution() {
           setObligations(normalizeObligations(obligationsData));
         }
         
-        const membersResponse = await fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${chamaId}/members-by-status/ACTIVE`, {
+        const membersResponse = await fetch(`/api/chamavault/chama/${chamaId}/members-by-status/ACTIVE`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         
@@ -206,7 +206,7 @@ export default function ChamasContribution() {
         if (token && ownerRef) {
             try {
                 const walletRes = await fetch(
-                    `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerRef}?provider=BLINK`,
+                    `/api/chamavault/wallets/${ownerRef}`,
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
                 if (walletRes.ok) {
@@ -247,7 +247,7 @@ export default function ChamasContribution() {
         });
         if (activityCategory !== 'ALL') search.set('category', activityCategory);
         const response = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chamaId}/activities?${search.toString()}`,
+          `/api/chamavault/chamas/${chamaId}/activities?${search.toString()}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const data = await response.json().catch(() => null);
@@ -399,7 +399,7 @@ export default function ChamasContribution() {
       setJoining(true);
       setJoinError('');
       const response = await fetch(
-        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/join/${chamaId}/request?role=MEMBER&joinerPhone=${encodeURIComponent(msisdn)}`,
+        `/api/chamavault/chama/join/${chamaId}/request?role=MEMBER&joinerPhone=${encodeURIComponent(msisdn)}`,
         {
           method: 'POST',
           headers: {
@@ -498,14 +498,14 @@ export default function ChamasContribution() {
 
       if (!cashInWallet) {
         const createResponse = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/user?msisdn=${encodeURIComponent(msisdn)}&walletName=${encodeURIComponent('CASH-IN')}&walletPurpose=${encodeURIComponent('CASH-IN')}`,
+          `/api/chamavault/wallets/user?msisdn=${encodeURIComponent(msisdn)}&walletName=${encodeURIComponent('CASH-IN')}&walletPurpose=${encodeURIComponent('CASH-IN')}`,
           { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
         );
         const createData = await createResponse.json().catch(() => null);
         if (!createResponse.ok) throw new Error(createData?.message || 'Unable to prepare your M-Pesa wallet.');
 
         const walletsResponse = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerReference}?provider=BLINK`,
+          `/api/chamavault/wallets/${ownerReference}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const walletsData = await walletsResponse.json().catch(() => null);
@@ -570,7 +570,7 @@ export default function ChamasContribution() {
           if (forceNewMpesaPrompt && mpesaTopup.requested) {
             setMpesaStatus('Checking the previous payment before sending another prompt…');
             const latestWalletsResponse = await fetch(
-              `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerReference}?provider=BLINK`,
+              `/api/chamavault/wallets/${ownerReference}`,
               { headers: { Authorization: `Bearer ${token}` } }
             );
             if (latestWalletsResponse.ok) {
@@ -594,7 +594,7 @@ export default function ChamasContribution() {
             setMpesaConfirmationDelayed(false);
             setMpesaStatus('Check your phone and approve the M-Pesa prompt.');
             const topupResponse = await fetch(
-              'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/api/v1/payments/collections/fund-wallet/mpesa',
+              '/api/chamavault/api/v1/payments/collections/fund-wallet/mpesa',
               {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -615,7 +615,7 @@ export default function ChamasContribution() {
           if (!paymentConfirmed) setMpesaStatus('Waiting for your M-Pesa payment to arrive…');
           for (let attempt = 0; attempt < 20 && !paymentConfirmed; attempt += 1) {
             const walletsResponse = await fetch(
-              `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerReference}?provider=BLINK`,
+              `/api/chamavault/wallets/${ownerReference}`,
               { headers: { Authorization: `Bearer ${token}` } }
             );
             if (walletsResponse.ok) {
@@ -641,7 +641,7 @@ export default function ChamasContribution() {
         }
 
         const response = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chamaId}/contribution-obligations/${rotationalPaymentModal.cycle.obligationReference}/payments`,
+          `/api/chamavault/chamas/${chamaId}/contribution-obligations/${rotationalPaymentModal.cycle.obligationReference}/payments`,
           {
             method: 'POST',
             headers: {
@@ -658,7 +658,7 @@ export default function ChamasContribution() {
         if (!response.ok) throw new Error(data.message || 'Payment failed');
 
         const obligationsResponse = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chamaId}/contribution-obligations?mine=true`,
+          `/api/chamavault/chamas/${chamaId}/contribution-obligations?mine=true`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (obligationsResponse.ok) {
@@ -684,7 +684,7 @@ export default function ChamasContribution() {
       });
 
       const response = await fetch(
-        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/make-rotational-payments?${params.toString()}`,
+        `/api/chamavault/transactions/make-rotational-payments?${params.toString()}`,
         {
           method: 'POST',
           headers: {
@@ -707,7 +707,7 @@ export default function ChamasContribution() {
           const token = localStorage.getItem('token');
           if (!token) return;
           // Refetch cycles specifically to update progress
-          const cyclesResponse = await fetch(`https://dada-devs-labs-dada-lab2-chamavault.onrender.com/contribution-cycles/chama/${chamaId}?size=5`, {
+          const cyclesResponse = await fetch(`/api/chamavault/contribution-cycles/chama/${chamaId}?size=5`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (cyclesResponse.ok) {
@@ -773,7 +773,7 @@ export default function ChamasContribution() {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/fetch-by-id/${topUpState.walletRef}`,
+        `/api/chamavault/wallets/fetch-by-id/${topUpState.walletRef}`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       const data = await response.json();
@@ -803,7 +803,7 @@ export default function ChamasContribution() {
         memo: topUpState.memo || "Top up from Chama Page"
       };
       const response = await fetch(
-        "https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/wallet-top-up",
+        "/api/chamavault/transactions/wallet-top-up",
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },

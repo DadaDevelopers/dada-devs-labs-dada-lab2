@@ -169,7 +169,7 @@ export default function ChamaAiPage() {
       }
 
       const response = await fetch(
-        "https://dada-devs-labs-dada-lab2-chamavault.onrender.com/messaging/chama-chat-ai/chat",
+        "/api/chamavault/messaging/chama-chat-ai/chat",
         {
           method: "POST",
           headers: {
@@ -225,7 +225,7 @@ export default function ChamaAiPage() {
       references.map(async (reference) => {
         try {
           const response = await fetch(
-            `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${reference}`,
+            `/api/chamavault/chama/${reference}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,

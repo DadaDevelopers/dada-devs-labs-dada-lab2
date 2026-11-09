@@ -125,7 +125,7 @@ export default function TransactionsPage() {
         }
 
         const response = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerRef}?provider=BLINK`,
+          `/api/chamavault/wallets/${ownerRef}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -187,7 +187,7 @@ export default function TransactionsPage() {
         }
 
         const response = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/search?${params.toString()}`,
+          `/api/chamavault/transactions/search?${params.toString()}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
