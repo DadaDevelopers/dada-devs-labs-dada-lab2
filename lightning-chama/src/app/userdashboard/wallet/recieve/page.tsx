@@ -58,7 +58,7 @@ export default function LightningQRPage() {
         if (!token || !userReference) throw new Error("User not authenticated");
 
         const res = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${userReference}`,
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${userReference}?provider=BLINK`,
           { headers: { 'Authorization': `Bearer ${token}` } }
         );
         const data = await res.json();
