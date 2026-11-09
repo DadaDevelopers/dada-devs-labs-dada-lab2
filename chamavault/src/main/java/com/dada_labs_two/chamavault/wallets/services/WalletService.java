@@ -4,6 +4,10 @@ import com.dada_labs_two.chamavault.chama.models.Chama;
 import com.dada_labs_two.chamavault.chama.repositories.ChamaRepository;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletDetails;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
+import com.dada_labs_two.chamavault.lightning.LightningProviderType;
+import com.dada_labs_two.chamavault.lightning.integration.blink.BlinkClient;
+import com.dada_labs_two.chamavault.lightning.models.WalletProviderBinding;
+import com.dada_labs_two.chamavault.lightning.repositories.WalletProviderBindingRepository;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
 import com.dada_labs_two.chamavault.users.models.User;
 import com.dada_labs_two.chamavault.users.repository.UserRepository;
@@ -33,9 +37,18 @@ public class WalletService {
     private final WalletRepository walletRepository;
     private final ChamaRepository chamaRepository;
     private final UserRepository userRepository;
+    private final WalletProviderBindingRepository walletProviderBindingRepository;
 
-    public Page<Wallet> findAllByOwnerReference(Pageable pageable, UUID ownerReference) {
-        return walletRepository.findAllByOwnerReference(pageable, ownerReference).map(wallet -> {
+    @Transactional
+    public Page<Wallet> findAllByOwnerReference(Pageable pageable, UUID ownerReference,
+                                                LightningProviderType provider) {
+        if (provider != null) {
+            backfillMissingProviderBindings(ownerReference);
+        }
+        Page<Wallet> wallets = provider == null
+                ? walletRepository.findAllByOwnerReference(pageable, ownerReference)
+                : walletRepository.findAllByOwnerReferenceAndActiveProvider(ownerReference, provider, pageable);
+        return wallets.map(wallet -> {
             updateSingleWallet(wallet);
             return wallet;
         });
@@ -73,10 +86,12 @@ public class WalletService {
         lightningMap.put("balance_msat", lw.balance_msat());
         wallet.setLightning(lightningMap);
         wallet = walletRepository.save(wallet);
+        createProviderBinding(wallet);
 
         return wallet;
     }
 
+    @Transactional
     public Wallet createWallet(CreateWalletDTO createWalletDTO) {
         Chama chama =  chamaRepository.getReferenceById(createWalletDTO.getChamaAffiliationRef());
 
@@ -104,9 +119,34 @@ public class WalletService {
         lightningMap.put("balance_msat", lw.balance_msat());
         wallet.setLightning(lightningMap);
         wallet = walletRepository.save(wallet);
+        createProviderBinding(wallet);
 
         return wallet;
 
+    }
+
+    private void createProviderBinding(Wallet wallet) {
+        walletProviderBindingRepository.save(WalletProviderBinding.builder()
+                .wallet(wallet)
+                .provider(providerFor(wallet))
+                .providerWalletReference(wallet.getLightning().get("id"))
+                .providerMetadata(new HashMap<>(wallet.getLightning()))
+                .active(true)
+                .build());
+    }
+
+    private void backfillMissingProviderBindings(UUID ownerReference) {
+        walletRepository.findAllByOwnerReference(ownerReference).stream()
+                .filter(wallet -> walletProviderBindingRepository.findByWalletAndActiveTrue(wallet).isEmpty())
+                .filter(wallet -> wallet.getLightning() != null && !wallet.getLightning().isEmpty())
+                .forEach(this::createProviderBinding);
+    }
+
+    private LightningProviderType providerFor(Wallet wallet) {
+        String walletKey = wallet.getLightning().get("inkey");
+        return walletKey != null && walletKey.startsWith(BlinkClient.REFERENCE_PREFIX)
+                ? LightningProviderType.BLINK
+                : LightningProviderType.LNBITS;
     }
 
 //    @Scheduled(fixedDelayString = "${wallet.poller.delay-ms:600000}")
