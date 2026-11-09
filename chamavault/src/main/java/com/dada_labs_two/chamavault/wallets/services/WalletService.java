@@ -43,7 +43,7 @@ public class WalletService {
     public Page<Wallet> findAllByOwnerReference(Pageable pageable, UUID ownerReference,
                                                 LightningProviderType provider) {
         if (provider != null) {
-            backfillMissingProviderBindings(ownerReference);
+            reconcileProviderBindings(ownerReference);
         }
         Page<Wallet> wallets = provider == null
                 ? walletRepository.findAllByOwnerReference(pageable, ownerReference)
@@ -135,11 +135,23 @@ public class WalletService {
                 .build());
     }
 
-    private void backfillMissingProviderBindings(UUID ownerReference) {
+    private void reconcileProviderBindings(UUID ownerReference) {
         walletRepository.findAllByOwnerReference(ownerReference).stream()
-                .filter(wallet -> walletProviderBindingRepository.findByWalletAndActiveTrue(wallet).isEmpty())
                 .filter(wallet -> wallet.getLightning() != null && !wallet.getLightning().isEmpty())
-                .forEach(this::createProviderBinding);
+                .forEach(wallet -> {
+                    LightningProviderType inferredProvider = providerFor(wallet);
+                    walletProviderBindingRepository.findByWalletAndActiveTrue(wallet)
+                            .ifPresentOrElse(binding -> {
+                                if (binding.getProvider() != inferredProvider) {
+                                    log.warn("Correcting provider binding for wallet {} from {} to {}",
+                                            wallet.getWalletReference(), binding.getProvider(), inferredProvider);
+                                    binding.setProvider(inferredProvider);
+                                    binding.setProviderWalletReference(wallet.getLightning().get("id"));
+                                    binding.setProviderMetadata(new HashMap<>(wallet.getLightning()));
+                                    walletProviderBindingRepository.save(binding);
+                                }
+                            }, () -> createProviderBinding(wallet));
+                });
     }
 
     private LightningProviderType providerFor(Wallet wallet) {

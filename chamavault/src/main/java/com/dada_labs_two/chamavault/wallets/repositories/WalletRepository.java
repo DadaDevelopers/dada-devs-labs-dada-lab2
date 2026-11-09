@@ -32,9 +32,8 @@ public interface WalletRepository extends JpaRepository<Wallet, UUID> {
     Page<Wallet> findAllByOwnerReference(Pageable pageable,  UUID ownerReference);
 
     @Query("""
-        select distinct w from WalletProviderBinding b
-        join b.wallet w
-        where w.ownerReference = :ownerReference
+        select b.wallet from WalletProviderBinding b
+        where b.wallet.ownerReference = :ownerReference
           and b.active = true
           and b.provider = :provider
     """)
