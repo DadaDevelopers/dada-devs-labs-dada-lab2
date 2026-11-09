@@ -189,7 +189,7 @@ export default function Dashboard() {
       }
 
       const res = await fetch(
-        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerRef}`,
+        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerRef}?provider=BLINK`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

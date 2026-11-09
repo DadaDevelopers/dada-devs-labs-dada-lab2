@@ -206,7 +206,7 @@ export default function ChamasContribution() {
         if (token && ownerRef) {
             try {
                 const walletRes = await fetch(
-                    `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerRef}`,
+                    `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerRef}?provider=BLINK`,
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
                 if (walletRes.ok) {
@@ -505,7 +505,7 @@ export default function ChamasContribution() {
         if (!createResponse.ok) throw new Error(createData?.message || 'Unable to prepare your M-Pesa wallet.');
 
         const walletsResponse = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerReference}`,
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerReference}?provider=BLINK`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const walletsData = await walletsResponse.json().catch(() => null);
@@ -570,7 +570,7 @@ export default function ChamasContribution() {
           if (forceNewMpesaPrompt && mpesaTopup.requested) {
             setMpesaStatus('Checking the previous payment before sending another prompt…');
             const latestWalletsResponse = await fetch(
-              `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerReference}`,
+              `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerReference}?provider=BLINK`,
               { headers: { Authorization: `Bearer ${token}` } }
             );
             if (latestWalletsResponse.ok) {
@@ -615,7 +615,7 @@ export default function ChamasContribution() {
           if (!paymentConfirmed) setMpesaStatus('Waiting for your M-Pesa payment to arrive…');
           for (let attempt = 0; attempt < 20 && !paymentConfirmed; attempt += 1) {
             const walletsResponse = await fetch(
-              `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerReference}`,
+              `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerReference}?provider=BLINK`,
               { headers: { Authorization: `Bearer ${token}` } }
             );
             if (walletsResponse.ok) {

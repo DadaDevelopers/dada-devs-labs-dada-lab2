@@ -231,7 +231,7 @@ const WalletPage = () => {
         if (!token || !userReference) return;
 
         const walletRes = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${userReference}`,
+          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${userReference}?provider=BLINK`,
           { headers: { 'Authorization': `Bearer ${token}` } }
         );
         const walletData = await walletRes.json();
