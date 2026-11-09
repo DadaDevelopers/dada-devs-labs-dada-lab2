@@ -1,6 +1,7 @@
 package com.dada_labs_two.chamavault.wallets.controllers;
 
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
+import com.dada_labs_two.chamavault.lightning.LightningProviderType;
 import com.dada_labs_two.chamavault.wallets.dtos.CreateWalletDTO;
 import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.services.WalletService;
@@ -29,8 +30,10 @@ public class WalletController {
     }
 
     @GetMapping("/{ownerReference}")
-    ResponseEntity<Page<Wallet>> getWallet(@PathVariable("ownerReference") UUID ownerReference, Pageable pageable) {
-        return ResponseEntity.ok(walletService.findAllByOwnerReference(pageable, ownerReference));
+    ResponseEntity<Page<Wallet>> getWallet(@PathVariable("ownerReference") UUID ownerReference,
+                                           @RequestParam(required = false) LightningProviderType provider,
+                                           Pageable pageable) {
+        return ResponseEntity.ok(walletService.findAllByOwnerReference(pageable, ownerReference, provider));
     }
 
     @GetMapping("/fetch-by-id/{walletId}")
