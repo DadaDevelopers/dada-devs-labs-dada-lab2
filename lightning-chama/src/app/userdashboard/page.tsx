@@ -189,7 +189,7 @@ export default function Dashboard() {
       }
 
       const res = await fetch(
-        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${ownerRef}?provider=BLINK`,
+        `/api/chamavault/wallets/${ownerRef}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -223,7 +223,7 @@ export default function Dashboard() {
         }
 
         const res = await fetch(
-          'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama',
+          '/api/chamavault/chama',
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -255,7 +255,7 @@ export default function Dashboard() {
         }
 
         const res = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/users/${msisdn}/profile`,
+          `/api/chamavault/users/${msisdn}/profile`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -310,7 +310,7 @@ export default function Dashboard() {
         });
 
         const res = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/search?${params.toString()}`,
+          `/api/chamavault/transactions/search?${params.toString()}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -365,7 +365,7 @@ export default function Dashboard() {
       setEmailSaving(true);
       setEmailError('');
       const response = await fetch(
-        'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/users/profile/user',
+        '/api/chamavault/users/profile/user',
         {
           method: 'PUT',
           headers: {
@@ -622,7 +622,7 @@ export default function Dashboard() {
       }
 
       const response = await fetch(
-        'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/api/v1/payments/collections/fund-wallet/mpesa',
+        '/api/chamavault/api/v1/payments/collections/fund-wallet/mpesa',
         {
           method: 'POST',
           headers: {
@@ -699,7 +699,7 @@ export default function Dashboard() {
       }
 
       const response = await fetch(
-        'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/transfer-to-mpesa',
+        '/api/chamavault/transactions/transfer-to-mpesa',
         {
           method: 'POST',
           headers: {

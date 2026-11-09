@@ -1,41 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-pnpm dev
-```
-
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
 # Lightning Chama Vault
 
 Lightning Chama Vault is a decentralized digital platform designed to support group savings (Chama) management by making contributions, loans, and member activities transparent, secure, and easy to manage. It works on Web or USSD (offline-first).
 
 The platform digitizes the traditional Chama model while preserving trust, accountability, and community collaboration.
+
+## Run Locally
+
+### Prerequisites
+
+- Node.js 20 or newer
+- [pnpm](https://pnpm.io/installation)
+- Access to the ChamaVault backend and its wallet-provider value
+
+### 1. Install dependencies
+
+```bash
+pnpm install
+```
+
+### 2. Configure private environment variables
+
+Copy the example file to a local environment file:
+
+```bash
+cp .env.example .env.local
+```
+
+Set the following values in `.env.local`:
+
+```env
+CHAMAVAULT_API_BASE_URL=http://localhost:3000/
+CHAMAVAULT_WALLET_PROVIDER=MPESA
+```
+
+To get the correct URLs reachout to Dev-In-Charge
+
+These are server-only variables. Do not rename them with a `NEXT_PUBLIC_` prefix or use them directly in client components. `.env.local` is ignored by Git and must not be committed.
+
+### 3. Start the application
+
+```bash
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+The browser sends backend requests to the local `/api/chamavault/*` server proxy. The proxy forwards them to `CHAMAVAULT_API_BASE_URL` and privately adds `CHAMAVAULT_WALLET_PROVIDER` to wallet-list requests. This keeps the backend address and provider value out of browser code and request URLs.
+
+After changing an environment variable, stop and restart the development server.
+
+### Production checks
+
+```bash
+pnpm lint
+pnpm build
+```
+
+For Vercel deployments, add the same two environment variables in the project settings and redeploy the application.
 
 ## What is a Chama?
 
@@ -116,4 +137,3 @@ For questions, feedback, or collaboration:
 - GitHub Organization: https://github.com/DadaDevelopers
 
 Built by the Lightning Chama Vault team.
-

@@ -60,7 +60,7 @@ export default function DiscoverChamasPage() {
         }
 
         const res = await fetch(
-          'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama',
+          '/api/chamavault/chama',
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -101,7 +101,7 @@ export default function DiscoverChamasPage() {
       }));
 
       const res = await fetch(
-        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/join/${selectedChama.chamaReference}/request?role=${selectedRole}&joinerPhone=${msisdn}`,
+        `/api/chamavault/chama/join/${selectedChama.chamaReference}/request?role=${selectedRole}&joinerPhone=${msisdn}`,
         {
           method: 'POST',
           headers: {

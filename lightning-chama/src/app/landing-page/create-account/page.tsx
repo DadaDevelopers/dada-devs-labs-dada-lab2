@@ -45,7 +45,7 @@ export default function CreateAccount() {
 
     try {
       const response = await fetch(
-        'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/codes/pre-registration/code-generate',
+        '/api/chamavault/codes/pre-registration/code-generate',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

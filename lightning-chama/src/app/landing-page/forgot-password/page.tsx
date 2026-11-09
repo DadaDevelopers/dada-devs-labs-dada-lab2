@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
     try {
       setLoading(true);
       const response = await fetch(
-        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/users/forgot-password/${encodeURIComponent(msisdn)}`,
+        `/api/chamavault/users/forgot-password/${encodeURIComponent(msisdn)}`,
         { method: "GET" }
       );
 
@@ -110,7 +110,7 @@ export default function ForgotPasswordPage() {
       });
 
       const response = await fetch(
-        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/users/retrieve-account/${encodeURIComponent(msisdn)}?${params.toString()}`,
+        `/api/chamavault/users/retrieve-account/${encodeURIComponent(msisdn)}?${params.toString()}`,
         { method: "POST" }
       );
 

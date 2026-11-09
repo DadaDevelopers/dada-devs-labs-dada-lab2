@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { CheckCircle, ChevronDown, Loader2, Scale } from "lucide-react";
 import { formatWalletName } from "@/lib/wallet";
 
-const API_BASE_URL = "https://dada-devs-labs-dada-lab2-chamavault.onrender.com";
+const API_BASE_URL = "/api/chamavault";
 const FREQUENCIES = ["DAILY", "WEEKLY", "FORTNIGHTLY", "MONTHLY", "QUARTERLY", "YEARLY"];
 
 const ACTION_COPY: Record<Action, { label: string; description: string }> = {

@@ -65,7 +65,7 @@ export default function ProfilePage() {
       }
       try {
         const res = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/users/${msisdn}/profile`,
+          `/api/chamavault/users/${msisdn}/profile`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (res.ok) {
@@ -158,7 +158,7 @@ export default function ProfilePage() {
       }
 
       const response = await fetch(
-        'https://dada-devs-labs-dada-lab2-chamavault.onrender.com/users/profile/user',
+        '/api/chamavault/users/profile/user',
         {
           method: 'PUT',
           headers: {

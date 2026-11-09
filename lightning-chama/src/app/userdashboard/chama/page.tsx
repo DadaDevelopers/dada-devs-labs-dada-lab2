@@ -69,7 +69,7 @@ export default function ChamasPage() {
       if (!token) return;
 
       const res = await fetch(
-        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${chamaReference}/members-by-status/PENDING`,
+        `/api/chamavault/chama/${chamaReference}/members-by-status/PENDING`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -103,7 +103,7 @@ export default function ChamasPage() {
       }));
 
       const res = await fetch(
-        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${chamaReference}/members/${memberReference}/${action.toLowerCase()}?approverPhone=${msisdn}&status=${action === 'APPROVE' ? 'ACTIVE' : 'REJECTED'}`,
+        `/api/chamavault/chama/${chamaReference}/members/${memberReference}/${action.toLowerCase()}?approverPhone=${msisdn}&status=${action === 'APPROVE' ? 'ACTIVE' : 'REJECTED'}`,
         {
           method: "POST",
           headers: {
@@ -160,7 +160,7 @@ export default function ChamasPage() {
         }
 
         const res = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${msisdn}/status/${statusFilter}`,
+          `/api/chamavault/chama/${msisdn}/status/${statusFilter}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

@@ -164,7 +164,7 @@ export default function ChamasContribution() {
         if (!token || !userReference) return;
 
         const walletRes = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/wallets/${userReference}?provider=BLINK`,
+          `/api/chamavault/wallets/${userReference}`,
           { headers: { 'Authorization': `Bearer ${token}` } }
         );
         const walletData = await walletRes.json();
@@ -192,7 +192,7 @@ export default function ChamasContribution() {
           return;
         }
 
-        const url = `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/contribution-cycles/unpaid?page=${page}&size=10&userReference=${userReference}`;
+        const url = `/api/chamavault/contribution-cycles/unpaid?page=${page}&size=10&userReference=${userReference}`;
 
         const response = await fetch(url, {
           method: 'GET',
@@ -232,7 +232,7 @@ export default function ChamasContribution() {
         if (!token || !msisdn) throw new Error('Not authenticated');
 
         const chamasResponse = await fetch(
-          `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chama/${msisdn}/status/ACTIVE`,
+          `/api/chamavault/chama/${msisdn}/status/ACTIVE`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!chamasResponse.ok) throw new Error('Unable to load your Chamas');
@@ -241,7 +241,7 @@ export default function ChamasContribution() {
 
         const results = await Promise.all(activeChamas.map(async (chama) => {
           const response = await fetch(
-            `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/chamas/${chama.chamaReference}/contribution-obligations?mine=true`,
+            `/api/chamavault/chamas/${chama.chamaReference}/contribution-obligations?mine=true`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           if (!response.ok) throw new Error(`Unable to load obligations for ${chama.name}`);
@@ -315,7 +315,7 @@ export default function ChamasContribution() {
       });
 
       const response = await fetch(
-        `https://dada-devs-labs-dada-lab2-chamavault.onrender.com/transactions/make-rotational-payments?${params.toString()}`,
+        `/api/chamavault/transactions/make-rotational-payments?${params.toString()}`,
         {
           method: 'POST',
           headers: {
