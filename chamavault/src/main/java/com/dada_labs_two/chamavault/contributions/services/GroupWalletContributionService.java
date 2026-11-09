@@ -53,10 +53,13 @@ public class GroupWalletContributionService {
                 throw new IllegalArgumentException("Contribution must use the active pooling cycle wallet");
         }
 
-        Wallet fundingWallet = walletRepository.findById(request.fundingWalletReference())
+        Wallet fundingWallet = walletRepository.findByIdForUpdate(request.fundingWalletReference())
                 .filter(w -> user.getUserReference().equals(w.getOwnerReference()))
                 .filter(w -> Boolean.TRUE.equals(w.getActive()))
                 .orElseThrow(() -> new SecurityException("Funding wallet is not owned by the contributor"));
+
+        wallet.assertTransactionsAllowed();
+        fundingWallet.assertTransactionsAllowed();
 
         if (wallet.getLightning() == null || wallet.getLightning().get("inkey") == null ||
                 fundingWallet.getLightning() == null || fundingWallet.getLightning().get("adminkey") == null)

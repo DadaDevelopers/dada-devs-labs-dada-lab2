@@ -14,10 +14,19 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface WalletRepository extends JpaRepository<Wallet, UUID> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select w from Wallet w where w.walletReference=:walletReference")
+    Optional<Wallet> findByIdForUpdate(@Param("walletReference") UUID walletReference);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select w from Wallet w where w.walletReference in :walletReferences order by w.walletReference")
+    List<Wallet> findAllByIdForUpdate(@Param("walletReferences") Collection<UUID> walletReferences);
+
     Optional<Wallet> findByOwnerReferenceAndWalletRole(UUID ownerReference, WalletRole  walletRole);
     Page<Wallet> findAllByOwnerReference(Pageable pageable,  UUID ownerReference);
     List<Wallet> findAllByOwnerReference(UUID ownerReference);

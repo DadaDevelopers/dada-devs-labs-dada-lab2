@@ -14,6 +14,7 @@ import com.dada_labs_two.chamavault.wallets.models.Wallet;
 import com.dada_labs_two.chamavault.wallets.repositories.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.InvalidObjectException;
 import java.time.ZonedDateTime;
@@ -29,6 +30,7 @@ public class OnRampService {
     private final ProfileActionService profileActionService;
     private final LightningWalletService lightningWalletService;
 
+    @Transactional
     public OnrampResponseDTO triggerOnrampViaMpesa(
             FundWalletByMpesa request,
             User currentUser
@@ -43,9 +45,10 @@ public class OnRampService {
         }
 
         // Find wallet
-        Wallet wallet = walletRepository.findById(request.walletId())
+        Wallet wallet = walletRepository.findByIdForUpdate(request.walletId())
                 .orElseThrow(() ->
                         new InvalidObjectException("invalid wallet id"));
+        wallet.assertTransactionsAllowed();
 
         // Find wallet recipient
         User recipient = userRepository.findById(wallet.getOwnerReference())

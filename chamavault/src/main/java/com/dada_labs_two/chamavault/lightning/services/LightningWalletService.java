@@ -2,6 +2,8 @@ package com.dada_labs_two.chamavault.lightning.services;
 
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.LNbitsClient;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.*;
+import com.dada_labs_two.chamavault.lightning.integration.blink.BlinkClient;
+import com.dada_labs_two.chamavault.lightning.LightningProviderType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -13,22 +15,31 @@ import java.util.List;
 public class LightningWalletService {
 
     private final LNbitsClient client;
+    private final BlinkClient blinkClient;
+    private final LightningProviderConfigService providerConfig;
     private final String accessToken;
     private final String username;
     private final String password;
 
     public LightningWalletService(LNbitsClient client,
+                         BlinkClient blinkClient,
+                         LightningProviderConfigService providerConfig,
                          @Value("${lnbits.access-token:}") String accessToken,
                          @Value("${lnbits.username:}") String username,
                          @Value("${lnbits.password:}") String password
     ) {
         this.client = client;
+        this.blinkClient = blinkClient;
+        this.providerConfig = providerConfig;
         this.accessToken = accessToken;
         this.username = username;
         this.password = password;
     }
 
     public WalletResponse createUserWallet(String name) {
+        if (providerConfig.activeProvider() == LightningProviderType.BLINK) {
+            return blinkClient.createVirtualWallet(name);
+        }
         WalletResponse wallet = client.createWallet(
                 accountAccessToken(),
                 new CreateWalletRequest("user-" + name, "lightning")
@@ -50,10 +61,12 @@ public class LightningWalletService {
     }
 
     public PaymentFees getPaymentFee(String walletKey, String paymentHash) {
+        if (isBlinkReference(walletKey)) return blinkClient.getPaymentFees(paymentHash);
         return client.getPaymentFees(walletKey, paymentHash);
     }
 
     public WalletDetails getUserWallet(String userWalletKey) {
+        if (isBlinkReference(userWalletKey)) return blinkClient.backingWallet();
         WalletDetails wallet = client.getWallet(userWalletKey);
         long sats = wallet.balance(); // sats
         return wallet;
@@ -65,7 +78,9 @@ public class LightningWalletService {
             String memo
     ) {
         InvoiceResponse invoice =
-                client.createInvoice(walletInKey, amountSats, memo);
+                isBlinkReference(walletInKey)
+                        ? blinkClient.createInvoice(amountSats, memo)
+                        : client.createInvoice(walletInKey, amountSats, memo);
         log.info("Invoice created: {}", invoice);
 
         return invoice.payment_request(); // BOLT11
@@ -75,23 +90,34 @@ public class LightningWalletService {
             String walletInKey,
             String bolt11Invoice
     ) {
-        PayInvoiceResponse response =
-                client.payInvoice(walletInKey, bolt11Invoice);
+        PayInvoiceResponse response = payInvoiceWithStatus(walletInKey, bolt11Invoice);
 
-//        if (!response.paid()) {
-//
-//            throw new IllegalStateException("Invoice not paid");
-//        }
+        if (!response.paid()) {
+
+            log.info("Invoice not paid");
+        }
 
         return response.payment_hash(); // IMPORTANT for ledger
     }
 
+    public PayInvoiceResponse payInvoiceWithStatus(String walletKey, String bolt11Invoice) {
+        PayInvoiceResponse response = isBlinkReference(walletKey)
+                ? blinkClient.payInvoice(bolt11Invoice)
+                : client.payInvoice(walletKey, bolt11Invoice);
+        if (response == null || response.payment_hash() == null || response.payment_hash().isBlank())
+            throw new IllegalStateException("Lightning provider did not return a payment hash");
+        return response;
+    }
+
     public List<PaymentStatus> listPayments(String walletKey) {
+        if (isBlinkReference(walletKey)) return blinkClient.listPayments();
         return client.listPayments(walletKey);
     }
 
     public PaymentStatus checkInvoicePaymentStatus(String walletInKey, String invoicePaymentHash) {
-        PaymentStatus status = client.getPayment(walletInKey, invoicePaymentHash);
+        PaymentStatus status = isBlinkReference(walletInKey)
+                ? blinkClient.getPayment(invoicePaymentHash)
+                : client.getPayment(walletInKey, invoicePaymentHash);
 
         if (status.paid()) {
             // settled
@@ -101,12 +127,33 @@ public class LightningWalletService {
     }
 
     public void enableLnurlpExtension() {
+        if (providerConfig.activeProvider() == LightningProviderType.BLINK) {
+            throw new UnsupportedOperationException("LNURLp extension management is only available with LNbits");
+        }
         log.info("Enabling lnurlp extension for wallet...");
         client.enableExtension(accountAccessToken(), new EnableExtensionRequest("lnurlp", true));
     }
 
     public List<WalletResponse> listUserWallets() {
+        if (providerConfig.activeProvider() == LightningProviderType.BLINK) {
+            WalletDetails backing = blinkClient.backingWallet();
+            return List.of(new WalletResponse(BlinkClient.REFERENCE_PREFIX + backing.id(), backing.name(),
+                    null, null, "omnibus", BlinkClient.REFERENCE_PREFIX + backing.id(),
+                    backing.id(), "BTC", String.valueOf(backing.balance())));
+        }
         return client.listWallets(accountAccessToken());
+    }
+
+    public boolean isOmnibusWallet(String walletReference) {
+        return isBlinkReference(walletReference);
+    }
+
+    public LightningProviderType activeProvider() {
+        return providerConfig.activeProvider();
+    }
+
+    private boolean isBlinkReference(String walletReference) {
+        return walletReference != null && walletReference.startsWith(BlinkClient.REFERENCE_PREFIX);
     }
 
     private String accountAccessToken() {

@@ -4,6 +4,7 @@ import com.dada_labs_two.chamavault.chama.models.Chama;
 import com.dada_labs_two.chamavault.wallets.constants.Network;
 import com.dada_labs_two.chamavault.wallets.constants.WalletRole;
 import com.dada_labs_two.chamavault.wallets.constants.WalletType;
+import com.dada_labs_two.chamavault.wallets.constants.WalletOperationalStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -67,6 +68,11 @@ public class Wallet {
     @Column(nullable = false)
     private Boolean active = true;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "varchar(32) default 'ACTIVE'")
+    @Builder.Default
+    private WalletOperationalStatus operationalStatus = WalletOperationalStatus.ACTIVE;
+
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, String> lightning = new HashMap<>();
 
@@ -83,4 +89,11 @@ public class Wallet {
 
     @Column(name = "last_activity_at")
     private Instant lastActivityAt;
+
+    public void assertTransactionsAllowed() {
+        WalletOperationalStatus status = operationalStatus == null ? WalletOperationalStatus.ACTIVE : operationalStatus;
+        if (!Boolean.TRUE.equals(active) || status != WalletOperationalStatus.ACTIVE) {
+            throw new IllegalStateException("Wallet transactions are disabled while status is " + status);
+        }
+    }
 }

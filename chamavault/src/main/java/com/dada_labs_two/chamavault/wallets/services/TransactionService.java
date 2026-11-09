@@ -4,6 +4,7 @@ import com.dada_labs_two.chamavault.contributions.models.ContributionCycle;
 import com.dada_labs_two.chamavault.contributions.repositories.ContributionCycleRepository;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.LnurlPayLinkResponse;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.PaymentFees;
+import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.PayInvoiceResponse;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletDetails;
 import com.dada_labs_two.chamavault.lightning.integration.LNbits.dtos.WalletResponse;
 import com.dada_labs_two.chamavault.lightning.services.LightningWalletService;
@@ -36,9 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.InvalidObjectException;
 import java.time.ZonedDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+import com.dada_labs_two.chamavault.payments.constants.TransactionStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -55,6 +55,7 @@ public class TransactionService {
     private final WalletRepository walletRepository;
     private final FeeService feeService;
     private final ChamaActivityService chamaActivityService;
+    private final OmnibusLedgerService omnibusLedgerService;
 
     @Transactional
     public Transaction makeRotationalPayments(
@@ -84,12 +85,14 @@ public class TransactionService {
                         cycle.getChama(),
                         true
                 ).orElseThrow();
+        beneficiaryWallet.assertTransactionsAllowed();
         log.info("beneficiary wallet {}", beneficiaryWallet.getWalletPurpose());
 
         Wallet fundingWallet = null;
         if (moveFundsFromPreviousAccounts) {
             fundingWallet = walletRepository.findById(walletToMoveFundsFrom)
                     .orElseThrow();
+            fundingWallet.assertTransactionsAllowed();
         }
 
         /* ---------------------------------------------------
@@ -258,11 +261,14 @@ public class TransactionService {
         return new InvoicePreviewDTO(amountSats, expiry, memo, fee.platformFeeSats(), fee.totalSats(), fee.percentage(), fee.feeRuleReference());
     }
 
-    public Transaction makeInvoicePayment(UUID payerWalletId, String beneficiaryInvoice) {
-        return makeInvoicePayment(payerWalletId, beneficiaryInvoice, TransactionCategory.INVOICE_PAYMENT);
+    @Transactional
+    public Transaction makeInvoicePayment(UUID payerWalletId, String beneficiaryInvoice, User user) {
+        assertWalletOwner(payerWalletId,user);
+        return makeInvoicePayment(payerWalletId, beneficiaryInvoice, TransactionCategory.INVOICE_PAYMENT, null, null);
     }
 
-    private Transaction makeInvoicePayment(UUID payerWalletId, String beneficiaryInvoice, TransactionCategory category) {
+    private Transaction makeInvoicePayment(UUID payerWalletId, String beneficiaryInvoice, TransactionCategory category,
+                                           String recipientMsisdn, Long requestedAmountMilliSats) {
         Wallet payerWallet = walletRepository.findById(payerWalletId).orElseThrow(() ->
                 new RuntimeException("Payer wallet not found"));
 
@@ -270,30 +276,26 @@ public class TransactionService {
         FeeQuote platformFee = feeService.quote(category, amountSats);
         String description = Bolt11Utils.extractDescription(beneficiaryInvoice).orElse("making payment for invoice");
 
-        String paymentHash2 =
-                lightningWalletService.payInvoice(
+        if (omnibusLedgerService.isOmnibus(payerWallet)) {
+            payerWallet = omnibusLedgerService.reserve(payerWallet, platformFee.totalSats());
+        }
+
+        PayInvoiceResponse payment =
+                lightningWalletService.payInvoiceWithStatus(
                         payerWallet.getLightning().get("adminkey"),
                         beneficiaryInvoice
                 );
-        String feePaymentHash = feeService.collect(payerWallet, platformFee);
+        String paymentHash2 = payment.payment_hash();
+        log.info("beneficiary invoice payment hash {}", paymentHash2);
+        Map<String,String> metadata = new HashMap<>();
+        metadata.put("paymentHash", paymentHash2);
+        metadata.put("paymentState", Boolean.TRUE.equals(payment.paid()) ? "PAID_AWAITING_RECONCILIATION" : "PENDING");
+        if (recipientMsisdn != null) metadata.put("recipientMsisdn", recipientMsisdn);
+        if (requestedAmountMilliSats != null) metadata.put("requestedAmountMilliSats", requestedAmountMilliSats.toString());
+        if (platformFee.feeRuleReference() != null) metadata.put("feeRuleReference", platformFee.feeRuleReference().toString());
+        if (omnibusLedgerService.isOmnibus(payerWallet)) metadata.put("omnibusReservedSats", String.valueOf(platformFee.totalSats()));
 
-        //sync receiver wallet
-        syncSenderLnBitsWalletBalance(payerWallet);
-
-        PaymentFees fees = null;
-        try {
-             fees= lightningWalletService.getPaymentFee(payerWallet.getLightning().get("adminkey"), paymentHash2);
-            log.info("Fees payment for payer wallet: " + fees.toString());
-        } catch (Exception e) {
-            log.info("Payment fees not available yet");
-            log.info("Exited with status {}",e.getMessage());
-            log.info(e.getMessage(), e);
-            fees = new PaymentFees(7L, 7*1000);
-        }
-
-
-
-        // Ledger: Lightning payment to beneficiary
+        // Persist initiation immediately. Final fee, notification and SETTLED state are handled by reconciliation.
         return transactionRepository.save(
                 Transaction.builder()
                         .wallet(payerWallet)
@@ -302,35 +304,38 @@ public class TransactionService {
                         .amountSats(amountSats)
                         .category(category)
                         .externalRef(paymentHash2)
-                        .networkFeeSats(fees.feeSats())
+                        .networkFeeSats(null)
                         .platformFeeSats(platformFee.platformFeeSats())
-                        .feeSats(Math.addExact(fees.feeSats(), platformFee.platformFeeSats()))
+                        .feeSats(null)
                         .feeRuleReference(platformFee.feeRuleReference())
+                        .status(TransactionStatus.PENDING)
+                        .checkingId(payment.checking_id())
+                        .statusCheckCount(0)
                         .initiatedBy(null)
                         .counterpartyUser(
                                 payerWallet.getOwnerReference()
                         )
                         .rotationIndex(null)
                         .memo(description)
-                        .metadata(withFeeMetadata(new HashMap<>(Map.of("paymentHash", paymentHash2,
-                                "networkFeeSats", String.valueOf(fees.feeSats()))), platformFee, feePaymentHash))
+                        .metadata(metadata)
                         .occurredAt(ZonedDateTime.now())
                         .build()
         );
     }
 
+    @Transactional
     public Transaction initiateOffRampingLightningPayment(
             String recipientMsisdn,
             Long amountInMilliSats,
-            UUID payerWalletId ) throws InvalidObjectException {
+            UUID payerWalletId,
+            User user) throws InvalidObjectException {
         log.info("initiateOffRampingLightningPayment process");
 
         if (recipientMsisdn == null || (recipientMsisdn.length() != 10 && recipientMsisdn.length() != 12))
             throw new InvalidObjectException("invalid phone number");
         log.info("recipientMsisdn {}", recipientMsisdn);
 
-        Wallet payerWallet = walletRepository.findById(payerWalletId)
-                .orElseThrow(() -> new RuntimeException("Payer wallet not found"));
+        Wallet payerWallet = assertWalletOwner(payerWalletId,user);
 
         LightningPaymentResponse response = tandoClient.createOffRampingLightningPayment
                 (recipientMsisdn, amountInMilliSats);
@@ -338,23 +343,26 @@ public class TransactionService {
         if (response.pr().isBlank())
             throw new RuntimeException("created invoice is blank");
 
-        MakeInvoicePaymentDTO makeInvoicePaymentDTO = new MakeInvoicePaymentDTO(payerWalletId, response.pr());
-        Transaction transaction = makeInvoicePayment(makeInvoicePaymentDTO.payerWalletId(),
-                makeInvoicePaymentDTO.beneficiaryInvoice(), TransactionCategory.WITHDRAWAL);
-
-
-        profileActionService.notifyOffRampPayment(
-                userRepository.getReferenceById(payerWallet.getOwnerReference()),
-                recipientMsisdn,
-                amountInMilliSats / 1000,
-                transaction.getExternalRef()
-        );
-        return transaction;
+        return makeInvoicePayment(payerWalletId, response.pr(), TransactionCategory.WITHDRAWAL,
+                recipientMsisdn, amountInMilliSats);
     }
 
     public Transaction updateTransaction(Transaction transaction) {
         log.info("Updating transaction: " + transaction.toString());
         return transactionRepository.save(transaction);
+    }
+
+    public Transaction findById(UUID reference,User user){
+        Transaction tx=transactionRepository.findById(reference).orElseThrow(()->new IllegalArgumentException("Transaction not found"));
+        if(user==null||!tx.getWallet().getOwnerReference().equals(user.getUserReference()))throw new SecurityException("Transaction is not owned by the authenticated user");
+        return tx;
+    }
+
+    private Wallet assertWalletOwner(UUID walletId,User user){
+        Wallet wallet=walletRepository.findByIdForUpdate(walletId).orElseThrow(()->new IllegalArgumentException("Payer wallet not found"));
+        if(user==null||!wallet.getOwnerReference().equals(user.getUserReference()))throw new SecurityException("Payer wallet is not owned by the authenticated user");
+        wallet.assertTransactionsAllowed();
+        return wallet;
     }
 
     public  static String randomCharGenerator() {
@@ -374,12 +382,18 @@ public class TransactionService {
 
     @Transactional
     public Transaction topUpAWallet(UUID senderWalletId, UUID recipientWalletId, Long amountSats, String memo) {
-        Wallet senderWallet = walletRepository.findById(senderWalletId).orElseThrow(() -> new RuntimeException("Sender wallet not found"));
+        Map<UUID, Wallet> lockedWallets = walletRepository.findAllByIdForUpdate(List.of(senderWalletId, recipientWalletId))
+                .stream().collect(java.util.stream.Collectors.toMap(Wallet::getWalletReference, w -> w));
+        Wallet senderWallet = Optional.ofNullable(lockedWallets.get(senderWalletId))
+                .orElseThrow(() -> new RuntimeException("Sender wallet not found"));
+        senderWallet.assertTransactionsAllowed();
 
         if (senderWallet.getWalletType() == WalletType.CHAMA_GROUP)
             throw new RuntimeException("Withdrawal may not be permitted on CHAMA_GROUP wallets");
 
-        Wallet recipientWallet = walletRepository.findById(recipientWalletId).orElseThrow(() -> new RuntimeException("Recipient wallet not found"));
+        Wallet recipientWallet = Optional.ofNullable(lockedWallets.get(recipientWalletId))
+                .orElseThrow(() -> new RuntimeException("Recipient wallet not found"));
+        recipientWallet.assertTransactionsAllowed();
         FeeQuote platformFee = feeService.quote(TransactionCategory.WALLET_TRANSFER, amountSats);
 
         //create invoice on behalf of recipient, then make a payment on behalf of sender
@@ -502,6 +516,10 @@ public class TransactionService {
     }
 
     void syncWithLnBitsWalletBalance(Wallet wallet) {
+        if (omnibusLedgerService.isOmnibus(wallet)) {
+            omnibusLedgerService.refresh(wallet);
+            return;
+        }
         WalletDetails walletDetails = lightningWalletService.getUserWallet(wallet.getLightning().get("inkey"));
 
         log.info("getLnBitsbalanceSats() wallet balance current {}",wallet.getLnBitsbalanceSats());

@@ -240,12 +240,12 @@ public class LNbitsClient {
                 .bodyToMono(PaymentStatus.class)
                 .block();
 
-        if (payment == null || payment.fee_msat() == null) {
+        if (payment == null || !Boolean.TRUE.equals(payment.paid()) || payment.fee_msat() == null) {
             throw new IllegalStateException("Payment fees not available yet");
         }
 
-        long feeSats = Math.abs(payment.fee_msat())/1_000;
-        long feeMsats = feeSats;
+        long feeMsats = Math.abs(payment.fee_msat());
+        long feeSats = (feeMsats + 999) / 1_000;
 
         return new PaymentFees(feeSats, feeMsats);
     }

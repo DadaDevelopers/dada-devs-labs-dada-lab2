@@ -18,6 +18,7 @@ import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import com.dada_labs_two.chamavault.payments.constants.TransactionStatus;
 
 @Entity
 @Table(
@@ -54,6 +55,14 @@ public class Transaction {
     private Long feeSats = 0L;
     private Long platformFeeSats = 0L;
     private Long networkFeeSats = 0L;
+    @Enumerated(EnumType.STRING)
+    private TransactionStatus status;
+    private String checkingId;
+    private ZonedDateTime settledAt;
+    private ZonedDateTime failedAt;
+    private String failureReason;
+    private ZonedDateTime lastStatusCheckAt;
+    private Integer statusCheckCount = 0;
     private UUID feeRuleReference;
 
     // Unique ledger-entry reference. Paired entries use <paymentHash>-DEBIT/-CREDIT,

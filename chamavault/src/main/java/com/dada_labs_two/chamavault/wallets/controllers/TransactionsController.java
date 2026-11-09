@@ -12,6 +12,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import com.dada_labs_two.chamavault.payments.constants.TransactionStatus;
+import com.dada_labs_two.chamavault.users.models.User;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.InvalidObjectException;
@@ -36,18 +40,27 @@ public class TransactionsController {
     }
 
     @PostMapping("/transfer-to-mpesa")
-    ResponseEntity<Transaction> transferToMpesa(@RequestBody TransferToMpesaRequestDTO transferToMpesaRequestDTO) throws InvalidObjectException {
-        return ResponseEntity.ok(transactionService.initiateOffRampingLightningPayment(
+    ResponseEntity<Transaction> transferToMpesa(@RequestBody TransferToMpesaRequestDTO transferToMpesaRequestDTO,
+                                                 @AuthenticationPrincipal User user) throws InvalidObjectException {
+        Transaction transaction=transactionService.initiateOffRampingLightningPayment(
                 transferToMpesaRequestDTO.recipientMsisdn(),
                 transferToMpesaRequestDTO.amountInMilliSats(),
-                transferToMpesaRequestDTO.payerWalletId()
-        ));
+                transferToMpesaRequestDTO.payerWalletId(), user
+        );
+        return ResponseEntity.status(transaction.getStatus()==TransactionStatus.PENDING?HttpStatus.ACCEPTED:HttpStatus.OK).body(transaction);
     }
 
     @PostMapping("/pay-invoice")
-    ResponseEntity<Transaction> payInvoicePayment(@RequestBody MakeInvoicePaymentDTO makeInvoicePaymentDTO) {
-        return ResponseEntity.ok(transactionService.makeInvoicePayment(makeInvoicePaymentDTO.payerWalletId(),
-                makeInvoicePaymentDTO.beneficiaryInvoice()));
+    ResponseEntity<Transaction> payInvoicePayment(@RequestBody MakeInvoicePaymentDTO makeInvoicePaymentDTO,
+                                                   @AuthenticationPrincipal User user) {
+        Transaction transaction=transactionService.makeInvoicePayment(makeInvoicePaymentDTO.payerWalletId(),
+                makeInvoicePaymentDTO.beneficiaryInvoice(), user);
+        return ResponseEntity.status(transaction.getStatus()==TransactionStatus.PENDING?HttpStatus.ACCEPTED:HttpStatus.OK).body(transaction);
+    }
+
+    @GetMapping("/{transactionReference}")
+    ResponseEntity<Transaction> getTransaction(@PathVariable UUID transactionReference,@AuthenticationPrincipal User user){
+        return ResponseEntity.ok(transactionService.findById(transactionReference,user));
     }
 
     @GetMapping("/invoice-preview")

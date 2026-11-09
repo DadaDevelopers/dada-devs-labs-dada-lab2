@@ -164,6 +164,7 @@ public class GovernanceService {
             }
             case WITHDRAW_GROUP_WALLET -> {
                 Wallet wallet = governedWallet(chama, p);
+                wallet.assertTransactionsAllowed();
                 long amount = longParam(p, "amountSats");
                 FeeQuote fee = feeService.quote(TransactionCategory.WITHDRAWAL, amount);
                 if (wallet.getBalanceSats() < fee.totalSats())
